@@ -1,0 +1,114 @@
+<resources>
+    <style name="NativeShapeCard" parent=""><item name="cornerFamily">rounded</item><item name="cornerSize">20dp</item></style>
+    <style name="NativeShapeCircle" parent=""><item name="cornerFamily">rounded</item><item name="cornerSize">50%</item></style>
+
+    <style name="MaterialAction" parent="Widget.Material3.Button.TonalButton">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textColor">@color/settings_action_text</item>
+        <item name="backgroundTint">@color/native_button_background</item>
+        <item name="strokeColor">@color/app_line</item>
+        <item name="strokeWidth">0dp</item>
+        <item name="rippleColor">@color/native_ripple</item>
+        <item name="cornerRadius">16dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:paddingHorizontal">12dp</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="android:paddingVertical">10dp</item>
+        <item name="android:insetLeft">0dp</item>
+        <item name="android:insetRight">0dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+    <style name="MaterialPrimaryAction" parent="MaterialAction">
+        <item name="backgroundTint">@color/native_primary_background</item>
+        <item name="android:textColor">@color/text_on_accent</item>
+        <item name="strokeWidth">0dp</item>
+    </style>
+    <style name="MaterialIconAction" parent="MaterialAction">
+        <item name="android:layout_width">48dp</item><item name="android:layout_height">48dp</item>
+        <item name="android:padding">0dp</item><item name="android:paddingHorizontal">0dp</item><item name="android:paddingVertical">0dp</item>
+        <item name="android:paddingStart">0dp</item><item name="android:paddingEnd">0dp</item>
+        <item name="strokeWidth">0dp</item><item name="cornerRadius">24dp</item>
+        <item name="iconSize">22dp</item><item name="iconPadding">0dp</item><item name="iconGravity">textStart</item>
+        <item name="iconTint">@color/settings_action_text</item>
+    </style>
+    <style name="MaterialDialogAction" parent="Widget.Material3.Button.TextButton">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="cornerRadius">16dp</item>
+    </style>
+    <style name="SettingsAction" parent="MaterialAction" />
+    <style name="SettingsDialogAction" parent="MaterialDialogAction" />
+    <style name="MaterialCard" parent="Widget.Material3.CardView.Filled">
+        <item name="cardCornerRadius">20dp</item><item name="cardElevation">0dp</item><item name="cardMaxElevation">0dp</item>
+        <item name="cardUseCompatPadding">false</item><item name="cardPreventCornerOverlap">false</item>
+        <item name="cardBackgroundColor">@color/app_surface</item><item name="strokeColor">@color/app_line</item><item name="strokeWidth">0dp</item>
+    </style>
+    <style name="MaterialField" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+        <item name="boxCornerRadiusTopStart">14dp</item><item name="boxCornerRadiusTopEnd">14dp</item>
+        <item name="boxCornerRadiusBottomStart">14dp</item><item name="boxCornerRadiusBottomEnd">14dp</item>
+        <item name="boxBackgroundColor">@android:color/transparent</item><item name="boxStrokeColor">@color/native_field_stroke</item>
+        <item name="hintTextColor">@color/text_secondary</item>
+    </style>
+    <style name="MaterialToolbarStyle" parent="Widget.Material3.Toolbar">
+        <item name="android:background">@color/app_bg</item><item name="android:elevation">0dp</item>
+        <item name="titleTextColor">@color/text_primary</item><item name="navigationIconTint">@color/text_primary</item>
+    </style>
+    <style name="SettingsSwitch" parent="Widget.Material3.CompoundButton.MaterialSwitch">
+        <item name="android:layout_width">wrap_content</item><item name="android:layout_height">48dp</item>
+        <item name="android:minHeight">48dp</item><item name="thumbIcon">@null</item>
+        <item name="thumbTint">@color/native_switch_thumb</item>
+        <item name="trackTint">@color/native_switch_track</item>
+    </style>
+    <style name="SettingsSlider" parent="Widget.Material3.Slider">
+        <item name="android:layout_width">match_parent</item><item name="android:layout_height">48dp</item>
+        <item name="trackColorActive">@color/control_active</item><item name="trackColorInactive">@color/control_track</item>
+        <item name="thumbColor">@color/control_active</item><item name="haloColor">@color/native_ripple</item>
+        <item name="trackHeight">4dp</item><item name="thumbRadius">8dp</item><item name="labelBehavior">gone</item>
+        <item name="tickVisible">false</item>
+    </style>
+    <style name="GroupLabel">
+        <item name="android:layout_width">wrap_content</item><item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginStart">4dp</item><item name="android:layout_marginTop">22dp</item><item name="android:layout_marginBottom">10dp</item>
+        <item name="android:fontFamily">sans-serif-medium</item><item name="android:letterSpacing">0.04</item>
+        <item name="android:textColor">@color/text_secondary</item><item name="android:textSize">12sp</item>
+    </style>
+    <style name="GroupCard" parent="MaterialCard"><item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item></style>
+    <style name="SettingsRowCard" parent="MaterialCard">
+        <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
+        <item name="cardCornerRadius">0dp</item><item name="strokeWidth">0dp</item><item name="cardBackgroundColor">@android:color/transparent</item>
+        <item name="android:clickable">true</item><item name="android:focusable">true</item><item name="rippleColor">@color/native_ripple</item>
+    </style>
+    <style name="Cell">
+        <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">56dp</item><item name="android:gravity">center_vertical</item><item name="android:orientation">horizontal</item>
+        <item name="android:paddingStart">16dp</item><item name="android:paddingEnd">16dp</item><item name="android:paddingTop">10dp</item><item name="android:paddingBottom">10dp</item>
+    </style>
+    <style name="CellColumn">
+        <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item><item name="android:orientation">vertical</item>
+        <item name="android:paddingStart">16dp</item><item name="android:paddingEnd">16dp</item><item name="android:paddingTop">14dp</item><item name="android:paddingBottom">14dp</item>
+    </style>
+    <style name="CellDivider"><item name="android:layout_width">match_parent</item><item name="android:layout_height">1dp</item><item name="android:layout_marginStart">16dp</item><item name="dividerColor">@color/app_line_soft</item></style>
+    <style name="CellTitle"><item name="android:layout_width">0dp</item><item name="android:layout_height">wrap_content</item><item name="android:layout_weight">1</item><item name="android:textColor">@color/text_primary</item><item name="android:textSize">15sp</item></style>
+    <style name="CellColumnLabel"><item name="android:layout_width">wrap_content</item><item name="android:layout_height">wrap_content</item><item name="android:textColor">@color/text_primary</item><item name="android:textSize">15sp</item></style>
+    <style name="CellValue"><item name="android:layout_width">wrap_content</item><item name="android:layout_height">wrap_content</item><item name="android:textColor">@color/text_secondary</item><item name="android:textSize">14sp</item></style>
+    <style name="Chevron"><item name="android:layout_width">wrap_content</item><item name="android:layout_height">wrap_content</item><item name="android:layout_marginStart">8dp</item><item name="android:text">›</item><item name="android:textColor">@color/text_tertiary</item><item name="android:textSize">19sp</item></style>
+    <style name="SegItem" parent="MaterialAction"><item name="android:layout_width">0dp</item><item name="android:layout_height">wrap_content</item><item name="android:layout_weight">1</item><item name="android:textSize">13sp</item><item name="android:paddingHorizontal">4dp</item><item name="android:checkable">true</item></style>
+    <style name="Swatch" parent="MaterialIconAction">
+        <item name="android:layout_width">48dp</item><item name="android:layout_height">48dp</item><item name="android:layout_gravity">center</item>
+        <item name="shapeAppearance">@style/NativeShapeCircle</item><item name="cornerRadius">24dp</item><item name="android:textSize">20sp</item>
+        <item name="strokeWidth">1dp</item><item name="strokeColor">@color/app_line</item>
+    </style>
+    <style name="SettingHint"><item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item><item name="android:layout_marginTop">6dp</item><item name="android:textColor">@color/text_secondary</item><item name="android:textSize">12sp</item><item name="android:lineSpacingExtra">2dp</item></style>
+    <style name="PreviewLyric"><item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item><item name="android:paddingVertical">3dp</item><item name="android:fontFamily">sans-serif-medium</item><item name="android:maxLines">1</item><item name="android:ellipsize">end</item><item name="android:textColor">#FFFFFF</item></style>
+    <style name="StepButton" parent="MaterialAction"><item name="android:layout_width">48dp</item><item name="android:layout_height">48dp</item><item name="android:paddingHorizontal">0dp</item><item name="android:paddingVertical">0dp</item><item name="android:paddingStart">0dp</item><item name="android:paddingEnd">0dp</item><item name="android:textSize">20sp</item></style>
+    <style name="StepValue"><item name="android:layout_width">48dp</item><item name="android:layout_height">wrap_content</item><item name="android:gravity">center</item><item name="android:textColor">@color/text_primary</item><item name="android:textSize">14sp</item></style>
+</resources>

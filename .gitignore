@@ -1,0 +1,16 @@
+.gradle/
+.claude/
+dist/
+.idea/
+**/build/
+*.iml
+local.properties
+keystore.properties
+*.jks
+*.p12
+*.pfx
+*.keystore
+!debug.keystore
+captures/
+.externalNativeBuild/
+.cxx/

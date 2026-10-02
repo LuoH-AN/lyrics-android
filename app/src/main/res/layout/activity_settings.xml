@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@color/app_bg">
+    <com.google.android.material.appbar.MaterialToolbar android:id="@+id/settings_toolbar" android:layout_width="match_parent" android:layout_height="56dp" app:title="设置" app:navigationIcon="@drawable/ic_native_back" app:navigationContentDescription="返回" />
+    <androidx.core.widget.NestedScrollView android:id="@+id/settings_scroll" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true" android:overScrollMode="never" android:clipToPadding="false">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingStart="18dp" android:paddingEnd="18dp" android:paddingBottom="28dp">
+            <com.google.android.material.textview.MaterialTextView style="@style/GroupLabel" android:text="桌面歌词" />
+            <com.google.android.material.card.MaterialCardView style="@style/GroupCard">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                    <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard" android:id="@+id/cell_overlay_toggle">
+                        <LinearLayout style="@style/Cell">
+                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="歌词悬浮窗" />
+                            <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/overlay_toggle" style="@style/SettingsSwitch" android:contentDescription="开启或关闭歌词悬浮窗" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                    <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
+                    <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard" android:id="@+id/cell_listener_permission">
+                        <LinearLayout style="@style/Cell">
+                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="通知使用权" />
+                            <com.google.android.material.textview.MaterialTextView android:id="@+id/listener_permission_state" style="@style/CellValue" android:text="去开启" />
+                            <com.google.android.material.textview.MaterialTextView style="@style/Chevron" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                    <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
+                    <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard" android:id="@+id/cell_overlay_permission">
+                        <LinearLayout style="@style/Cell">
+                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="悬浮窗权限" />
+                            <com.google.android.material.textview.MaterialTextView android:id="@+id/overlay_permission_state" style="@style/CellValue" android:text="去开启" />
+                            <com.google.android.material.textview.MaterialTextView style="@style/Chevron" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+            <com.google.android.material.textview.MaterialTextView style="@style/GroupLabel" android:text="悬浮窗外观" />
+            <com.google.android.material.card.MaterialCardView style="@style/GroupCard">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                    <LinearLayout style="@style/CellColumn">
+                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="歌词预览" />
+                        <com.luoh.music.lrc.CompactLyricsView android:id="@+id/overlay_preview" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" />
+                    </LinearLayout>
+                    <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
+                    <LinearLayout style="@style/CellColumn">
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="歌词字号" />
+                            <com.google.android.material.textview.MaterialTextView android:id="@+id/font_size_value" style="@style/CellValue" android:text="100%" />
+                        </LinearLayout>
+                        <com.google.android.material.slider.Slider android:id="@+id/seek_font_size" style="@style/SettingsSlider" android:contentDescription="悬浮歌词字号" android:valueFrom="35" android:valueTo="150" android:value="100" android:stepSize="1" />
+                    </LinearLayout>
+                    <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
+                    <LinearLayout style="@style/CellColumn">
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="歌词粗细" />
+                            <com.google.android.material.textview.MaterialTextView android:id="@+id/font_weight_value" style="@style/CellValue" android:text="400" />
+                        </LinearLayout>
+                        <com.google.android.material.slider.Slider android:id="@+id/seek_font_weight" style="@style/SettingsSlider" android:contentDescription="悬浮歌词粗细" android:valueFrom="300" android:valueTo="900" android:value="400" android:stepSize="100" />
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="细" android:textSize="12sp" android:textColor="@color/text_secondary" />
+                            <com.google.android.material.textview.MaterialTextView style="@style/CellValue" android:text="粗" android:textSize="12sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+                    <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
+                    <LinearLayout style="@style/CellColumn">
+                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="上下文展示" />
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="64dp" android:gravity="center_vertical" android:orientation="horizontal">
+                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="前面几句" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/context_before_less" style="@style/StepButton" android:text="−" android:contentDescription="少显示一句前文" />
+                            <com.google.android.material.textview.MaterialTextView android:id="@+id/context_before_value" style="@style/StepValue" android:text="0 句" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/context_before_more" style="@style/StepButton" android:text="＋" android:contentDescription="多显示一句前文" />
+                        </LinearLayout>
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="64dp" android:gravity="center_vertical" android:orientation="horizontal">
+                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="后面几句" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/context_after_less" style="@style/StepButton" android:text="−" android:contentDescription="少显示一句后文" />
+                            <com.google.android.material.textview.MaterialTextView android:id="@+id/context_after_value" style="@style/StepValue" android:text="1 句" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/context_after_more" style="@style/StepButton" android:text="＋" android:contentDescription="多显示一句后文" />
+                        </LinearLayout>
+                    </LinearLayout>
+                    <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
+                    <LinearLayout style="@style/CellColumn">
+                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="背景" />
+                        <com.google.android.material.button.MaterialButtonToggleGroup android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal" app:singleSelection="true" app:selectionRequired="true">
+                            <com.google.android.material.button.MaterialButton android:id="@+id/background_mode_transparent" style="@style/SegItem" android:text="透明" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/background_mode_low" style="@style/SegItem" android:text="半透明" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/background_mode_high" style="@style/SegItem" android:text="不透明" />
+                        </com.google.android.material.button.MaterialButtonToggleGroup>
+                    </LinearLayout>
+                    <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
+                    <LinearLayout style="@style/CellColumn">
+                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="歌词颜色" />
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:orientation="horizontal">
+                            <FrameLayout android:layout_width="0dp" android:layout_height="56dp" android:layout_weight="1">
+                                <com.google.android.material.button.MaterialButton android:id="@+id/lyric_color_white" style="@style/Swatch" android:contentDescription="白色歌词" android:checkable="true" app:toggleCheckedStateOnClick="false" app:backgroundTint="#FFFFFF" />
+                            </FrameLayout>
+                            <FrameLayout android:layout_width="0dp" android:layout_height="56dp" android:layout_weight="1">
+                                <com.google.android.material.button.MaterialButton android:id="@+id/lyric_color_blue" style="@style/Swatch" android:contentDescription="蓝色歌词" android:checkable="true" app:toggleCheckedStateOnClick="false" app:backgroundTint="#9FD8FF" />
+                            </FrameLayout>
+                            <FrameLayout android:layout_width="0dp" android:layout_height="56dp" android:layout_weight="1">
+                                <com.google.android.material.button.MaterialButton android:id="@+id/lyric_color_black" style="@style/Swatch" android:contentDescription="黑色歌词" android:checkable="true" app:toggleCheckedStateOnClick="false" app:backgroundTint="#111111" />
+                            </FrameLayout>
+                            <FrameLayout android:layout_width="0dp" android:layout_height="56dp" android:layout_weight="1">
+                                <com.google.android.material.button.MaterialButton android:id="@+id/lyric_color_pink" style="@style/Swatch" android:contentDescription="粉色歌词" android:checkable="true" app:toggleCheckedStateOnClick="false" app:backgroundTint="#FFB6D5" />
+                            </FrameLayout>
+                            <FrameLayout android:layout_width="0dp" android:layout_height="56dp" android:layout_weight="1">
+                                <com.google.android.material.button.MaterialButton android:id="@+id/lyric_color_custom" style="@style/Swatch" android:contentDescription="自定义歌词颜色" android:checkable="true" app:toggleCheckedStateOnClick="false" app:icon="@drawable/ic_native_add" app:iconTint="@color/text_secondary" />
+                            </FrameLayout>
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+            <com.google.android.material.textview.MaterialTextView style="@style/GroupLabel" android:text="歌词同步" />
+            <com.google.android.material.card.MaterialCardView style="@style/GroupCard">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                    <LinearLayout style="@style/CellColumn">
+                        <com.google.android.material.textview.MaterialTextView android:id="@+id/lyric_offset_scope" style="@style/SettingHint" android:text="播放一首歌后，可为这首歌单独校准" />
+                        <com.google.android.material.textview.MaterialTextView android:id="@+id/lyric_offset_value" style="@style/CellColumnLabel" android:layout_marginTop="8dp" android:accessibilityLiveRegion="polite" android:text="未调整" />
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal">
+                            <com.google.android.material.button.MaterialButton android:id="@+id/offset_earlier" style="@style/SettingsAction" android:layout_width="0dp" android:layout_height="wrap_content" android:minHeight="48dp" android:layout_weight="1" android:layout_marginEnd="4dp" android:text="提前 0.1 秒" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/offset_later" style="@style/SettingsAction" android:layout_width="0dp" android:layout_height="wrap_content" android:minHeight="48dp" android:layout_weight="1" android:layout_marginStart="4dp" android:text="延后 0.1 秒" />
+                        </LinearLayout>
+                        <com.google.android.material.button.MaterialButton android:id="@+id/offset_reset" style="@style/SettingsAction" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:layout_marginTop="8dp" android:text="恢复同步" />
+                    </LinearLayout>
+                    <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
+                    <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard" android:id="@+id/cell_manage_offsets">
+                        <LinearLayout style="@style/Cell">
+                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="同步记忆管理" />
+                            <com.google.android.material.textview.MaterialTextView style="@style/Chevron" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+            <com.google.android.material.textview.MaterialTextView style="@style/GroupLabel" android:text="歌词与翻译" />
+            <com.google.android.material.card.MaterialCardView style="@style/GroupCard">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                    <LinearLayout style="@style/CellColumn">
+                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="外语歌词" />
+                        <com.google.android.material.button.MaterialButtonToggleGroup android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal" app:singleSelection="true" app:selectionRequired="true">
+                            <com.google.android.material.button.MaterialButton android:id="@+id/translation_original" style="@style/SegItem" android:text="原文" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/translation_bilingual" style="@style/SegItem" android:text="双语" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/translation_translated" style="@style/SegItem" android:text="中文" />
+                        </com.google.android.material.button.MaterialButtonToggleGroup>
+                        <com.google.android.material.textview.MaterialTextView style="@style/SettingHint" android:text="双语显示原文与译文；没有译文时，可在下方设置补充翻译。" />
+                    </LinearLayout>
+                    <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
+                    <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard" android:id="@+id/cell_supplement_translation">
+                        <LinearLayout style="@style/Cell">
+                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="补充翻译" />
+                            <com.google.android.material.textview.MaterialTextView style="@style/Chevron" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                    <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
+                    <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard" android:id="@+id/cell_custom_lyrics">
+                        <LinearLayout style="@style/Cell">
+                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="自定义歌词" />
+                            <com.google.android.material.textview.MaterialTextView style="@style/Chevron" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                    <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
+                    <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard" android:id="@+id/cell_manage_sources">
+                        <LinearLayout style="@style/Cell">
+                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="歌词源管理" />
+                            <com.google.android.material.textview.MaterialTextView style="@style/Chevron" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+            <com.google.android.material.textview.MaterialTextView style="@style/GroupLabel" android:text="应用外观" />
+            <com.google.android.material.card.MaterialCardView style="@style/GroupCard">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                    <LinearLayout style="@style/CellColumn">
+                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="主题" />
+                        <com.google.android.material.button.MaterialButtonToggleGroup android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal" app:singleSelection="true" app:selectionRequired="true">
+                            <com.google.android.material.button.MaterialButton android:id="@+id/theme_follow" style="@style/SegItem" android:text="跟随系统" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/theme_light" style="@style/SegItem" android:text="浅色" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/theme_dark" style="@style/SegItem" android:text="深色" />
+                        </com.google.android.material.button.MaterialButtonToggleGroup>
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+            <com.google.android.material.textview.MaterialTextView style="@style/GroupLabel" android:text="关于" />
+            <com.google.android.material.card.MaterialCardView style="@style/GroupCard">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                    <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard" android:id="@+id/cell_check_update">
+                        <LinearLayout style="@style/Cell">
+                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="检查更新" />
+                            <com.google.android.material.textview.MaterialTextView android:id="@+id/version_value" style="@style/CellValue" />
+                            <com.google.android.material.textview.MaterialTextView style="@style/Chevron" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                    <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
+                    <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard" android:id="@+id/cell_maintainer">
+                        <LinearLayout style="@style/Cell">
+                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="维护者 · LuoH-AN" />
+                            <com.google.android.material.textview.MaterialTextView style="@style/Chevron" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                    <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
+                    <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard" android:id="@+id/cell_github">
+                        <LinearLayout style="@style/Cell">
+                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="项目主页 · GitHub" />
+                            <com.google.android.material.textview.MaterialTextView style="@style/Chevron" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                    <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
+                    <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard" android:id="@+id/cell_privacy">
+                        <LinearLayout style="@style/Cell">
+                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="隐私说明" />
+                            <com.google.android.material.textview.MaterialTextView style="@style/Chevron" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</LinearLayout>

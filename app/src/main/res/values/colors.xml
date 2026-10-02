@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Neutral Material surfaces: canvas, card, and tonal controls. -->
+    <color name="app_bg">#F5F5F7</color>
+    <color name="app_surface">#FFFFFF</color>
+    <color name="app_surface_container">#EEEEF1</color>
+    <color name="app_line">#E2E2E7</color>
+    <color name="app_line_soft">#EBEBEF</color>
+    <color name="text_primary">#18181B</color>
+    <color name="text_secondary">#65656F</color>
+    <color name="text_tertiary">#92929C</color>
+    <color name="text_on_accent">#FFFFFF</color>
+    <color name="accent">#18181B</color>
+    <color name="accent_pressed">#36363C</color>
+    <color name="control_track">#DDDDE3</color>
+    <color name="control_active">#18181B</color>
+    <color name="overlay_preview_scene">#84848D</color>
+    <color name="nav_bar">#F5F5F7</color>
+    <color name="status_bar">#F5F5F7</color>
+</resources>

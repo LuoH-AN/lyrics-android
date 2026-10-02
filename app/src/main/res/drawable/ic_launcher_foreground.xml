@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 同步歌词标记：三条歌词行，当前行橙色高亮，其余暖灰。扁平/纸面/无渐变。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 过去行（暖灰，较短） -->
+    <path
+        android:fillColor="#4A463F"
+        android:fillAlpha="0.55"
+        android:pathData="M37,37 L61,37 A3,3 0 0 1 61,43 L37,43 A3,3 0 0 1 37,37 Z" />
+    <!-- 当前行（橙色高亮，最长） -->
+    <path
+        android:fillColor="#E8590C"
+        android:pathData="M37,50 L77,50 A4,4 0 0 1 77,58 L37,58 A4,4 0 0 1 37,50 Z" />
+    <!-- 未来行（暖灰，中长） -->
+    <path
+        android:fillColor="#4A463F"
+        android:fillAlpha="0.55"
+        android:pathData="M37,65 L57,65 A3,3 0 0 1 57,71 L37,71 A3,3 0 0 1 37,65 Z" />
+</vector>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark counterparts retain the same surface hierarchy. -->
+    <color name="app_bg">#0C0C0F</color>
+    <color name="app_surface">#1A1A1F</color>
+    <color name="app_surface_container">#29292F</color>
+    <color name="app_line">#34343C</color>
+    <color name="app_line_soft">#28282F</color>
+    <color name="text_primary">#FAFAFC</color>
+    <color name="text_secondary">#AEAEB9</color>
+    <color name="text_tertiary">#7F7F8B</color>
+    <color name="text_on_accent">#18181B</color>
+    <color name="accent">#FAFAFC</color>
+    <color name="accent_pressed">#DDDDE4</color>
+    <color name="control_track">#3A3A43</color>
+    <color name="control_active">#FAFAFC</color>
+    <color name="overlay_preview_scene">#62626C</color>
+    <color name="nav_bar">#0C0C0F</color>
+    <color name="status_bar">#0C0C0F</color>
+</resources>

@@ -1,0 +1,166 @@
+name: Release APK
+
+on:
+  push:
+    branches: ["feat/release-*"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check release version
+        id: version
+        run: |
+          python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+          source = Path('app/build.gradle.kts').read_text()
+          version = re.search(r'versionName = "([^"]+)"', source).group(1)
+          assert re.fullmatch(r'\d+\.\d+\.\d+', version), 'Release must have a stable x.y.z version'
+          if os.environ['GITHUB_REF'].startswith('refs/tags/'):
+              assert os.environ['GITHUB_REF_NAME'] == f'v{version}', 'Tag and Android version must match'
+              assert Path(f'docs/releases/{version}.md').is_file(), 'Release notes are required before publishing'
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'version={version}\n')
+          PY
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run regression tests
+        run: node tests/run.cjs
+
+      - name: Prepare private release signing
+        env:
+          RELEASE_KEYSTORE: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import base64, os
+          from pathlib import Path
+          os.umask(0o077)
+          for name in ['RELEASE_KEYSTORE', 'RELEASE_STORE_PASSWORD', 'RELEASE_KEY_ALIAS', 'RELEASE_KEY_PASSWORD']:
+              if not os.environ.get(name):
+                  raise SystemExit(f'Missing signing secret: {name}')
+          keystore = Path(os.environ['RUNNER_TEMP']) / 'lyrics-android-release.p12'
+          keystore.write_bytes(base64.b64decode(os.environ['RELEASE_KEYSTORE'], validate=True))
+          def escape(value):
+              return ''.join('\\u%04x' % ord(c) if c in '\\:=#! \n\r\t' else c for c in value)
+          values = {
+              'storeFile': str(keystore), 'storeType': 'PKCS12',
+              'storePassword': os.environ['RELEASE_STORE_PASSWORD'],
+              'keyAlias': os.environ['RELEASE_KEY_ALIAS'],
+              'keyPassword': os.environ['RELEASE_KEY_PASSWORD']
+          }
+          Path('keystore.properties').write_text(''.join(f'{key}={escape(value)}\n' for key, value in values.items()))
+          PY
+
+      - name: Test and build signed release APK
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest assembleRelease --stacktrace
+
+      - name: Verify and package release
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_CERT_SHA256: "482fae2e74bcf1cce5a4006dae7c86795b6eeb0112154cff462b20e4dd07300c"
+        run: |
+          python3 - <<'PY'
+          import hashlib, os, re, shutil, subprocess
+          from pathlib import Path
+          apk = Path('app/build/outputs/apk/release/app-release.apk')
+          assert apk.is_file(), 'Signed release APK was not produced'
+          tools = max((p for p in (Path(os.environ['ANDROID_HOME']) / 'build-tools').iterdir()
+                       if (p / 'apksigner').is_file() and (p / 'aapt').is_file()),
+                      key=lambda p: tuple(map(int, re.findall(r'\d+', p.name))))
+          signature = subprocess.check_output([str(tools / 'apksigner'), 'verify', '--verbose', '--print-certs', str(apk)], text=True)
+          print(signature)
+          certificates = {value.lower() for value in re.findall(r'certificate SHA-256 digest:\s*([0-9a-fA-F]{64})', signature)}
+          assert certificates == {os.environ['RELEASE_CERT_SHA256']}, 'Unexpected release signing certificate'
+          badging = subprocess.check_output([str(tools / 'aapt'), 'dump', 'badging', str(apk)], text=True)
+          package = badging.splitlines()[0]
+          assert "name='com.luoh.music.lrc'" in package, package
+          assert f"versionName='{os.environ['RELEASE_VERSION']}'" in package, package
+          expected_code = re.search(r'versionCode = (\d+)', Path('app/build.gradle.kts').read_text()).group(1)
+          assert f"versionCode='{expected_code}'" in package, package
+          assert 'application-debuggable' not in badging, 'Debuggable APK must never be released'
+          print(package)
+          dist = Path('dist')
+          dist.mkdir(exist_ok=True)
+          target = dist / f"lyrics-android-{os.environ['RELEASE_VERSION']}-arm64-v8a.apk"
+          shutil.copyfile(apk, target)
+          (dist / 'SHA256SUMS').write_text(f'{hashlib.sha256(target.read_bytes()).hexdigest()}  {target.name}\n')
+          PY
+
+      - name: Remove private signing files
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/lyrics-android-release.p12" keystore.properties
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-ui-checks
+          path: |
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/reports/material-ui/
+          if-no-files-found: ignore
+
+      - name: Upload verified release package
+        uses: actions/upload-artifact@v4
+        with:
+          name: lyrics-android-release
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download verified release package
+        uses: actions/download-artifact@v4
+        with:
+          name: lyrics-android-release
+          path: dist
+
+      - name: Publish stable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "dist/lyrics-android-${RELEASE_VERSION}-arm64-v8a.apk" dist/SHA256SUMS \
+            --verify-tag --latest \
+            --title "桌面歌词 ${RELEASE_VERSION}" \
+            --notes-file "docs/releases/${RELEASE_VERSION}.md"

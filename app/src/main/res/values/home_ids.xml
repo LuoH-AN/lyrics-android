@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item type="id" name="home_player_card" />
+    <item type="id" name="home_empty_detail" />
+    <item type="id" name="home_more_sheet" />
+    <item type="id" name="home_more_settings" />
+    <item type="id" name="home_lyrics_scroll" />
+    <item type="id" name="home_lyrics_track" />
+    <item type="id" name="home_empty" />
+    <item type="id" name="home_song" />
+    <item type="id" name="home_artist" />
+    <item type="id" name="home_cover" />
+    <item type="id" name="home_overlay" />
+    <item type="id" name="home_more" />
+    <item type="id" name="home_progress" />
+    <item type="id" name="home_time_current" />
+    <item type="id" name="home_time_duration" />
+    <item type="id" name="home_previous" />
+    <item type="id" name="home_play" />
+    <item type="id" name="home_next" />
+</resources>

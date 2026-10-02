@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.DesktopLyrics" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:statusBarColor">@color/status_bar</item>
+        <item name="android:navigationBarColor">@color/nav_bar</item>
+        <item name="android:windowBackground">@color/app_bg</item>
+        <item name="android:colorBackground">@color/app_bg</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="colorPrimary">@color/accent</item>
+        <item name="colorOnPrimary">@color/text_on_accent</item>
+        <item name="colorPrimaryContainer">@color/app_surface_container</item>
+        <item name="colorOnPrimaryContainer">@color/text_primary</item>
+        <item name="colorSecondary">@color/accent</item>
+        <item name="colorOnSecondary">@color/text_on_accent</item>
+        <item name="colorSecondaryContainer">@color/app_surface_container</item>
+        <item name="colorOnSecondaryContainer">@color/text_primary</item>
+        <item name="colorTertiary">@color/accent</item>
+        <item name="colorSurface">@color/app_surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorSurfaceVariant">@color/app_surface_container</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+        <item name="colorSurfaceInverse">@color/accent</item>
+        <item name="colorOnSurfaceInverse">@color/text_on_accent</item>
+        <item name="colorOutline">@color/app_line</item>
+        <item name="colorOutlineVariant">@color/app_line_soft</item>
+        <item name="colorControlActivated">@color/control_active</item>
+        <item name="colorControlHighlight">@color/native_ripple</item>
+        <item name="elevationOverlayEnabled">false</item>
+        <item name="materialButtonStyle">@style/MaterialAction</item>
+        <item name="materialCardViewStyle">@style/MaterialCard</item>
+        <item name="textInputStyle">@style/MaterialField</item>
+        <item name="materialSwitchStyle">@style/SettingsSwitch</item>
+        <item name="sliderStyle">@style/SettingsSlider</item>
+        <item name="toolbarStyle">@style/MaterialToolbarStyle</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.DesktopLyrics.Dialog</item>
+    </style>
+
+    <style name="ThemeOverlay.DesktopLyrics.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorSurface">@color/app_surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+        <item name="colorPrimary">@color/accent</item>
+        <item name="buttonBarPositiveButtonStyle">@style/MaterialDialogAction</item>
+        <item name="buttonBarNegativeButtonStyle">@style/MaterialDialogAction</item>
+        <item name="buttonBarNeutralButtonStyle">@style/MaterialDialogAction</item>
+        <item name="shapeAppearanceMediumComponent">@style/NativeShapeCard</item>
+    </style>
+
+    <style name="NativeButtonTheme" parent=""><item name="materialButtonStyle">@style/MaterialAction</item></style>
+    <style name="NativePrimaryButtonTheme" parent=""><item name="materialButtonStyle">@style/MaterialPrimaryAction</item></style>
+    <style name="NativeIconButtonTheme" parent=""><item name="materialButtonStyle">@style/MaterialIconAction</item></style>
+</resources>
