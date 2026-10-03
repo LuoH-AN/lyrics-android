@@ -114,7 +114,9 @@ class OverlaySettingsTest {
             assertEquals(100, preferences().getInt(key, 0))
             assertTrue(activity.findViewById<View>(R.id.offset_reset).isEnabled)
             activity.findViewById<View>(R.id.offset_reset).performClick()
-            assertEquals(0, preferences().getInt(key, -1))
+            assertFalse("Reset removes the per-song override", preferences().contains(key))
+            assertEquals(0, preferences().getInt(key, 0))
+            assertFalse(activity.findViewById<View>(R.id.offset_reset).isEnabled)
         } finally { active.destroy() }
     }
 
