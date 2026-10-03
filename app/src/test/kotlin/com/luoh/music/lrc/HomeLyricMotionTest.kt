@@ -104,7 +104,7 @@ class HomeLyricMotionTest {
         it.isAccessible = true
         it.get(motion) as LyricDepthBlur
     }
-    private fun finishFrames() = repeat(64) {
+    private fun finishFrames() = repeat(80) {
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(16))
     }
 
@@ -112,8 +112,8 @@ class HomeLyricMotionTest {
         assertFalse(motion.isRunning)
         rows.forEachIndexed { i, row ->
             val distance = abs(i - index)
-            val scale = when (distance) { 0 -> 1f; 1 -> .9f; 2 -> .84f; else -> .8f }
-            val alpha = when (distance) { 0 -> 1f; 1 -> .64f; 2 -> .46f; 3 -> .32f; else -> .24f }
+            val scale = when (distance) { 0 -> 1f; 1 -> .95f; 2 -> .92f; else -> .9f }
+            val alpha = when (distance) { 0 -> 1f; 1 -> .78f; 2 -> .62f; 3 -> .48f; else -> .36f }
             assertEquals("Row $i must not retain motion offset", 0f, row.translationY, .001f)
             assertEquals(scale, row.scaleX, .001f)
             assertEquals(scale, row.scaleY, .001f)
@@ -142,9 +142,9 @@ class HomeLyricMotionTest {
         advanceTo(120L)
         assertTrue("Scroll must have an intermediate frame", scroll.scrollY in (from + 1) until target)
         assertTrue("Current row leads the next row", rows[4].translationY > rows[3].translationY + 1f)
-        assertTrue("Current row gradually gains emphasis", rows[3].scaleX > .9f && rows[3].scaleX < 1f)
-        assertTrue(rows[3].alpha > .64f && rows[3].alpha < 1f)
-        assertTrue("Previous row gradually loses emphasis", rows[2].alpha < 1f && rows[2].alpha > .64f)
+        assertTrue("Current row gradually gains emphasis", rows[3].scaleX > .95f && rows[3].scaleX < 1f)
+        assertTrue(rows[3].alpha > .78f && rows[3].alpha < 1f)
+        assertTrue("Previous row gradually loses emphasis", rows[2].alpha < 1f && rows[2].alpha > .78f)
         assertEquals("Bilingual content must not be rebound during motion", originalText, rows.map { it.text.toString() })
         assertTrue(rows[3].text.toString().contains("\n让音乐缓缓流淌"))
         preview("$previewPrefix-middle")
@@ -238,26 +238,41 @@ class HomeLyricMotionTest {
         assertSettled(3)
     }
 
-    @Test fun activeLineHasABoundedSpringWithoutOpacityOvershoot() {
-        motion.moveTo(3, target(3), animate = true)
-        advanceTo(300L)
-        assertTrue("Current line gently grows past its resting scale", rows[3].scaleX > 1f)
-        assertTrue("The spring must remain subtle", rows[3].scaleX < 1.02f)
-        rows.forEach { assertTrue(it.alpha in 0f..1f) }
-        animator().end()
+    @Test fun activeLineGrowsSmoothlyWithoutOvershootOrRebound() {
+        val from = scroll.scrollY
+        val target = target(3)
+        motion.moveTo(3, target, animate = true)
+        val animation = animator()
+        var previousScale = rows[3].scaleX
+        var previousScroll = from
+        for (time in 0L until animation.duration step 16L) {
+            animation.currentPlayTime = time
+            assertTrue("Focus must not overshoot its resting scale", rows[3].scaleX <= 1f)
+            assertTrue("Focus must not shrink back after growing", rows[3].scaleX >= previousScale - .0001f)
+            assertTrue("Forward following must not reverse", scroll.scrollY in previousScroll..target)
+            rows.forEach { assertTrue(it.alpha in 0f..1f) }
+            previousScale = rows[3].scaleX
+            previousScroll = scroll.scrollY
+        }
+        animation.end()
         assertSettled(3)
     }
 
-    @Test fun longerTravelGetsMoreTimeWithoutAnUnboundedTail() {
+    @Test fun scrollAndScaleShareTheOlderGentleTimeline() {
         val from = scroll.scrollY
-        motion.moveTo(3, from + 32, animate = true)
-        val shortDuration = animator().duration
-        motion.moveTo(2, target(2), animate = false)
-        motion.moveTo(3, from + scroll.height * 3 / 4, animate = true)
-        val longDuration = animator().duration
-        assertTrue(longDuration > shortDuration)
-        assertTrue("Staggered motion must finish in under a second", longDuration < 1_000L)
-        animator().end()
+        val target = target(3)
+        val initialScale = rows[3].scaleX
+        motion.moveTo(3, target, animate = true)
+        val animation = animator()
+        assertTrue("Allow 900ms of motion plus a short row stagger", animation.duration in 900L..1100L)
+        animation.currentPlayTime = 120L
+        val travel = (scroll.scrollY - from - rows[3].translationY) / (target - from)
+        val focus = (rows[3].scaleX - initialScale) / (1f - initialScale)
+        assertEquals("The active line must grow at the same pace as its travel", travel, focus, .001f)
+        animation.currentPlayTime = 900L
+        assertEquals(target, scroll.scrollY)
+        assertEquals(1f, rows[3].scaleX, .001f)
+        animation.end()
         assertSettled(3)
     }
 
@@ -294,17 +309,18 @@ class HomeLyricMotionTest {
         val blur = depthBlur()
         assertEquals(0f, blur.radiusOf(rows[2]), 0f)
         assertEquals(0f, blur.radiusOf(rows[3]), 0f)
-        assertEquals(.5f, blur.radiusOf(rows[4]), 0f)
-        assertEquals(.875f, blur.radiusOf(rows[5]), 0f)
-        assertEquals(1.25f, blur.radiusOf(rows[6]), 0f)
+        assertEquals(0f, blur.radiusOf(rows[4]), 0f)
+        assertEquals(.125f, blur.radiusOf(rows[5]), 0f)
+        assertEquals(.25f, blur.radiusOf(rows[6]), 0f)
         motion.moveTo(4, target(4), animate = true)
         assertEquals("A newly focused line must be sharp immediately", 0f, blur.radiusOf(rows[4]), 0f)
         advanceTo(120L)
-        rows.forEach { assertTrue(blur.radiusOf(it) in 0f..1.25f) }
+        rows.forEach { assertTrue(blur.radiusOf(it) in 0f..0.25f) }
         motion.cancel()
         rows.forEach { assertEquals(0f, blur.radiusOf(it), 0f) }
         motion.moveTo(4, target(4), animate = false)
-        assertTrue(blur.radiusOf(rows[6]) > 0f)
+        assertEquals(0f, blur.radiusOf(rows[6]), 0f)
+        assertTrue(blur.radiusOf(rows[7]) > 0f)
         motion.moveTo(5, null, animate = true)
         rows.forEach { assertEquals(0f, blur.radiusOf(it), 0f) }
         animator().end()

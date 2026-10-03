@@ -4,7 +4,6 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.view.animation.LinearInterpolator
-import android.view.animation.OvershootInterpolator
 import android.view.animation.PathInterpolator
 import android.widget.ScrollView
 import kotlin.math.abs
@@ -21,9 +20,7 @@ internal class HomeLyricMotion(
     private var focusedIndex = -1
     private var depthEnabled = false
     private val depthBlur = LyricDepthBlur()
-    private val travelEasing = PathInterpolator(.22f, .72f, .18f, 1f)
-    private val focusEasing = PathInterpolator(.2f, 0f, .1f, 1f)
-    private val focusSpring = OvershootInterpolator(1.35f)
+    private val easing = PathInterpolator(.2f, .7f, .2f, 1f)
     val isRunning: Boolean get() = animator != null
 
     private data class RowStart(
@@ -62,32 +59,25 @@ internal class HomeLyricMotion(
                 null
             } else RowStart(row, row.scaleX, row.alpha, row.translationY, depthBlur.radiusOf(row),
                 scale(distance), opacity(distance), if (depthEnabled) LyricDepthBlur.radiusForDistance(distance) else 0f,
-                if (targetScrollY == null) 0L else min(distance, 4) * 48L)
+                if (targetScrollY == null) 0L else min(distance, 4) * 42L)
         }
-        val travelRatio = abs(target - startScroll).toFloat() / scroll.height
-        val scrollDuration = (440L + (travelRatio * 340).toLong()).coerceIn(440L, 680L)
-        val focusDuration = 480L
-        val durationMs = max(if (targetScrollY == null) 0L else scrollDuration, focusDuration) +
-            (starts.maxOfOrNull { it.delayMs } ?: 0L)
+        val transitionDuration = 900L
+        val durationMs = transitionDuration + (starts.maxOfOrNull { it.delayMs } ?: 0L)
         val motion = ValueAnimator.ofFloat(0f, durationMs.toFloat()).apply {
             duration = durationMs
             interpolator = LinearInterpolator()
             addUpdateListener { frame ->
                 val time = frame.animatedValue as Float
-                fun fraction(delay: Long, duration: Long): Float =
-                    ((time - delay) / duration).coerceIn(0f, 1f)
+                fun progress(delay: Long, duration: Long): Float =
+                    easing.getInterpolation(((time - delay) / duration).coerceIn(0f, 1f))
                 if (targetScrollY != null) {
-                    val progress = travelEasing.getInterpolation(fraction(0L, scrollDuration))
-                    scroll.scrollTo(0, (startScroll + (target - startScroll) * progress).toInt())
+                    scroll.scrollTo(0, (startScroll + (target - startScroll) * progress(0L, transitionDuration)).toInt())
                 }
                 starts.forEach { start ->
-                    val travel = travelEasing.getInterpolation(fraction(start.delayMs, scrollDuration))
-                    val focusTime = fraction(start.delayMs, focusDuration)
-                    val focus = if (start.targetScale == 1f && start.targetScale > start.scale) {
-                        focusSpring.getInterpolation(focusTime)
-                    } else focusEasing.getInterpolation(focusTime)
-                    val fade = focusEasing.getInterpolation(fraction(start.delayMs, 320L))
-                    start.row.scaleX = start.scale + (start.targetScale - start.scale) * focus
+                    val travel = progress(start.delayMs, transitionDuration)
+                    val fade = progress(start.delayMs, 800L)
+                    // One curve lets the line grow into place instead of bouncing ahead of the scroll.
+                    start.row.scaleX = start.scale + (start.targetScale - start.scale) * travel
                     start.row.scaleY = start.row.scaleX
                     start.row.alpha = start.alpha + (start.targetAlpha - start.alpha) * fade
                     depthBlur.setRadius(start.row, start.blur + (start.targetBlur - start.blur) * fade)
@@ -137,6 +127,6 @@ internal class HomeLyricMotion(
     }
 
     private fun distance(index: Int) = if (focusedIndex < 0) index + 1 else abs(index - focusedIndex)
-    private fun scale(distance: Int) = when (distance) { 0 -> 1f; 1 -> .9f; 2 -> .84f; else -> .8f }
-    private fun opacity(distance: Int) = when (distance) { 0 -> 1f; 1 -> .64f; 2 -> .46f; 3 -> .32f; else -> .24f }
+    private fun scale(distance: Int) = when (distance) { 0 -> 1f; 1 -> .95f; 2 -> .92f; else -> .9f }
+    private fun opacity(distance: Int) = when (distance) { 0 -> 1f; 1 -> .78f; 2 -> .62f; 3 -> .48f; else -> .36f }
 }

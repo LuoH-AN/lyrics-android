@@ -75,7 +75,7 @@ class HomeLyricsMotionIntegrationTest {
         animator.currentPlayTime = 120L
     }
 
-    private fun advanceFrames(count: Int = 64) = repeat(count) {
+    private fun advanceFrames(count: Int = 80) = repeat(count) {
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(16))
     }
 
