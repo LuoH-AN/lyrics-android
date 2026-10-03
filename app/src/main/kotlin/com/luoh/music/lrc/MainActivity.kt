@@ -20,6 +20,8 @@ import android.provider.Settings
 import android.view.View
 import android.view.ViewGroup
 import android.graphics.Bitmap
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textview.MaterialTextView
 import androidx.appcompat.app.AppCompatActivity
@@ -102,6 +104,17 @@ class MainActivity : AppCompatActivity() {
     private var currentLyricArtist = ""
     // 当前生效的歌词负载签名，refreshLyricsSettings 用它判断本地来源（自定义/缓存）是否变化。
     private var currentPayloadSignature = ""
+    // 当前生效的原始歌词文本（导出 .lrc 用）：applyLyricPayload 填充，切歌清空。
+    private var currentLrcText = ""
+    private var currentLrcTranslated = ""
+    private var pendingLrcExport = ""
+    private val exportLrcLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri ->
+        val content = pendingLrcExport
+        pendingLrcExport = ""
+        if (uri != null) writeLrcExport(uri, content)
+    }
     private var currentTrack = ""
     private var currentArtist = ""
     private var currentAlbum = ""
@@ -374,6 +387,8 @@ class MainActivity : AppCompatActivity() {
         currentAlbum = ""
         currentDurationMs = 0L
         currentPayloadSignature = ""
+        currentLrcText = ""
+        currentLrcTranslated = ""
         currentLyricIdentity = ""
         currentLyricSource = ""
         if (!LyricsOverlayService.isRunning) {
@@ -408,6 +423,8 @@ class MainActivity : AppCompatActivity() {
             homeTranslation.cancel()
             baseLyricDocument = LyricDocument(emptyList(), true)
             home.setTranslationStatus("")
+            currentLrcText = ""
+            currentLrcTranslated = ""
             lastTrackKey = key
             currentTrack = title
             currentArtist = artist
@@ -496,6 +513,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyLyricPayload(payload: LyricPayload) {
         currentPayloadSignature = payload.signature
+        currentLrcText = payload.lyrics
+        currentLrcTranslated = payload.translated
         currentLyricSource = payload.source
         // per-song 偏移身份：与悬浮窗一致 identity=(track\u0000artist).trim().lowercase
         currentLyricTitle = currentTrack
@@ -716,6 +735,30 @@ class MainActivity : AppCompatActivity() {
         override fun manageCustomLyrics() {
             startActivity(Intent(this@MainActivity, CustomLyricsManagerActivity::class.java))
         }
+
+        override fun exportLrc() {
+            val lrc = currentLrcText
+            if (currentTrack.isBlank() || lrc.isBlank()) {
+                Toast.makeText(this@MainActivity, "还没有可下载的歌词", Toast.LENGTH_SHORT).show()
+                return
+            }
+            pendingLrcExport = LyricExporter.buildLrc(currentTrack, currentArtist, lrc, currentLrcTranslated)
+            exportLrcLauncher.launch(LyricExporter.fileName(currentTrack, currentArtist))
+        }
+    }
+
+    private fun writeLrcExport(uri: android.net.Uri, content: String) {
+        // 选择器打开期间进程被杀会丢掉 pending 内容，此时按保存失败处理，不写空文件
+        val saved = content.isNotBlank() && runCatching {
+            contentResolver.openOutputStream(uri, "wt")?.use { output ->
+                output.write(content.toByteArray(Charsets.UTF_8))
+            } != null
+        }.getOrDefault(false)
+        Toast.makeText(
+            this,
+            if (saved) "已保存 .lrc 歌词文件" else "保存失败，请重试",
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
     companion object {

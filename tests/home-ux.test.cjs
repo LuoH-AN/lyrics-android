@@ -32,6 +32,10 @@ assert.match(main, /LyricParser\.parse\(payload\.lyrics, payload\.translated, pa
 assert.match(main, /home\.setLyrics\(baseLyricDocument, currentLyricsCustom\)/);
 assert.match(main, /HomeTranslationController\(/);
 assert.match(home, /fun setTranslationStatus\(message: String\)/);
+assert.match(home, /action\("下载当前歌词为 \.lrc", R\.drawable\.ic_home_download, R\.id\.home_more_export\) \{ actions\?\.exportLrc\(\) \}/);
+assert.match(main, /exportLrcLauncher/);
+assert.match(main, /LyricExporter\.buildLrc\(currentTrack, currentArtist, lrc, currentLrcTranslated\)/);
+assert.ok(fs.existsSync('app/src/test/kotlin/com/luoh/music/lrc/LyricExporterTest.kt'), 'LRC export must stay covered by JVM tests');
 assert.match(main, /home\.setOverlayState\(LyricsOverlayService\.isRunning\)/);
 assert.match(home, /utilities\.addView\(overlay, LayoutParams\(dp\(48\), dp\(48\)\)\)/);
 assert.match(home, /utilities\.addView\(more, LayoutParams\(dp\(48\), dp\(48\)\)/);

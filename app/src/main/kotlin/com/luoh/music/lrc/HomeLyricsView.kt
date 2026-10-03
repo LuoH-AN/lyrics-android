@@ -56,6 +56,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         fun skipNext()
         fun editCustomLyrics()
         fun manageCustomLyrics()
+        fun exportLrc()
     }
 
     var actions: Actions? = null
@@ -658,6 +659,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         }
         action(if (custom) "编辑这首歌的自定义歌词" else "指定 LRC 歌词", R.drawable.ic_home_edit) { actions?.editCustomLyrics() }
         action("管理自定义歌词", R.drawable.ic_home_library) { actions?.manageCustomLyrics() }
+        action("下载当前歌词为 .lrc", R.drawable.ic_home_download, R.id.home_more_export) { actions?.exportLrc() }
         action("设置", R.drawable.ic_home_settings, R.id.home_more_settings) { actions?.openSettings() }
         content.addView(MaterialDivider(dialog.context).apply { dividerColor = color(R.color.app_line_soft) },
             LayoutParams(LayoutParams.MATCH_PARENT, dp(1)).apply { topMargin = dp(8) })

@@ -108,6 +108,7 @@ class MaterialUiLayoutTest {
         var overlays = 0
         var seekPosition = -1L
         var settingsOpened = 0
+        var exports = 0
         override fun toggleOverlay() { overlays++ }
         override fun openSettings() { settingsOpened++ }
         override fun seekTo(positionMs: Long) { seekPosition = positionMs }
@@ -116,6 +117,7 @@ class MaterialUiLayoutTest {
         override fun skipNext() {}
         override fun editCustomLyrics() {}
         override fun manageCustomLyrics() {}
+        override fun exportLrc() { exports++ }
     }
 
     private fun assertHome(preview: String, widthDp: Int = 320, heightDp: Int = 640) {
@@ -312,9 +314,19 @@ class MaterialUiLayoutTest {
                 output.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
                 bitmap.recycle()
             }
-            requireNotNull(dialog.findViewById<MaterialButton>(R.id.home_more_settings)).performClick()
-            assertEquals(1, actions.settingsOpened)
-            assertFalse(dialog.isShowing)
+            requireNotNull(dialog.findViewById<MaterialButton>(R.id.home_more_export)).performClick()
+            assertEquals(1, actions.exports)
+            assertFalse("Export must close the sheet", dialog.isShowing)
+            home.findViewById<View>(R.id.home_more).performClick()
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(500))
+            val reopened = org.robolectric.shadows.ShadowDialog.getLatestDialog() as BottomSheetDialog
+            try {
+                requireNotNull(reopened.findViewById<MaterialButton>(R.id.home_more_settings)).performClick()
+                assertEquals(1, actions.settingsOpened)
+                assertFalse(reopened.isShowing)
+            } finally {
+                reopened.dismiss()
+            }
         } finally {
             dialog.dismiss()
             host.pause().stop().destroy()

@@ -2,6 +2,7 @@
 <resources>
     <item type="id" name="home_player_card" />
     <item type="id" name="home_more_sheet" />
+    <item type="id" name="home_more_export" />
     <item type="id" name="home_more_settings" />
     <item type="id" name="home_lyrics_scroll" />
     <item type="id" name="home_lyrics_track" />
