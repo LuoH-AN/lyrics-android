@@ -65,6 +65,7 @@ checkCopy(base + 'LyricOffsetMemoryActivity.kt', [
 ]);
 
 checkCopy(base + 'TranslationSettingsActivity.kt', [
+  '双语只控制显示；需要机翻时，请选择下面的补充方式。',
   '平台译文优先，只在缺少译文时补充。译文会缓存到本机。',
   '点击对应方式立即应用；平台自带译文始终优先。',
   '兼容 Chat Completions 的服务',
@@ -87,16 +88,29 @@ checkCopy('app/src/main/res/layout/activity_settings.xml', [
   '前后各可显示 0–2 句，窗口高度自动适应。前后都设为 0 时只保留当前句。',
   '歌词慢了就提前，歌词快了就延后。每首歌、每个歌词源分别记住。',
   '歌词来自 LRCLIB / QQ音乐 / 网易云，版权归各平台所有',
-], [
-  '歌词预览',
-  '上下文展示',
   '前面几句',
   '后面几句',
   '播放一首歌后，可为这首歌单独校准',
+  '双语显示原文与译文；没有译文时，可在下方设置补充翻译。',
+  '@+id/lyric_offset_scope',
+], [
+  '歌词预览',
+  '上下文展示',
+  'android:text="上文"',
+  'android:text="下文"',
   '@+id/lyric_offset_value',
   '提前 0.1 秒',
   '延后 0.1 秒',
   '恢复同步',
 ]);
 
-console.log('PASS: confirmed helper copy removed; fields, actions, metadata, statuses and confirmation warnings preserved');
+const picker = fs.readFileSync('app/src/main/res/layout/dialog_color_picker.xml', 'utf8');
+assert.doesNotMatch(picker, /slider\.Slider|seek_color_|拖动 RGB/);
+for (const id of ['color_picker_preview', 'color_palette', 'color_hex_field', 'color_hex_input']) {
+  assert.ok(picker.includes(`@+id/${id}`), `color picker must include ${id}`);
+}
+const settings = fs.readFileSync(base + 'SettingsActivity.kt', 'utf8');
+assert.doesNotMatch(settings, /lyricOffsetScope|lyric_offset_scope/);
+assert.ok(settings.includes('OverlayAppearance.percentToWeight(value.toInt())'));
+assert.ok(settings.includes('OverlayAppearance.weightToPercent(fontWeight())'));
+console.log('PASS: concise settings copy, percentage font weight, palette controls and required feedback preserved');

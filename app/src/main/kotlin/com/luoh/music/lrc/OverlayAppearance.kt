@@ -11,7 +11,15 @@ object OverlayAppearance {
     const val MIN_FONT_WEIGHT = 300
     const val MAX_FONT_WEIGHT = 900
     const val DEFAULT_FONT_WEIGHT = 400
+    const val MIN_FONT_WEIGHT_PERCENT = 75
+    const val MAX_FONT_WEIGHT_PERCENT = 225
     private val typefaces = mutableMapOf<Int, Typeface>()
+
+    fun weightToPercent(value: Int): Int = normalizeWeight(value) * 100 / DEFAULT_FONT_WEIGHT
+
+    fun percentToWeight(value: Int): Int = normalizeWeight(
+        value.coerceIn(MIN_FONT_WEIGHT_PERCENT, MAX_FONT_WEIGHT_PERCENT) * DEFAULT_FONT_WEIGHT / 100
+    )
 
     fun normalizeWeight(value: Int): Int =
         ((value.coerceIn(MIN_FONT_WEIGHT, MAX_FONT_WEIGHT) + 50) / 100) * 100

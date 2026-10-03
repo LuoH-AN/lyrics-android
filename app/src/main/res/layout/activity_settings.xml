@@ -49,9 +49,9 @@
                     <LinearLayout style="@style/CellColumn">
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
                             <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="歌词粗细" />
-                            <com.google.android.material.textview.MaterialTextView android:id="@+id/font_weight_value" style="@style/CellValue" android:text="400" />
+                            <com.google.android.material.textview.MaterialTextView android:id="@+id/font_weight_value" style="@style/CellValue" android:text="100%" />
                         </LinearLayout>
-                        <com.google.android.material.slider.Slider android:id="@+id/seek_font_weight" style="@style/SettingsSlider" android:contentDescription="悬浮歌词粗细" android:valueFrom="300" android:valueTo="900" android:value="400" android:stepSize="100" />
+                        <com.google.android.material.slider.Slider android:id="@+id/seek_font_weight" style="@style/SettingsSlider" android:contentDescription="悬浮歌词粗细" android:valueFrom="75" android:valueTo="225" android:value="100" android:stepSize="25" />
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
                             <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="细" android:textSize="12sp" android:textColor="@color/text_secondary" />
                             <com.google.android.material.textview.MaterialTextView style="@style/CellValue" android:text="粗" android:textSize="12sp" />
@@ -61,16 +61,16 @@
                     <LinearLayout style="@style/CellColumn">
                         <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="上下文展示" />
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="64dp" android:gravity="center_vertical" android:orientation="horizontal">
-                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="前面几句" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/context_before_less" style="@style/StepButton" android:text="−" android:contentDescription="少显示一句前文" />
+                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="上文" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/context_before_less" style="@style/StepButton" android:text="−" android:contentDescription="少显示一句上文" />
                             <com.google.android.material.textview.MaterialTextView android:id="@+id/context_before_value" style="@style/StepValue" android:text="0 句" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/context_before_more" style="@style/StepButton" android:text="＋" android:contentDescription="多显示一句前文" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/context_before_more" style="@style/StepButton" android:text="＋" android:contentDescription="多显示一句上文" />
                         </LinearLayout>
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="64dp" android:gravity="center_vertical" android:orientation="horizontal">
-                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="后面几句" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/context_after_less" style="@style/StepButton" android:text="−" android:contentDescription="少显示一句后文" />
+                            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="下文" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/context_after_less" style="@style/StepButton" android:text="−" android:contentDescription="少显示一句下文" />
                             <com.google.android.material.textview.MaterialTextView android:id="@+id/context_after_value" style="@style/StepValue" android:text="1 句" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/context_after_more" style="@style/StepButton" android:text="＋" android:contentDescription="多显示一句后文" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/context_after_more" style="@style/StepButton" android:text="＋" android:contentDescription="多显示一句下文" />
                         </LinearLayout>
                     </LinearLayout>
                     <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
@@ -109,8 +109,7 @@
             <com.google.android.material.card.MaterialCardView style="@style/GroupCard">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                     <LinearLayout style="@style/CellColumn">
-                        <com.google.android.material.textview.MaterialTextView android:id="@+id/lyric_offset_scope" style="@style/SettingHint" android:text="播放一首歌后，可为这首歌单独校准" />
-                        <com.google.android.material.textview.MaterialTextView android:id="@+id/lyric_offset_value" style="@style/CellColumnLabel" android:layout_marginTop="8dp" android:accessibilityLiveRegion="polite" android:text="未调整" />
+                        <com.google.android.material.textview.MaterialTextView android:id="@+id/lyric_offset_value" style="@style/CellColumnLabel" android:accessibilityLiveRegion="polite" android:text="未调整" />
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal">
                             <com.google.android.material.button.MaterialButton android:id="@+id/offset_earlier" style="@style/SettingsAction" android:layout_width="0dp" android:layout_height="wrap_content" android:minHeight="48dp" android:layout_weight="1" android:layout_marginEnd="4dp" android:text="提前 0.1 秒" />
                             <com.google.android.material.button.MaterialButton android:id="@+id/offset_later" style="@style/SettingsAction" android:layout_width="0dp" android:layout_height="wrap_content" android:minHeight="48dp" android:layout_weight="1" android:layout_marginStart="4dp" android:text="延后 0.1 秒" />
@@ -136,7 +135,6 @@
                             <com.google.android.material.button.MaterialButton android:id="@+id/translation_bilingual" style="@style/SegItem" android:text="双语" />
                             <com.google.android.material.button.MaterialButton android:id="@+id/translation_translated" style="@style/SegItem" android:text="中文" />
                         </com.google.android.material.button.MaterialButtonToggleGroup>
-                        <com.google.android.material.textview.MaterialTextView style="@style/SettingHint" android:text="双语显示原文与译文；没有译文时，可在下方设置补充翻译。" />
                     </LinearLayout>
                     <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
                     <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard" android:id="@+id/cell_supplement_translation">

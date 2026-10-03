@@ -74,6 +74,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     private var wideLayout = false
     private var lastProgressPaint = 0L
     private var manualScrollUntil = 0L
+    private var touchingLyrics = false
     private var menu: BottomSheetDialog? = null
     private val lyricRows = mutableListOf<LyricLineView>()
 
@@ -92,11 +93,20 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     private val scroll: ScrollView = object : ScrollView(context) {
         override fun dispatchTouchEvent(event: MotionEvent): Boolean {
             // Observe touches before clickable lyric rows consume them.
-            if (event.actionMasked == MotionEvent.ACTION_DOWN || event.actionMasked == MotionEvent.ACTION_MOVE) {
-                lyricMotion.cancel()
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    touchingLyrics = true
+                    manualScrollUntil = 0L
+                    lyricMotion.cancel()
+                }
+                MotionEvent.ACTION_MOVE -> if (touchingLyrics) lyricMotion.cancel()
+            }
+            val handled = super.dispatchTouchEvent(event)
+            if ((event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) && touchingLyrics) {
+                touchingLyrics = false
                 manualScrollUntil = SystemClock.uptimeMillis() + 4000L
             }
-            return super.dispatchTouchEvent(event)
+            return handled
         }
     }.apply {
         id = R.id.home_lyrics_scroll
@@ -116,26 +126,11 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         gravity = Gravity.CENTER
         setPadding(dp(28), dp(16), dp(28), dp(16))
     }
-    private val emptyIconTile = MaterialCardView(context).apply {
-        radius = dp(24).toFloat()
-        cardElevation = 0f
-        strokeWidth = 0
-        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
-    }
-    private val emptyIcon = ShapeableImageView(context).apply {
-        setImageResource(R.drawable.ic_home_lyrics)
-        setPadding(dp(22), dp(22), dp(22), dp(22))
-    }
-    private val empty = label("未在播放", 22f).apply {
+    private val empty = label("暂未播放", 22f).apply {
         id = R.id.home_empty
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         gravity = Gravity.CENTER
         ViewCompat.setAccessibilityLiveRegion(this, ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE)
-    }
-    private val emptyDetail = label("先在音乐应用中播放一首歌", 13f).apply {
-        id = R.id.home_empty_detail
-        gravity = Gravity.CENTER
-        setLineSpacing(dp(3).toFloat(), 1f)
     }
     private val interlude = label("···", 32f).apply {
         visibility = GONE
@@ -157,7 +152,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         strokeWidth = 0f
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
     }
-    private val song = label("未在播放", 20f).apply {
+    private val song = label("暂未播放", 20f).apply {
         id = R.id.home_song
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         maxLines = 2
@@ -235,10 +230,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         clipToPadding = false
         stage.addView(scroll, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         scroll.addView(lyricsTrack, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
-        emptyIconTile.addView(emptyIcon, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-        emptyPanel.addView(emptyIconTile, LayoutParams(dp(72), dp(72)))
-        emptyPanel.addView(empty, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { topMargin = dp(20) })
-        emptyPanel.addView(emptyDetail, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
+        emptyPanel.addView(empty, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         stage.addView(emptyPanel, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, Gravity.CENTER))
         stage.addView(interlude, FrameLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply { leftMargin = dp(28) })
         stage.addView(topFade, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, dp(40), Gravity.TOP))
@@ -341,7 +333,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         snapshot = value
         clock.durationMs = value.durationMs
         clock.sync(value.positionMs, value.playing, value.speed, forcePosition)
-        song.text = value.track.ifBlank { "未在播放" }
+        song.text = value.track.ifBlank { "暂未播放" }
         if (value.cover != null) {
             cover.imageTintList = null
             cover.setPadding(0, 0, 0, 0)
@@ -428,6 +420,8 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         if (on && isAttachedToWindow) postOnAnimation(frame)
         else {
             lyricMotion.cancel()
+            touchingLyrics = false
+            manualScrollUntil = 0L
             activeIndex = -2
         }
     }
@@ -440,6 +434,8 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     override fun onDetachedFromWindow() {
         removeCallbacks(frame)
         lyricMotion.cancel()
+        touchingLyrics = false
+        manualScrollUntil = 0L
         activeIndex = -2
         menu?.dismiss()
         menu = null
@@ -455,9 +451,6 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         artist.setTextColor(secondary)
         translationStatus.setTextColor(secondary)
         empty.setTextColor(primary)
-        emptyDetail.setTextColor(secondary)
-        emptyIconTile.setCardBackgroundColor(color(R.color.app_surface_container))
-        emptyIcon.imageTintList = ColorStateList.valueOf(secondary)
         interlude.setTextColor(primary)
         timeCurrent.setTextColor(secondary)
         timeDuration.setTextColor(secondary)
@@ -506,17 +499,12 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     }
 
     private fun renderEmpty() {
-        emptyPanel.visibility = if (document.lines.isEmpty()) VISIBLE else GONE
-        emptyDetail.text = when {
-            snapshot.track.isBlank() -> "先在音乐应用中播放一首歌"
-            lyricStatus == "empty" -> "可以在「更多」中指定自定义歌词"
-            else -> "获取完成后会自动显示"
-        }
         empty.text = when {
-            snapshot.track.isBlank() -> "未在播放"
-            lyricStatus == "empty" -> "找不到歌词"
-            else -> "正在获取歌词…"
+            snapshot.track.isBlank() -> "暂未播放"
+            lyricStatus == "loading" -> "正在获取歌词"
+            else -> ""
         }
+        emptyPanel.visibility = if (document.lines.isEmpty() && empty.text.isNotEmpty()) VISIBLE else GONE
     }
 
     private fun renderLines() {
@@ -558,13 +546,13 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
             if (clock.durationMs <= 0L) 0 else ((clock.positionMs().toDouble() / clock.durationMs) * document.lines.size).toInt().coerceIn(0, document.lines.lastIndex)
         }
         val now = SystemClock.uptimeMillis()
-        val resumeFollowing = manualScrollUntil != 0L && now >= manualScrollUntil
+        val resumeFollowing = !touchingLyrics && manualScrollUntil != 0L && now >= manualScrollUntil
         if (resumeFollowing) manualScrollUntil = 0L
         if (activeIndex != index || resumeFollowing) {
             val previousIndex = activeIndex
             lyricRows.getOrNull(previousIndex)?.setPlaybackPosition(position)
             activeIndex = index
-            val following = manualScrollUntil == 0L
+            val following = !touchingLyrics && manualScrollUntil == 0L
             val target = if (following) lineScrollTarget(index.coerceAtLeast(0)) else null
             val animate = active && isAttachedToWindow && ViewCompat.isLaidOut(this) &&
                 previousIndex != -2 && abs(index - previousIndex) <= 3 && following
@@ -622,6 +610,8 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         actions?.seekTo(target)
         clock.sync(target, clock.playing, clock.speed, force = true)
         activeIndex = -2
+        // A lyric click explicitly resumes following before its ACTION_UP returns.
+        touchingLyrics = false
         manualScrollUntil = 0L
         paintProgress()
         renderFrame()

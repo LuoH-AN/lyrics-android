@@ -7,7 +7,8 @@
 - 应用主题：Material 3 DayNight，映射到原有黑白灰调色板，不启用动态彩色主题。
 - 按钮、图标、分段选择：MaterialButton / MaterialButtonToggleGroup。
 - 导航、弹窗和底部菜单：MaterialToolbar / MaterialAlertDialogBuilder / BottomSheetDialog。
-- 设置开关、字号和颜色滑杆：MaterialSwitch / Slider。
+- 设置开关、字号和粗细滑杆：MaterialSwitch / Slider；粗细以默认 100% 显示，保留原有字重存储。
+- 歌词调色：可点选色板、HEX 输入与实时预览，不使用 RGB 滑杆。
 - 表单和分组：TextInputLayout + TextInputEditText / MaterialCardView。
 - 歌词、说明文字和封面：MaterialTextView（含原生逐字绘制）/ ShapeableImageView。
 - Android 的布局容器和滚动容器继续用于排版；Material 没有现成的逐字歌词组件，因此歌词排版使用原生自定义文本视图。
@@ -19,6 +20,8 @@
 ## 歌词与生命周期
 
 主页不再用 WebView 绘制歌词或中控台。原生歌词模型、解析器、播放时钟和文本视图负责 LRC、逐字、翻译以及行切换；播放控制继续调用 Android MediaSession。歌词偏移只影响歌词，不改变播放进度条的音频时间。
+
+主页切行使用统一时间轴、逐行错位跟随和轻微弹性聚焦，滚动时长随距离变化。Android 12 及以上对远离当前句的可见歌词施加最多 1.25dp 的原生模糊，当前句和相邻句保持清晰；旧系统只使用缩放与透明度。触摸立即停止跟随并清除模糊，持续按住不会抢回滚动，抬手后等待 4 秒再恢复；点击歌词跳播则立即恢复跟随。
 
 悬浮窗的可见歌词与关闭、锁定控件也使用原生视图。WindowManager、通知权限、悬浮窗权限、拖动与位置记忆仍由原服务负责。
 

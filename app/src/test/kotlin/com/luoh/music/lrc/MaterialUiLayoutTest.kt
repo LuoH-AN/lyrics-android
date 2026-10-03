@@ -196,7 +196,8 @@ class MaterialUiLayoutTest {
         layout(home, widthDp, heightDp, preview = preview)
         home.setLyrics(LyricDocument(emptyList(), true))
         home.setSnapshot(snapshot.copy(playing = false))
-        assertEquals("找不到歌词", home.findViewById<android.widget.TextView>(R.id.home_empty).text.toString())
+        assertEquals("", home.findViewById<android.widget.TextView>(R.id.home_empty).text.toString())
+        assertEquals(View.GONE, (home.findViewById<View>(R.id.home_empty).parent as View).visibility)
         home.setSnapshot(HomeLyricsView.Snapshot())
         assertFalse(home.findViewById<MaterialButton>(R.id.home_play).isEnabled)
         assertTrue(overlay.isEnabled)
@@ -233,13 +234,60 @@ class MaterialUiLayoutTest {
         assertHome("home-short", 320, 480)
     }
 
+    private fun assertCentralStatus(home: HomeLyricsView, expected: String, visible: Boolean) {
+        val status = home.findViewById<android.widget.TextView>(R.id.home_empty)
+        val panel = status.parent as ViewGroup
+        assertEquals(expected, status.text.toString())
+        assertEquals(if (visible) View.VISIBLE else View.GONE, panel.visibility)
+        assertEquals("Central status must not retain an icon or helper copy", 1, panel.childCount)
+        assertSame(status, panel.getChildAt(0))
+        assertNotNull("The player cover must remain", home.findViewById<View>(R.id.home_cover))
+    }
+
     @Test fun modernEmptyStateKeepsControlsAvailable() {
         val home = HomeLyricsView(context())
         home.setSnapshot(HomeLyricsView.Snapshot())
         layout(home, preview = "home-empty")
-        assertEquals("未在播放", home.findViewById<android.widget.TextView>(R.id.home_empty).text.toString())
-        assertTrue(home.findViewById<android.widget.TextView>(R.id.home_empty_detail).text.isNotBlank())
+        assertCentralStatus(home, "暂未播放", visible = true)
+        assertEquals("暂未播放", home.findViewById<android.widget.TextView>(R.id.home_song).text.toString())
         assertTrue(home.findViewById<View>(R.id.home_more).isEnabled)
+    }
+
+    @Test fun homeLoadingShowsOnlyTheRequestedCentralStatus() {
+        val home = HomeLyricsView(context())
+        home.setSnapshot(HomeLyricsView.Snapshot(track = "Song", artist = "Artist"), forcePosition = true)
+        layout(home, preview = "home-loading")
+        assertCentralStatus(home, "正在获取歌词", visible = true)
+        assertEquals("Song", home.findViewById<android.widget.TextView>(R.id.home_song).text.toString())
+        assertEquals("Artist", home.findViewById<android.widget.TextView>(R.id.home_artist).text.toString())
+    }
+
+    @Test fun completedEmptyLyricsLeaveTheCenterBlank() {
+        val home = HomeLyricsView(context())
+        home.setSnapshot(HomeLyricsView.Snapshot(track = "Song"), forcePosition = true)
+        home.setLyrics(LyricDocument(emptyList(), true))
+        layout(home, preview = "home-no-lyrics")
+        assertCentralStatus(home, "", visible = false)
+        assertEquals("Song", home.findViewById<android.widget.TextView>(R.id.home_song).text.toString())
+    }
+
+    @Test fun loadedLyricsReplaceTheCentralStatusAndKeepActionableErrors() {
+        val home = HomeLyricsView(context())
+        home.setSnapshot(HomeLyricsView.Snapshot(track = "Song"), forcePosition = true)
+        home.setLyrics(LyricDocument(listOf(LyricLine(0L, "Original lyric", "歌词译文")), true))
+        home.setTranslationStatus("请先下载中文语言包")
+        var openedTranslationSettings = false
+        home.onTranslationSettings = { openedTranslationSettings = true }
+        layout(home, preview = "home-lyrics-ready")
+        assertCentralStatus(home, "", visible = false)
+        val lyrics = home.findViewById<LinearLayout>(R.id.home_lyrics_track)
+        assertEquals(1, lyrics.childCount)
+        assertEquals("Original lyric\n歌词译文", (lyrics.getChildAt(0) as LyricLineView).text.toString())
+        val status = home.findViewWithTag<android.widget.TextView>("home_translation_status")
+        assertEquals(View.VISIBLE, status.visibility)
+        assertEquals("请先下载中文语言包", status.text.toString())
+        status.performClick()
+        assertTrue(openedTranslationSettings)
     }
 
     @Test fun modernMoreSheetOpensDetailedSettings() {

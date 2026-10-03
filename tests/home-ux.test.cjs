@@ -15,6 +15,15 @@ assert.match(home, /private val progress = Slider\(context\)/);
 assert.match(home, /private val playerCard = MaterialCardView\(context\)/);
 assert.doesNotMatch(home, /MaterialToolbar|home_toolbar|playbackStatus|home_playback_status/);
 assert.doesNotMatch(home, /现在，专注听歌|等待播放|正在播放|已暂停/);
+assert.doesNotMatch(home, /emptyIcon|emptyDetail|home_empty_detail|先在音乐应用中播放一首歌|获取完成后会自动显示|找不到歌词|未在播放/);
+const emptyState = home.slice(home.indexOf('private fun renderEmpty()'), home.indexOf('private fun renderLines()'));
+assert.match(emptyState, /snapshot\.track\.isBlank\(\) -> "暂未播放"/);
+assert.match(emptyState, /lyricStatus == "loading" -> "正在获取歌词"/);
+assert.match(emptyState, /else -> ""/);
+assert.match(emptyState, /document\.lines\.isEmpty\(\) && empty\.text\.isNotEmpty\(\)/);
+assert.doesNotMatch(fs.readFileSync('app/src/main/res/values/home_ids.xml', 'utf8'), /home_empty_detail/);
+assert.match(home, /val following = !touchingLyrics && manualScrollUntil == 0L/);
+assert.match(home, /MotionEvent\.ACTION_UP \|\| event\.actionMasked == MotionEvent\.ACTION_CANCEL/);
 assert.match(home, /metadata\.addView\(utilities/);
 assert.match(home, /trackHeight = dp\(6\)/);
 assert.match(home, /thumbStrokeWidth = dp\(3\)/);
@@ -37,4 +46,4 @@ assert.ok(!fs.existsSync('app/src/main/assets/home_lyrics.html'), 'obsolete visi
 for (const test of ['LyricParserTest.kt', 'LyricClockTest.kt']) {
   assert.ok(fs.existsSync('app/src/test/kotlin/com/luoh/music/lrc/' + test));
 }
-console.log('PASS: native home source boundaries, Material controls, confirmed overlay state wiring, obsolete HTML removal');
+console.log('PASS: native home boundaries, minimal central statuses, touch-follow guards, Material controls and confirmed overlay state');

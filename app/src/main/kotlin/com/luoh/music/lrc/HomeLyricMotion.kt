@@ -4,6 +4,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.view.animation.LinearInterpolator
+import android.view.animation.OvershootInterpolator
 import android.view.animation.PathInterpolator
 import android.widget.ScrollView
 import kotlin.math.abs
@@ -18,7 +19,11 @@ internal class HomeLyricMotion(
 ) {
     private var animator: ValueAnimator? = null
     private var focusedIndex = -1
-    private val easing = PathInterpolator(.22f, 1f, .36f, 1f)
+    private var depthEnabled = false
+    private val depthBlur = LyricDepthBlur()
+    private val travelEasing = PathInterpolator(.22f, .72f, .18f, 1f)
+    private val focusEasing = PathInterpolator(.2f, 0f, .1f, 1f)
+    private val focusSpring = OvershootInterpolator(1.35f)
     val isRunning: Boolean get() = animator != null
 
     private data class RowStart(
@@ -26,14 +31,17 @@ internal class HomeLyricMotion(
         val scale: Float,
         val alpha: Float,
         val translation: Float,
+        val blur: Float,
         val targetScale: Float,
         val targetAlpha: Float,
+        val targetBlur: Float,
         val delayMs: Long
     )
 
     fun moveTo(index: Int, targetScrollY: Int?, animate: Boolean) {
         stopAnimator()
         focusedIndex = index
+        depthEnabled = targetScrollY != null
         val startScroll = scroll.scrollY
         val maxScroll = max(0, (scroll.getChildAt(0)?.height ?: 0) - scroll.height)
         val target = targetScrollY?.coerceIn(0, maxScroll) ?: startScroll
@@ -48,30 +56,41 @@ internal class HomeLyricMotion(
             val distance = distance(i)
             row.pivotX = 0f
             row.pivotY = row.height / 2f
+            if (!depthEnabled || i == index) depthBlur.setRadius(row, 0f)
             if (row.bottom < firstVisible || row.top > lastVisible) {
                 settleRow(i, row)
                 null
-            } else RowStart(row, row.scaleX, row.alpha, row.translationY,
-                scale(distance), opacity(distance), if (targetScrollY == null) 0L else min(distance, 4) * 32L)
+            } else RowStart(row, row.scaleX, row.alpha, row.translationY, depthBlur.radiusOf(row),
+                scale(distance), opacity(distance), if (depthEnabled) LyricDepthBlur.radiusForDistance(distance) else 0f,
+                if (targetScrollY == null) 0L else min(distance, 4) * 48L)
         }
-        val scrollDuration = 560L
-        val durationMs = scrollDuration + (starts.maxOfOrNull { it.delayMs } ?: 0L)
+        val travelRatio = abs(target - startScroll).toFloat() / scroll.height
+        val scrollDuration = (440L + (travelRatio * 340).toLong()).coerceIn(440L, 680L)
+        val focusDuration = 480L
+        val durationMs = max(if (targetScrollY == null) 0L else scrollDuration, focusDuration) +
+            (starts.maxOfOrNull { it.delayMs } ?: 0L)
         val motion = ValueAnimator.ofFloat(0f, durationMs.toFloat()).apply {
             duration = durationMs
             interpolator = LinearInterpolator()
             addUpdateListener { frame ->
                 val time = frame.animatedValue as Float
-                fun progress(delay: Long, duration: Long): Float =
-                    easing.getInterpolation(((time - delay) / duration).coerceIn(0f, 1f))
+                fun fraction(delay: Long, duration: Long): Float =
+                    ((time - delay) / duration).coerceIn(0f, 1f)
                 if (targetScrollY != null) {
-                    scroll.scrollTo(0, (startScroll + (target - startScroll) * progress(0L, scrollDuration)).toInt())
+                    val progress = travelEasing.getInterpolation(fraction(0L, scrollDuration))
+                    scroll.scrollTo(0, (startScroll + (target - startScroll) * progress).toInt())
                 }
                 starts.forEach { start ->
-                    val travel = progress(start.delayMs, scrollDuration)
-                    val focus = progress(start.delayMs, 380L)
+                    val travel = travelEasing.getInterpolation(fraction(start.delayMs, scrollDuration))
+                    val focusTime = fraction(start.delayMs, focusDuration)
+                    val focus = if (start.targetScale == 1f && start.targetScale > start.scale) {
+                        focusSpring.getInterpolation(focusTime)
+                    } else focusEasing.getInterpolation(focusTime)
+                    val fade = focusEasing.getInterpolation(fraction(start.delayMs, 320L))
                     start.row.scaleX = start.scale + (start.targetScale - start.scale) * focus
                     start.row.scaleY = start.row.scaleX
-                    start.row.alpha = start.alpha + (start.targetAlpha - start.alpha) * focus
+                    start.row.alpha = start.alpha + (start.targetAlpha - start.alpha) * fade
+                    depthBlur.setRadius(start.row, start.blur + (start.targetBlur - start.blur) * fade)
                     // Compensate the shared scroll so each row follows on its own delayed curve.
                     // Starting from its current transform also preserves continuity on rapid changes.
                     start.row.translationY = (scroll.scrollY - startScroll) - (target - startScroll) * travel +
@@ -92,6 +111,7 @@ internal class HomeLyricMotion(
 
     fun cancel() {
         stopAnimator()
+        depthEnabled = false
         settleRows()
     }
 
@@ -111,9 +131,12 @@ internal class HomeLyricMotion(
         row.scaleX = scale(distance)
         row.scaleY = row.scaleX
         row.alpha = opacity(distance)
+        val nearViewport = row.bottom >= scroll.scrollY - scroll.height / 4 &&
+            row.top <= scroll.scrollY + scroll.height * 5 / 4
+        depthBlur.setRadius(row, if (depthEnabled && nearViewport) LyricDepthBlur.radiusForDistance(distance) else 0f)
     }
 
     private fun distance(index: Int) = if (focusedIndex < 0) index + 1 else abs(index - focusedIndex)
-    private fun scale(distance: Int) = when (distance) { 0 -> 1f; 1 -> .92f; 2 -> .87f; else -> .82f }
-    private fun opacity(distance: Int) = when (distance) { 0 -> 1f; 1 -> .7f; 2 -> .55f; 3 -> .4f; else -> .26f }
+    private fun scale(distance: Int) = when (distance) { 0 -> 1f; 1 -> .9f; 2 -> .84f; else -> .8f }
+    private fun opacity(distance: Int) = when (distance) { 0 -> 1f; 1 -> .64f; 2 -> .46f; 3 -> .32f; else -> .24f }
 }

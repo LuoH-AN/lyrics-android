@@ -1,20 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp">
-    <com.google.android.material.textview.MaterialTextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="拖动 RGB 数值组合歌词颜色" android:textColor="@color/text_tertiary" android:textSize="12sp" />
-    <com.google.android.material.textview.MaterialTextView android:id="@+id/color_picker_preview" android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginTop="16dp" android:fontFamily="sans-serif-medium" android:gravity="center" android:text="#FFFFFF" android:textColor="#111113" android:textSize="15sp" />
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="14dp" android:gravity="center_vertical" android:orientation="horizontal">
-        <com.google.android.material.textview.MaterialTextView android:layout_width="24dp" android:layout_height="wrap_content" android:gravity="center" android:text="R" android:textColor="@color/text_secondary" android:textStyle="bold" />
-        <com.google.android.material.slider.Slider android:id="@+id/seek_color_red" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" style="@style/SettingsSlider" android:valueFrom="0" android:valueTo="255" android:value="255" android:stepSize="1" android:contentDescription="红色分量" />
-        <com.google.android.material.textview.MaterialTextView android:id="@+id/color_red_value" android:layout_width="38dp" android:layout_height="wrap_content" android:gravity="end" android:text="255" android:textColor="@color/text_secondary" />
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content" android:fillViewport="false" android:overScrollMode="never">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp" android:focusableInTouchMode="true">
+        <com.google.android.material.textview.MaterialTextView android:id="@+id/color_picker_preview" android:layout_width="match_parent" android:layout_height="56dp" android:fontFamily="monospace" android:gravity="center" android:text="#FFFFFF" android:textSize="16sp" />
+        <com.google.android.material.textfield.TextInputLayout android:id="@+id/color_hex_field" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:hint="HEX 色值">
+            <com.google.android.material.textfield.TextInputEditText android:id="@+id/color_hex_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:fontFamily="monospace" android:inputType="textCapCharacters|textNoSuggestions" android:singleLine="true" android:selectAllOnFocus="true" android:textSize="15sp" />
+        </com.google.android.material.textfield.TextInputLayout>
+        <LinearLayout android:id="@+id/color_palette" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:orientation="vertical" />
     </LinearLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:gravity="center_vertical" android:orientation="horizontal">
-        <com.google.android.material.textview.MaterialTextView android:layout_width="24dp" android:layout_height="wrap_content" android:gravity="center" android:text="G" android:textColor="@color/text_secondary" android:textStyle="bold" />
-        <com.google.android.material.slider.Slider android:id="@+id/seek_color_green" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" style="@style/SettingsSlider" android:valueFrom="0" android:valueTo="255" android:value="255" android:stepSize="1" android:contentDescription="绿色分量" />
-        <com.google.android.material.textview.MaterialTextView android:id="@+id/color_green_value" android:layout_width="38dp" android:layout_height="wrap_content" android:gravity="end" android:text="255" android:textColor="@color/text_secondary" />
-    </LinearLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:gravity="center_vertical" android:orientation="horizontal">
-        <com.google.android.material.textview.MaterialTextView android:layout_width="24dp" android:layout_height="wrap_content" android:gravity="center" android:text="B" android:textColor="@color/text_secondary" android:textStyle="bold" />
-        <com.google.android.material.slider.Slider android:id="@+id/seek_color_blue" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" style="@style/SettingsSlider" android:valueFrom="0" android:valueTo="255" android:value="255" android:stepSize="1" android:contentDescription="蓝色分量" />
-        <com.google.android.material.textview.MaterialTextView android:id="@+id/color_blue_value" android:layout_width="38dp" android:layout_height="wrap_content" android:gravity="end" android:text="255" android:textColor="@color/text_secondary" />
-    </LinearLayout>
-</LinearLayout>
+</androidx.core.widget.NestedScrollView>

@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <item type="id" name="home_player_card" />
-    <item type="id" name="home_empty_detail" />
     <item type="id" name="home_more_sheet" />
     <item type="id" name="home_more_settings" />
     <item type="id" name="home_lyrics_scroll" />

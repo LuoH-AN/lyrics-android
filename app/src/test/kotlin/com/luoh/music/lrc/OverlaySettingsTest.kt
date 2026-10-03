@@ -47,6 +47,17 @@ class OverlaySettingsTest {
         view.viewTreeObserver.dispatchOnPreDraw()
     }
 
+    @Test fun percentagesPreserveEveryStoredFontWeight() {
+        assertEquals(100, OverlayAppearance.weightToPercent(400))
+        for (weight in 300..900 step 100) {
+            val percent = OverlayAppearance.weightToPercent(weight)
+            assertEquals(weight / 4, percent)
+            assertEquals(weight, OverlayAppearance.percentToWeight(percent))
+        }
+        assertEquals(300, OverlayAppearance.percentToWeight(Int.MIN_VALUE))
+        assertEquals(900, OverlayAppearance.percentToWeight(Int.MAX_VALUE))
+    }
+
     @Test fun fontWeightIsNormalizedAndRestoredInTheActualPreview() {
         assertEquals(300, OverlayAppearance.normalizeWeight(-1))
         assertEquals(700, OverlayAppearance.normalizeWeight(651))
@@ -56,6 +67,11 @@ class OverlaySettingsTest {
         try {
             val activity = controller.get()
             val slider = activity.findViewById<Slider>(R.id.seek_font_weight)
+            assertEquals(75f, slider.valueFrom, 0f)
+            assertEquals(225f, slider.valueTo, 0f)
+            assertEquals(25f, slider.stepSize, 0f)
+            assertEquals(100f, slider.value, 0f)
+            assertEquals("100%", activity.findViewById<TextView>(R.id.font_weight_value).text.toString())
             slider.requestFocus()
             slider.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_RIGHT))
             assertEquals(500, preferences().getInt(LyricsOverlayService.PREF_FONT_WEIGHT, 0))
@@ -65,8 +81,41 @@ class OverlaySettingsTest {
         } finally { controller.destroy() }
         val restored = Robolectric.buildActivity(SettingsActivity::class.java).create()
         try {
-            assertEquals(500f, restored.get().findViewById<Slider>(R.id.seek_font_weight).value, 0f)
+            assertEquals(125f, restored.get().findViewById<Slider>(R.id.seek_font_weight).value, 0f)
+            assertEquals("125%", restored.get().findViewById<TextView>(R.id.font_weight_value).text.toString())
         } finally { restored.destroy() }
+    }
+
+    @Test fun synchronizationKeepsItsGuardsWithoutTheHelperLine() {
+        preferences().edit().clear().commit()
+        val empty = Robolectric.buildActivity(SettingsActivity::class.java).create()
+        try {
+            val activity = empty.get()
+            for (id in listOf(R.id.offset_earlier, R.id.offset_later, R.id.offset_reset)) {
+                assertFalse(activity.findViewById<View>(id).isEnabled)
+            }
+            val labels = texts(activity.findViewById(android.R.id.content)).map { it.text.toString() }
+            assertTrue(labels.containsAll(listOf("上文", "下文")))
+            assertFalse(labels.contains("播放一首歌后，可为这首歌单独校准"))
+        } finally { empty.destroy() }
+
+        val identity = "song-and-artist"
+        val source = "QQ音乐"
+        val key = LyricsOverlayService.lyricOffsetPreferenceKey(identity, source)
+        preferences().edit().putString(LyricsOverlayService.PREF_ACTIVE_LYRIC_IDENTITY, identity)
+            .putString(LyricsOverlayService.PREF_ACTIVE_LYRIC_SOURCE, source)
+            .putString(LyricsOverlayService.PREF_ACTIVE_LYRIC_TITLE, "Song").commit()
+        val active = Robolectric.buildActivity(SettingsActivity::class.java).create()
+        try {
+            val activity = active.get()
+            assertTrue(activity.findViewById<View>(R.id.offset_earlier).isEnabled)
+            assertTrue(activity.findViewById<View>(R.id.offset_later).isEnabled)
+            activity.findViewById<View>(R.id.offset_earlier).performClick()
+            assertEquals(100, preferences().getInt(key, 0))
+            assertTrue(activity.findViewById<View>(R.id.offset_reset).isEnabled)
+            activity.findViewById<View>(R.id.offset_reset).performClick()
+            assertEquals(0, preferences().getInt(key, -1))
+        } finally { active.destroy() }
     }
 
     @Test fun translationModeChangesThePreviewWithoutChangingItsDocument() {
@@ -158,7 +207,7 @@ class OverlaySettingsTest {
                 assertSame(activity, controller.get())
                 assertEquals(mode, activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
                 assertEquals(scrollY, activity.findViewById<NestedScrollView>(R.id.settings_scroll).scrollY)
-                assertEquals(800f, activity.findViewById<Slider>(R.id.seek_font_weight).value, 0f)
+                assertEquals(200f, activity.findViewById<Slider>(R.id.seek_font_weight).value, 0f)
                 assertEquals(ContextCompat.getColor(activity, R.color.text_secondary),
                     activity.findViewById<TextView>(R.id.font_size_value).currentTextColor)
                 assertEquals(ContextCompat.getColor(activity, R.color.control_active),

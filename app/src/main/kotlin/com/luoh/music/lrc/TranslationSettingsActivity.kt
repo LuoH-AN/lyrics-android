@@ -155,7 +155,6 @@ class TranslationSettingsActivity : AppCompatActivity() {
             currentApiProfileId = TranslationApiProfiles.find(this, prefs.getString("active_api_profile", null)).id
         }
         val content = NativeUi.screen(this, "补充翻译")
-        content.addView(label("双语只控制显示；需要机翻时，请选择下面的补充方式。", 12f))
         lastTranslationStatus = label("", 12f).apply {
             visibility = View.GONE
             accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE

@@ -75,8 +75,23 @@ class HomeLyricsMotionIntegrationTest {
         animator.currentPlayTime = 120L
     }
 
-    private fun advanceFrames() = repeat(64) {
+    private fun advanceFrames(count: Int = 64) = repeat(count) {
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(16))
+    }
+
+    private fun touch(action: Int, downTime: Long) {
+        val event = MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), action, 8f, 100f, 0)
+        try {
+            scroll.dispatchTouchEvent(event)
+        } finally {
+            event.recycle()
+        }
+    }
+
+    private fun target(index: Int): Int {
+        val row = track.getChildAt(index)
+        return (row.top + row.height / 2 - (scroll.height * .42f).toInt())
+            .coerceIn(0, (track.height - scroll.height).coerceAtLeast(0))
     }
 
     private fun assertResting() {
@@ -113,14 +128,56 @@ class HomeLyricsMotionIntegrationTest {
         up.recycle()
     }
 
+    private fun assertHeldLyricsResumeAfterRelease(endAction: Int) {
+        startTransition()
+        val downTime = SystemClock.uptimeMillis()
+        touch(MotionEvent.ACTION_DOWN, downTime)
+        assertResting()
+        scroll.scrollTo(0, scroll.scrollY + 20)
+        val manual = scroll.scrollY
+        advanceFrames(320)
+        home.setSnapshot(snapshot.copy(positionMs = 6000L))
+        assertEquals("Holding still beyond four seconds must not resume following", manual, scroll.scrollY)
+        assertResting()
+
+        touch(endAction, downTime)
+        advanceFrames(200)
+        assertEquals("The full browse grace period starts after release", manual, scroll.scrollY)
+        assertResting()
+        advanceFrames(128)
+        assertEquals("Following resumes once the release grace period expires", target(3), scroll.scrollY)
+        assertResting()
+    }
+
+    @Test fun holdingLyricsWaitsUntilFourSecondsAfterFingerUp() =
+        assertHeldLyricsResumeAfterRelease(MotionEvent.ACTION_UP)
+
+    @Test fun cancelledLyricTouchStartsTheSameBrowseGracePeriod() =
+        assertHeldLyricsResumeAfterRelease(MotionEvent.ACTION_CANCEL)
+
     @Test fun clickingALyricSeeksWithoutKeepingOldMotion() {
         startTransition()
+        val downTime = SystemClock.uptimeMillis()
+        touch(MotionEvent.ACTION_DOWN, downTime)
         track.getChildAt(8).performClick()
+        touch(MotionEvent.ACTION_UP, downTime)
         val target = scroll.scrollY
         assertResting()
         assertEquals(1f, track.getChildAt(8).alpha, 0f)
         advanceFrames()
         assertEquals(target, scroll.scrollY)
+        assertResting()
+        home.setSnapshot(snapshot.copy(positionMs = 18000L))
+        assertTrue("ACTION_UP must not delay following after an explicit lyric seek", motion().isRunning)
+    }
+
+    @Test fun pausingHomeClearsAHeldGestureBeforeFollowingAgain() {
+        startTransition()
+        touch(MotionEvent.ACTION_DOWN, SystemClock.uptimeMillis())
+        home.setActive(false)
+        home.setActive(true)
+        home.setSnapshot(snapshot.copy(positionMs = 6000L))
+        assertEquals(target(3), scroll.scrollY)
         assertResting()
     }
 
@@ -133,11 +190,17 @@ class HomeLyricsMotionIntegrationTest {
         assertEquals(1, track.childCount)
     }
 
-    @Test fun detachingHomeCancelsMotion() {
+    @Test fun detachingHomeCancelsMotionAndClearsAHeldGesture() {
         startTransition()
-        (home.parent as ViewGroup).removeView(home)
+        touch(MotionEvent.ACTION_DOWN, SystemClock.uptimeMillis())
+        val parent = home.parent as ViewGroup
+        parent.removeView(home)
         assertResting()
         advanceFrames()
+        assertResting()
+        parent.addView(home)
+        home.setSnapshot(snapshot.copy(positionMs = 6000L))
+        assertEquals(target(3), scroll.scrollY)
         assertResting()
     }
 }

@@ -8,7 +8,6 @@ import android.content.BroadcastReceiver
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -59,7 +58,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var seekFontWeight: Slider
     private lateinit var fontWeightValue: TextView
     private lateinit var lyricOffsetValue: TextView
-    private lateinit var lyricOffsetScope: TextView
+    private var colorPicker: LyricColorPickerDialog? = null
     private lateinit var offsetEarlier: MaterialButton
     private lateinit var offsetLater: MaterialButton
     private lateinit var offsetReset: MaterialButton
@@ -105,11 +104,15 @@ class SettingsActivity : AppCompatActivity() {
             pendingThemeScrollY = findViewById<NestedScrollView>(R.id.settings_scroll).scrollY
             pendingThemeFocusId = currentFocus?.id ?: View.NO_ID
         }
+        val colorDraft = colorPicker?.takeIf { it.isShowing }?.draft
+        colorPicker?.dismiss()
+        colorPicker = null
         themeTransition.capture()
         appliedNightMode = night
         super.onConfigurationChanged(newConfig)
         theme.applyStyle(R.style.Theme_DesktopLyrics, true)
         bindContent()
+        if (colorDraft != null) showColorPickerDialog(colorDraft)
         ThemePrefs.updateSystemBars(this)
         themeTransition.finish {
             if (pendingThemeFocusId != View.NO_ID) findViewById<View>(pendingThemeFocusId)?.requestFocus()
@@ -120,6 +123,8 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        colorPicker?.dismiss()
+        colorPicker = null
         if (::themeTransition.isInitialized) themeTransition.dispose()
         super.onDestroy()
     }
@@ -143,7 +148,6 @@ class SettingsActivity : AppCompatActivity() {
         seekFontWeight = findViewById(R.id.seek_font_weight)
         fontWeightValue = findViewById(R.id.font_weight_value)
         lyricOffsetValue = findViewById(R.id.lyric_offset_value)
-        lyricOffsetScope = findViewById(R.id.lyric_offset_scope)
         offsetEarlier = findViewById(R.id.offset_earlier)
         offsetLater = findViewById(R.id.offset_later)
         offsetReset = findViewById(R.id.offset_reset)
@@ -208,7 +212,7 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         seekFontWeight.addOnChangeListener { _, value, fromUser ->
-            if (fromUser) setFontWeight(value.toInt())
+            if (fromUser) setFontWeight(OverlayAppearance.percentToWeight(value.toInt()))
         }
 
         // 正偏移让歌词提前，用自然语言操作，不要求用户理解正负号。
@@ -495,9 +499,9 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun updateFontWeightUi() {
-        val weight = fontWeight()
-        fontWeightValue.text = weight.toString()
-        seekFontWeight.value = weight.toFloat()
+        val percent = OverlayAppearance.weightToPercent(fontWeight())
+        fontWeightValue.text = "$percent%"
+        seekFontWeight.value = percent.toFloat()
     }
 
     // ---------- 歌词同步 ----------
@@ -528,12 +532,10 @@ class SettingsActivity : AppCompatActivity() {
     private fun updateLyricOffsetUi() {
         val identity = overlayPrefs.getString(LyricsOverlayService.PREF_ACTIVE_LYRIC_IDENTITY, "").orEmpty()
         val source = overlayPrefs.getString(LyricsOverlayService.PREF_ACTIVE_LYRIC_SOURCE, "").orEmpty()
-        val title = overlayPrefs.getString(LyricsOverlayService.PREF_ACTIVE_LYRIC_TITLE, "").orEmpty()
         val available = identity.isNotBlank() && source.isNotBlank()
         val value = if (available) overlayPrefs.getInt(
             LyricsOverlayService.lyricOffsetPreferenceKey(identity, source), 0
         ) else 0
-        lyricOffsetScope.text = if (available) "《${title.ifBlank { "当前歌曲" }}》 · $source" else "播放一首歌后，可为这首歌单独校准"
         showLyricOffset(value, available)
     }
 
@@ -619,49 +621,12 @@ class SettingsActivity : AppCompatActivity() {
         options.forEach { (option, value) -> option.isChecked = value == selected }
     }
 
-    // ---------- 无级调色对话框（沿用旧布局） ----------
-    private fun showColorPickerDialog() {
-        val picker = layoutInflater.inflate(R.layout.dialog_color_picker, null)
-        val preview = picker.findViewById<TextView>(R.id.color_picker_preview)
-        val red = picker.findViewById<Slider>(R.id.seek_color_red)
-        val green = picker.findViewById<Slider>(R.id.seek_color_green)
-        val blue = picker.findViewById<Slider>(R.id.seek_color_blue)
-        val redValue = picker.findViewById<TextView>(R.id.color_red_value)
-        val greenValue = picker.findViewById<TextView>(R.id.color_green_value)
-        val blueValue = picker.findViewById<TextView>(R.id.color_blue_value)
-        val initialHex = overlayPrefs.getString(lyricColorPreferenceKey(), expandedLyricColor())
-            .orEmpty().takeIf { Regex("^#[0-9A-Fa-f]{6}$").matches(it) }
-            ?: LyricsOverlayService.LYRIC_COLOR_DEFAULT
-        val initial = Color.parseColor(initialHex)
-        red.value = Color.red(initial).toFloat()
-        green.value = Color.green(initial).toFloat()
-        blue.value = Color.blue(initial).toFloat()
-        var selectedHex = initialHex.uppercase(java.util.Locale.ROOT)
-
-        fun updatePreview() {
-            val r = red.value.toInt(); val g = green.value.toInt(); val b = blue.value.toInt()
-            selectedHex = String.format(java.util.Locale.ROOT, "#%02X%02X%02X", r, g, b)
-            redValue.text = r.toString(); greenValue.text = g.toString(); blueValue.text = b.toString()
-            preview.text = selectedHex
-            preview.setTextColor(if (r * 299 + g * 587 + b * 114 > 150_000) Color.BLACK else Color.WHITE)
-            preview.background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = 13f * resources.displayMetrics.density
-                setColor(Color.rgb(r, g, b))
-                setStroke((resources.displayMetrics.density + .5f).toInt(), Color.parseColor("#33808080"))
-            }
-        }
-
-        listOf(red, green, blue).forEach { slider ->
-            slider.addOnChangeListener { _, _, _ -> updatePreview() }
-        }
-        updatePreview()
-        MaterialAlertDialogBuilder(this)
-            .setTitle("歌词颜色")
-            .setView(picker)
-            .setNegativeButton("取消", null)
-            .setPositiveButton("应用") { _, _ -> setLyricColor(selectedHex) }
-            .show()
+    // ---------- 调色板 ----------
+    private fun showColorPickerDialog(draft: String? = null) {
+        colorPicker?.dismiss()
+        colorPicker = LyricColorPickerDialog(this,
+            overlayPrefs.getString(lyricColorPreferenceKey(), expandedLyricColor()).orEmpty(),
+            draft, ::setLyricColor).also { it.show() }
     }
 
     // ---------- 更新检查 ----------
