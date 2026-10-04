@@ -337,10 +337,13 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         clock.sync(value.positionMs, value.playing, value.speed, forcePosition)
         song.text = value.track.ifBlank { "暂未播放" }
         if (value.cover != null) {
+            cover.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
             cover.imageTintList = null
             cover.setPadding(0, 0, 0, 0)
             cover.setImageBitmap(value.cover)
         } else {
+            // 占位图标必须完整可见，不能随容器纵横比被裁切。
+            cover.scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
             cover.setImageResource(R.drawable.ic_home_music)
             cover.imageTintList = ColorStateList.valueOf(color(R.color.text_secondary))
             cover.setPadding(dp(17), dp(17), dp(17), dp(17))
