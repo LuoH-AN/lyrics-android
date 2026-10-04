@@ -16,7 +16,7 @@ internal class HomeLyricMotion(
     private val rows: List<LyricLineView>,
     private val animationsEnabled: () -> Boolean = { ValueAnimator.areAnimatorsEnabled() }
 ) {
-    var mode: String = HomeMotionPrefs.FULL
+    var style: MotionStyle = MotionStyle()
     private var animator: ValueAnimator? = null
     private var focusedIndex = -1
     private var depthEnabled = false
@@ -39,11 +39,11 @@ internal class HomeLyricMotion(
     fun moveTo(index: Int, targetScrollY: Int?, animate: Boolean) {
         stopAnimator()
         focusedIndex = index
-        depthEnabled = targetScrollY != null && mode == HomeMotionPrefs.FULL
+        depthEnabled = targetScrollY != null && style.depthBlur
         val startScroll = scroll.scrollY
         val maxScroll = max(0, (scroll.getChildAt(0)?.height ?: 0) - scroll.height)
         val target = targetScrollY?.coerceIn(0, maxScroll) ?: startScroll
-        val animated = animate && mode != HomeMotionPrefs.OFF
+        val animated = animate && style.easedScroll
         if (!animated || !animationsEnabled() || scroll.height == 0 || abs(target - startScroll) > scroll.height) {
             if (targetScrollY != null) scroll.scrollTo(0, target)
             settleRows()
@@ -60,10 +60,10 @@ internal class HomeLyricMotion(
                 settleRow(i, row)
                 null
             } else RowStart(row, row.scaleX, row.alpha, row.translationY, depthBlur.radiusOf(row),
-                scale(distance), opacity(distance), if (depthEnabled) LyricDepthBlur.radiusForDistance(distance) else 0f,
-                if (targetScrollY == null || mode != HomeMotionPrefs.FULL) 0L else min(distance, 4) * 42L)
+                scale(distance), opacity(distance), targetBlur(distance, depthEnabled),
+                if (targetScrollY == null || !style.stagger) 0L else min(distance, 4) * style.staggerDelayMs.toLong())
         }
-        val transitionDuration = 900L
+        val transitionDuration = style.scrollDurationMs.toLong()
         val durationMs = transitionDuration + (starts.maxOfOrNull { it.delayMs } ?: 0L)
         val motion = ValueAnimator.ofFloat(0f, durationMs.toFloat()).apply {
             duration = durationMs
@@ -125,16 +125,20 @@ internal class HomeLyricMotion(
         row.alpha = opacity(distance)
         val nearViewport = row.bottom >= scroll.scrollY - scroll.height / 4 &&
             row.top <= scroll.scrollY + scroll.height * 5 / 4
-        depthBlur.setRadius(row, if (depthEnabled && nearViewport) LyricDepthBlur.radiusForDistance(distance) else 0f)
+        depthBlur.setRadius(row, if (depthEnabled && nearViewport) targetBlur(distance, true) else 0f)
     }
 
     private fun distance(index: Int) = if (focusedIndex < 0) index + 1 else abs(index - focusedIndex)
-    private fun scale(distance: Int) = when {
-        mode != HomeMotionPrefs.FULL -> 1f
-        distance == 0 -> 1f
-        distance == 1 -> .95f
-        distance == 2 -> .92f
-        else -> .9f
+
+    /** 远景模糊半径 = 距离档位 × 强度百分比。 */
+    private fun targetBlur(distance: Int, enabled: Boolean): Float =
+        if (enabled) LyricDepthBlur.radiusForDistance(distance) * style.blurPercent / 100f else 0f
+
+    /** 行间缩放 = 距离档位向静止值收缩的幅度 × 强度百分比。 */
+    private fun scale(distance: Int): Float {
+        if (!style.scale || distance == 0) return 1f
+        val resting = when (distance) { 1 -> .95f; 2 -> .92f; else -> .9f }
+        return 1f - (1f - resting) * style.scalePercent / 100f
     }
     private fun opacity(distance: Int) = when (distance) { 0 -> 1f; 1 -> .78f; 2 -> .62f; 3 -> .48f; else -> .36f }
 }

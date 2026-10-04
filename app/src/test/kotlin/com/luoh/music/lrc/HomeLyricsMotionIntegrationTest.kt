@@ -181,15 +181,25 @@ class HomeLyricsMotionIntegrationTest {
         assertResting()
     }
 
-    @Test fun motionModeFromSettingsDrivesTheHomeView() {
-        home.setMotionMode(HomeMotionPrefs.OFF)
+    @Test fun motionStyleFromSettingsDrivesTheHomeView() {
+        home.setMotionStyle(MotionStyle(easedScroll = false, stagger = false, scale = false, depthBlur = false))
         home.setSnapshot(snapshot.copy(positionMs = 4000L))
         assertFalse("关闭动效后切行不再播放动画", motion().isRunning)
         assertEquals(target(2), scroll.scrollY)
         assertEquals(1f, track.getChildAt(1).scaleX, .001f)
-        home.setMotionMode(HomeMotionPrefs.FULL)
+        home.setMotionStyle(MotionStyle())
         home.setSnapshot(snapshot.copy(positionMs = 6000L))
         assertTrue("恢复完整动效后切行重新播放动画", motion().isRunning)
+    }
+
+    @Test fun disablingOnlyTheScrollEasingSnapsWhileKeepingRowStyling() {
+        home.setMotionStyle(MotionStyle(easedScroll = false))
+        home.setSnapshot(snapshot.copy(positionMs = 6000L))
+        assertFalse("关掉缓动后切行直接跳转", motion().isRunning)
+        assertEquals(target(3), scroll.scrollY)
+        home.setMotionStyle(MotionStyle(stagger = false))
+        home.setSnapshot(snapshot.copy(positionMs = 8000L))
+        assertTrue("只关逐行错位时仍保留滚动动画", motion().isRunning)
     }
 
     @Test fun replacingLyricsCancelsOldRows() {

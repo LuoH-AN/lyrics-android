@@ -120,16 +120,78 @@ class OverlaySettingsTest {
         } finally { active.destroy() }
     }
 
-    @Test fun homeMotionModePersistsAcrossSettingsRecreation() {
+    @Test fun homeMotionSwitchesPersistAcrossSettingsRecreation() {
         ApplicationProvider.getApplicationContext<Context>()
             .getSharedPreferences(HomeMotionPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
         val first = Robolectric.buildActivity(SettingsActivity::class.java).create().get()
-        assertTrue(first.findViewById<com.google.android.material.button.MaterialButton>(R.id.home_motion_full).isChecked)
-        first.findViewById<com.google.android.material.button.MaterialButton>(R.id.home_motion_off).performClick()
+        assertTrue(first.motionSwitch(R.id.home_motion_scroll_easing).isChecked)
+        assertTrue(first.motionSwitch(R.id.home_motion_stagger).isChecked)
+        assertTrue(first.motionSwitch(R.id.home_motion_scale).isChecked)
+        assertTrue(first.motionSwitch(R.id.home_motion_depth_blur).isChecked)
+        first.motionSwitch(R.id.home_motion_scale).performClick()
+        first.motionSwitch(R.id.home_motion_depth_blur).performClick()
         val restored = Robolectric.buildActivity(SettingsActivity::class.java).create().get()
-        assertTrue(restored.findViewById<com.google.android.material.button.MaterialButton>(R.id.home_motion_off).isChecked)
-        assertFalse(restored.findViewById<com.google.android.material.button.MaterialButton>(R.id.home_motion_full).isChecked)
+        assertFalse(restored.motionSwitch(R.id.home_motion_scale).isChecked)
+        assertFalse(restored.motionSwitch(R.id.home_motion_depth_blur).isChecked)
+        assertTrue(restored.motionSwitch(R.id.home_motion_stagger).isChecked)
     }
+
+    @Test fun legacyMotionModeMigratesToIndependentSwitches() {
+        val prefs = ApplicationProvider.getApplicationContext<Context>()
+            .getSharedPreferences(HomeMotionPrefs.PREFS, Context.MODE_PRIVATE)
+        prefs.edit().clear().putString("motion_mode", "reduced").commit()
+        val activity = Robolectric.buildActivity(SettingsActivity::class.java).create().get()
+        assertTrue(activity.motionSwitch(R.id.home_motion_scroll_easing).isChecked)
+        assertFalse(activity.motionSwitch(R.id.home_motion_stagger).isChecked)
+        assertFalse(activity.motionSwitch(R.id.home_motion_scale).isChecked)
+        assertFalse(activity.motionSwitch(R.id.home_motion_depth_blur).isChecked)
+    }
+
+    @Test fun motionNumericControlsRestoreSavedValues() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences(HomeMotionPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+        HomeMotionPrefs.save(
+            context,
+            MotionStyle(scrollDurationMs = 500, staggerDelayMs = 90, scalePercent = 60, blurPercent = 40)
+        )
+        val activity = Robolectric.buildActivity(SettingsActivity::class.java).create().get()
+        assertEquals(500f, activity.findViewById<Slider>(R.id.home_motion_scroll_duration).value, .001f)
+        assertEquals(90f, activity.findViewById<Slider>(R.id.home_motion_stagger_delay).value, .001f)
+        assertEquals(60f, activity.findViewById<Slider>(R.id.home_motion_scale_strength).value, .001f)
+        assertEquals(40f, activity.findViewById<Slider>(R.id.home_motion_blur_strength).value, .001f)
+        assertEquals("500ms", activity.findViewById<TextView>(R.id.home_motion_scroll_value).text.toString())
+        assertEquals("90ms", activity.findViewById<TextView>(R.id.home_motion_stagger_value).text.toString())
+        assertEquals("60%", activity.findViewById<TextView>(R.id.home_motion_scale_value).text.toString())
+        assertEquals("40%", activity.findViewById<TextView>(R.id.home_motion_blur_value).text.toString())
+    }
+
+    @Test fun turningOffAnEffectDisablesItsSliderAndPersists() {
+        ApplicationProvider.getApplicationContext<Context>()
+            .getSharedPreferences(HomeMotionPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+        val activity = Robolectric.buildActivity(SettingsActivity::class.java).create().get()
+        val duration = activity.findViewById<Slider>(R.id.home_motion_scroll_duration)
+        assertTrue(duration.isEnabled)
+        activity.motionSwitch(R.id.home_motion_scroll_easing).performClick()
+        assertFalse(activity.motionSwitch(R.id.home_motion_scroll_easing).isChecked)
+        assertFalse("关掉效果后对应数值不可调", duration.isEnabled)
+        val restored = Robolectric.buildActivity(SettingsActivity::class.java).create().get()
+        assertFalse(restored.motionSwitch(R.id.home_motion_scroll_easing).isChecked)
+        assertFalse(restored.findViewById<Slider>(R.id.home_motion_scroll_duration).isEnabled)
+    }
+
+    @Test fun motionPreviewAndStrengthRangesAreWired() {
+        val activity = Robolectric.buildActivity(SettingsActivity::class.java).create().get()
+        assertNotNull(activity.findViewById<HomeMotionPreview>(R.id.home_motion_preview))
+        assertEquals(200f, activity.findViewById<Slider>(R.id.home_motion_scale_strength).valueTo, .001f)
+        assertEquals(200f, activity.findViewById<Slider>(R.id.home_motion_blur_strength).valueTo, .001f)
+        assertEquals(200, MotionStyle.PERCENT_MAX)
+        // 预览与主页共用同一套动效实现，套用样式不应抛错。
+        activity.findViewById<HomeMotionPreview>(R.id.home_motion_preview)
+            .applyStyle(MotionStyle(blurPercent = 200, scalePercent = 200))
+    }
+
+    private fun SettingsActivity.motionSwitch(id: Int) =
+        findViewById<com.google.android.material.materialswitch.MaterialSwitch>(id)
 
     @Test fun translationModeChangesThePreviewWithoutChangingItsDocument() {
         preferences().edit().clear().commit()

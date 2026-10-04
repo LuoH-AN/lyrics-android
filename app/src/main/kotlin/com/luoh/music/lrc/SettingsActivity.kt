@@ -39,9 +39,6 @@ class SettingsActivity : AppCompatActivity() {
     private val appPrefs by lazy {
         getSharedPreferences(ThemePrefs.PREFS, Context.MODE_PRIVATE)
     }
-    private val motionPrefs by lazy {
-        getSharedPreferences(HomeMotionPrefs.PREFS, Context.MODE_PRIVATE)
-    }
 
     private lateinit var listenerState: TextView
     private lateinit var overlayState: TextView
@@ -53,9 +50,20 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var themeFollow: MaterialButton
     private lateinit var themeLight: MaterialButton
     private lateinit var themeDark: MaterialButton
-    private lateinit var motionFull: MaterialButton
-    private lateinit var motionReduced: MaterialButton
-    private lateinit var motionOff: MaterialButton
+    private lateinit var motionEasedScroll: MaterialSwitch
+    private lateinit var motionDuration: Slider
+    private lateinit var motionDurationValue: TextView
+    private lateinit var motionStagger: MaterialSwitch
+    private lateinit var motionStaggerDelay: Slider
+    private lateinit var motionStaggerValue: TextView
+    private lateinit var motionScale: MaterialSwitch
+    private lateinit var motionScaleStrength: Slider
+    private lateinit var motionScaleValue: TextView
+    private lateinit var motionDepthBlur: MaterialSwitch
+    private lateinit var motionBlurStrength: Slider
+    private lateinit var motionBlurValue: TextView
+    private lateinit var motionPreview: HomeMotionPreview
+    private var updatingMotionControls = false
     private lateinit var backgroundModeTransparent: MaterialButton
     private lateinit var backgroundModeLow: MaterialButton
     private lateinit var backgroundModeHigh: MaterialButton
@@ -146,9 +154,19 @@ class SettingsActivity : AppCompatActivity() {
         themeFollow = findViewById(R.id.theme_follow)
         themeLight = findViewById(R.id.theme_light)
         themeDark = findViewById(R.id.theme_dark)
-        motionFull = findViewById(R.id.home_motion_full)
-        motionReduced = findViewById(R.id.home_motion_reduced)
-        motionOff = findViewById(R.id.home_motion_off)
+        motionEasedScroll = findViewById(R.id.home_motion_scroll_easing)
+        motionDuration = findViewById(R.id.home_motion_scroll_duration)
+        motionDurationValue = findViewById(R.id.home_motion_scroll_value)
+        motionStagger = findViewById(R.id.home_motion_stagger)
+        motionStaggerDelay = findViewById(R.id.home_motion_stagger_delay)
+        motionStaggerValue = findViewById(R.id.home_motion_stagger_value)
+        motionScale = findViewById(R.id.home_motion_scale)
+        motionScaleStrength = findViewById(R.id.home_motion_scale_strength)
+        motionScaleValue = findViewById(R.id.home_motion_scale_value)
+        motionDepthBlur = findViewById(R.id.home_motion_depth_blur)
+        motionBlurStrength = findViewById(R.id.home_motion_blur_strength)
+        motionBlurValue = findViewById(R.id.home_motion_blur_value)
+        motionPreview = findViewById(R.id.home_motion_preview)
         backgroundModeTransparent = findViewById(R.id.background_mode_transparent)
         backgroundModeLow = findViewById(R.id.background_mode_low)
         backgroundModeHigh = findViewById(R.id.background_mode_high)
@@ -205,10 +223,39 @@ class SettingsActivity : AppCompatActivity() {
         themeLight.setOnClickListener { setTheme(ThemePrefs.LIGHT) }
         themeDark.setOnClickListener { setTheme(ThemePrefs.DARK) }
 
-        // 主页歌词动效
-        motionFull.setOnClickListener { setHomeMotionMode(HomeMotionPrefs.FULL) }
-        motionReduced.setOnClickListener { setHomeMotionMode(HomeMotionPrefs.REDUCED) }
-        motionOff.setOnClickListener { setHomeMotionMode(HomeMotionPrefs.OFF) }
+        // 主页歌词动效：每项效果独立开关 + 数值
+        motionEasedScroll.setOnCheckedChangeListener { _, value ->
+            saveMotion { it.copy(easedScroll = value) }
+            motionDuration.isEnabled = value
+        }
+        motionStagger.setOnCheckedChangeListener { _, value ->
+            saveMotion { it.copy(stagger = value) }
+            motionStaggerDelay.isEnabled = value
+        }
+        motionScale.setOnCheckedChangeListener { _, value ->
+            saveMotion { it.copy(scale = value) }
+            motionScaleStrength.isEnabled = value
+        }
+        motionDepthBlur.setOnCheckedChangeListener { _, value ->
+            saveMotion { it.copy(depthBlur = value) }
+            motionBlurStrength.isEnabled = value
+        }
+        motionDuration.addOnChangeListener { _, value, fromUser ->
+            motionDurationValue.text = "${value.toInt()}ms"
+            if (fromUser) saveMotion { it.copy(scrollDurationMs = value.toInt()) }
+        }
+        motionStaggerDelay.addOnChangeListener { _, value, fromUser ->
+            motionStaggerValue.text = "${value.toInt()}ms"
+            if (fromUser) saveMotion { it.copy(staggerDelayMs = value.toInt()) }
+        }
+        motionScaleStrength.addOnChangeListener { _, value, fromUser ->
+            motionScaleValue.text = "${value.toInt()}%"
+            if (fromUser) saveMotion { it.copy(scalePercent = value.toInt()) }
+        }
+        motionBlurStrength.addOnChangeListener { _, value, fromUser ->
+            motionBlurValue.text = "${value.toInt()}%"
+            if (fromUser) saveMotion { it.copy(blurPercent = value.toInt()) }
+        }
 
         // 背景：透明 / 半透明 / 不透明
         backgroundModeTransparent.setOnClickListener { setBackgroundMode(LyricsOverlayService.BACKGROUND_TRANSPARENT) }
@@ -325,6 +372,7 @@ class SettingsActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refreshAll()
+        motionPreview.start()
         overlayPrefs.registerOnSharedPreferenceChangeListener(offsetPreferenceListener)
         ContextCompat.registerReceiver(
             this, overlayStateReceiver, IntentFilter(LyricsOverlayService.ACTION_STATE_CHANGED),
@@ -333,6 +381,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
+        motionPreview.stop()
         overlayPrefs.unregisterOnSharedPreferenceChangeListener(offsetPreferenceListener)
         unregisterReceiver(overlayStateReceiver)
         super.onPause()
@@ -373,21 +422,35 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     // ---------- 主页歌词动效 ----------
-    private fun setHomeMotionMode(mode: String) {
-        if (HomeMotionPrefs.normalize(motionPrefs.getString(HomeMotionPrefs.KEY, null)) == mode) return
-        motionPrefs.edit().putString(HomeMotionPrefs.KEY, mode).apply()
-        updateHomeMotionUi()
+    private fun saveMotion(transform: (MotionStyle) -> MotionStyle) {
+        if (updatingMotionControls) return
+        val style = transform(HomeMotionPrefs.style(this))
+        HomeMotionPrefs.save(this, style)
+        motionPreview.applyStyle(style)
     }
 
     private fun updateHomeMotionUi() {
-        applySeg(
-            listOf(
-                motionFull to HomeMotionPrefs.FULL,
-                motionReduced to HomeMotionPrefs.REDUCED,
-                motionOff to HomeMotionPrefs.OFF
-            ),
-            HomeMotionPrefs.normalize(motionPrefs.getString(HomeMotionPrefs.KEY, null))
-        )
+        val style = HomeMotionPrefs.style(this)
+        updatingMotionControls = true
+        motionEasedScroll.isChecked = style.easedScroll
+        motionStagger.isChecked = style.stagger
+        motionScale.isChecked = style.scale
+        motionDepthBlur.isChecked = style.depthBlur
+        motionDuration.value = style.scrollDurationMs.toFloat()
+        motionStaggerDelay.value = style.staggerDelayMs.toFloat()
+        motionScaleStrength.value = style.scalePercent.toFloat()
+        motionBlurStrength.value = style.blurPercent.toFloat()
+        updatingMotionControls = false
+        motionDurationValue.text = "${style.scrollDurationMs}ms"
+        motionStaggerValue.text = "${style.staggerDelayMs}ms"
+        motionScaleValue.text = "${style.scalePercent}%"
+        motionBlurValue.text = "${style.blurPercent}%"
+        // 效果关掉后对应的数值控件不可调，避免误解成仍在生效。
+        motionDuration.isEnabled = style.easedScroll
+        motionStaggerDelay.isEnabled = style.stagger
+        motionScaleStrength.isEnabled = style.scale
+        motionBlurStrength.isEnabled = style.depthBlur
+        motionPreview.applyStyle(style)
     }
 
     // ---------- 权限状态 ----------

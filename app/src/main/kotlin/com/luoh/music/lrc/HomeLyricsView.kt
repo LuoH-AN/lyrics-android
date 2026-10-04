@@ -77,7 +77,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     private var manualScrollUntil = 0L
     private var touchingLyrics = false
     private var menu: BottomSheetDialog? = null
-    private var motionMode = HomeMotionPrefs.FULL
+    private var motionStyle = MotionStyle()
     private val lyricRows = mutableListOf<LyricLineView>()
 
     private val playerCard = MaterialCardView(context).apply {
@@ -409,12 +409,11 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         renderFrame()
     }
 
-    /** 主页切行动效模式：完整 / 精简 / 关闭；变更后立即按新模式静置当前行。 */
-    fun setMotionMode(mode: String) {
-        val normalized = HomeMotionPrefs.normalize(mode)
-        if (normalized == motionMode) return
-        motionMode = normalized
-        lyricMotion.mode = normalized
+    /** 主页切行动效样式：每项效果独立开关与数值；变更后立即按新样式静置当前行。 */
+    fun setMotionStyle(style: MotionStyle) {
+        if (style == motionStyle) return
+        motionStyle = style
+        lyricMotion.style = style
         lyricMotion.cancel()
     }
 

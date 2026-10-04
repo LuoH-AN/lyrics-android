@@ -286,7 +286,7 @@ class HomeLyricMotionTest {
     }
 
     @Test fun reducedModeDropsScaleAndStaggerWhileKeepingTheEasedScroll() {
-        motion.mode = HomeMotionPrefs.REDUCED
+        motion.style = MotionStyle(stagger = false, scale = false, depthBlur = false)
         motion.cancel()
         val from = scroll.scrollY
         val target = target(3)
@@ -305,7 +305,7 @@ class HomeLyricMotionTest {
     @Test
     @Config(sdk = [31])
     fun reducedModeKeepsEveryRowSharp() {
-        motion.mode = HomeMotionPrefs.REDUCED
+        motion.style = MotionStyle(stagger = false, scale = false, depthBlur = false)
         motion.moveTo(3, target(3), animate = true)
         advanceTo(300L)
         rows.forEach { assertEquals(0f, depthBlur().radiusOf(it), 0f) }
@@ -313,7 +313,7 @@ class HomeLyricMotionTest {
     }
 
     @Test fun offModeSnapsWithoutAnimationAndKeepsStaticDimming() {
-        motion.mode = HomeMotionPrefs.OFF
+        motion.style = MotionStyle(easedScroll = false, stagger = false, scale = false, depthBlur = false)
         val target = target(3)
         motion.moveTo(3, target, animate = true)
         assertFalse("关闭动效不启动动画", motion.isRunning)
@@ -321,6 +321,83 @@ class HomeLyricMotionTest {
         rows.forEach { assertEquals(1f, it.scaleX, .001f) }
         assertEquals("关闭动效仍保留行间渐隐层级", .78f, rows[2].alpha, .001f)
         rows.forEach { assertEquals(0f, it.translationY, .001f) }
+    }
+
+    @Test fun customScrollDurationReplacesTheDefaultTimeline() {
+        motion.style = MotionStyle(scrollDurationMs = 400, stagger = false)
+        motion.cancel()
+        motion.moveTo(3, target(3), animate = true)
+        assertEquals(400L, animator().duration)
+        animator().end()
+        assertEquals(target(3), scroll.scrollY)
+        assertSettled(3)
+    }
+
+    @Test fun staggerDelayScalesTheRowLead() {
+        motion.style = MotionStyle(staggerDelayMs = 120)
+        motion.cancel()
+        motion.moveTo(3, target(3), animate = true)
+        assertTrue("更大的错位延迟应把总时长推到基准之上", animator().duration > 900L)
+        advanceTo(120L)
+        assertTrue("延迟越大，当前行越领先相邻行", rows[4].translationY > rows[3].translationY + 1f)
+        animator().end()
+        assertSettled(3)
+    }
+
+    @Test fun scaleStrengthScalesTheSettledShrink() {
+        motion.style = MotionStyle(scalePercent = 50)
+        motion.cancel()
+        motion.moveTo(3, target(3), animate = false)
+        assertEquals(1f, rows[3].scaleX, .001f)
+        assertEquals(.975f, rows[4].scaleX, .001f)
+        assertEquals(.975f, rows[2].scaleX, .001f)
+        assertEquals(.96f, rows[1].scaleX, .001f)
+        assertEquals(.95f, rows[0].scaleX, .001f)
+    }
+
+    @Test
+    @Config(sdk = [31])
+    fun blurStrengthScalesTheNativeRadius() {
+        motion.style = MotionStyle(blurPercent = 50)
+        motion.cancel()
+        motion.moveTo(2, target(2), animate = false)
+        assertEquals(0f, depthBlur().radiusOf(rows[3]), 0f)
+        assertEquals(.25f, depthBlur().radiusOf(rows[4]), .001f)
+        assertEquals(.5f, depthBlur().radiusOf(rows[5]), .001f)
+        assertEquals(1f, depthBlur().radiusOf(rows[6]), .001f)
+    }
+
+    @Test
+    @Config(sdk = [31])
+    fun depthBlurFadesLinesAboveTheFocusToo() {
+        motion.moveTo(4, target(4), animate = false)
+        val blur = depthBlur()
+        assertEquals("相邻上下行保持清晰", 0f, blur.radiusOf(rows[3]), 0f)
+        assertEquals(0f, blur.radiusOf(rows[5]), 0f)
+        assertEquals("上方第 2 行也要变糊", .375f, blur.radiusOf(rows[2]), 0f)
+        assertEquals("上下同距离的模糊一致", blur.radiusOf(rows[2]), blur.radiusOf(rows[6]), 0f)
+        assertEquals("更远的上方行糊得更重", 1f, blur.radiusOf(rows[1]), 0f)
+        assertEquals(blur.radiusOf(rows[1]), blur.radiusOf(rows[7]), 0f)
+        motion.cancel()
+    }
+
+    @Test fun scaleStrengthAboveDefaultShrinksNeighbouringRowsMore() {
+        motion.style = MotionStyle(scalePercent = 200)
+        motion.cancel()
+        motion.moveTo(3, target(3), animate = false)
+        assertEquals(1f, rows[3].scaleX, .001f)
+        assertEquals(.9f, rows[4].scaleX, .001f)
+        assertEquals(.84f, rows[1].scaleX, .001f)
+        assertEquals(.8f, rows[0].scaleX, .001f)
+    }
+
+    @Test
+    @Config(sdk = [31])
+    fun zeroStrengthBlurKeepsEveryRowSharp() {
+        motion.style = MotionStyle(blurPercent = 0)
+        motion.cancel()
+        motion.moveTo(2, target(2), animate = false)
+        rows.forEach { assertEquals(0f, depthBlur().radiusOf(it), 0f) }
     }
 
     @Test
@@ -347,17 +424,17 @@ class HomeLyricMotionTest {
         val blur = depthBlur()
         assertEquals(0f, blur.radiusOf(rows[2]), 0f)
         assertEquals(0f, blur.radiusOf(rows[3]), 0f)
-        assertEquals(0f, blur.radiusOf(rows[4]), 0f)
-        assertEquals(.625f, blur.radiusOf(rows[5]), 0f)
-        assertEquals(1.25f, blur.radiusOf(rows[6]), 0f)
+        assertEquals(.375f, blur.radiusOf(rows[4]), 0f)
+        assertEquals(1f, blur.radiusOf(rows[5]), 0f)
+        assertEquals(2f, blur.radiusOf(rows[6]), 0f)
         motion.moveTo(4, target(4), animate = true)
         assertEquals("A newly focused line must be sharp immediately", 0f, blur.radiusOf(rows[4]), 0f)
         advanceTo(120L)
-        rows.forEach { assertTrue(blur.radiusOf(it) in 0f..1.25f) }
+        rows.forEach { assertTrue(blur.radiusOf(it) in 0f..LyricDepthBlur.MAX_RADIUS_DP) }
         motion.cancel()
         rows.forEach { assertEquals(0f, blur.radiusOf(it), 0f) }
         motion.moveTo(4, target(4), animate = false)
-        assertEquals(0f, blur.radiusOf(rows[6]), 0f)
+        assertEquals(.375f, blur.radiusOf(rows[6]), 0f)
         assertTrue(blur.radiusOf(rows[7]) > 0f)
         motion.moveTo(5, null, animate = true)
         rows.forEach { assertEquals(0f, blur.radiusOf(it), 0f) }

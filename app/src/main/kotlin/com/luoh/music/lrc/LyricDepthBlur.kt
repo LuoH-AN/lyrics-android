@@ -36,12 +36,14 @@ internal class LyricDepthBlur {
 
     companion object {
         private const val STEP_DP = .125f
-        const val MAX_RADIUS_DP = 1.25f
+        const val MAX_RADIUS_DP = 4f
 
+        /** 与当前行的距离（上下对称）：第 2 行起开始变糊，越远越糊。 */
         fun radiusForDistance(distance: Int): Float = when {
-            distance < 3 -> 0f
-            distance == 3 -> .625f
-            else -> MAX_RADIUS_DP
+            distance < 2 -> 0f
+            distance == 2 -> .375f
+            distance == 3 -> 1f
+            else -> 2f
         }
     }
 }

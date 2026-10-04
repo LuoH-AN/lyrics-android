@@ -608,7 +608,7 @@ class MainActivity : AppCompatActivity() {
             LyricsOverlayService.PREF_TRANSLATION_MODE, LyricsOverlayService.TRANSLATION_BILINGUAL
         ) ?: LyricsOverlayService.TRANSLATION_BILINGUAL
         home.setTranslationMode(mode)
-        home.setMotionMode(HomeMotionPrefs.mode(this))
+        home.setMotionStyle(HomeMotionPrefs.style(this))
 
         if (currentTrack.isBlank()) return
         val local = localPayload(currentTrack, currentArtist, currentAlbum)

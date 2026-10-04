@@ -170,16 +170,56 @@
                             <com.google.android.material.button.MaterialButton android:id="@+id/theme_dark" style="@style/SegItem" android:text="深色" />
                         </com.google.android.material.button.MaterialButtonToggleGroup>
                     </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+            <com.google.android.material.textview.MaterialTextView style="@style/GroupLabel" android:text="主页歌词动效" />
+            <com.google.android.material.card.MaterialCardView style="@style/GroupCard">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                    <com.luoh.music.lrc.HomeMotionPreview android:id="@+id/home_motion_preview" android:layout_width="match_parent" android:layout_height="176dp" android:layout_marginStart="16dp" android:layout_marginTop="14dp" android:layout_marginEnd="16dp" android:layout_marginBottom="10dp" />
                     <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
-                    <LinearLayout style="@style/CellColumn">
-                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="主页歌词动效" />
-                        <com.google.android.material.button.MaterialButtonToggleGroup android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal" app:singleSelection="true" app:selectionRequired="true">
-                            <com.google.android.material.button.MaterialButton android:id="@+id/home_motion_full" style="@style/SegItem" android:text="完整" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/home_motion_reduced" style="@style/SegItem" android:text="精简" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/home_motion_off" style="@style/SegItem" android:text="关闭" />
-                        </com.google.android.material.button.MaterialButtonToggleGroup>
-                        <com.google.android.material.textview.MaterialTextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:textSize="12sp" android:textColor="@color/text_secondary" android:text="精简去掉逐行错位、行间缩放与远景模糊；关闭后切行直接跳转。" />
-                    </LinearLayout>
+                    <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard">
+                        <LinearLayout style="@style/CellColumn">
+                            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+                                <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="缓动滚动" />
+                                <com.google.android.material.textview.MaterialTextView android:id="@+id/home_motion_scroll_value" style="@style/CellValue" android:text="900ms" />
+                                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/home_motion_scroll_easing" style="@style/SettingsSwitch" android:layout_marginStart="8dp" />
+                            </LinearLayout>
+                            <com.google.android.material.slider.Slider android:id="@+id/home_motion_scroll_duration" style="@style/SettingsSlider" android:contentDescription="切行滚动时长" android:valueFrom="300" android:valueTo="1500" android:value="900" android:stepSize="50" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                    <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
+                    <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard">
+                        <LinearLayout style="@style/CellColumn">
+                            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+                                <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="逐行错位" />
+                                <com.google.android.material.textview.MaterialTextView android:id="@+id/home_motion_stagger_value" style="@style/CellValue" android:text="40ms" />
+                                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/home_motion_stagger" style="@style/SettingsSwitch" android:layout_marginStart="8dp" />
+                            </LinearLayout>
+                            <com.google.android.material.slider.Slider android:id="@+id/home_motion_stagger_delay" style="@style/SettingsSlider" android:contentDescription="逐行错位延迟" android:valueFrom="0" android:valueTo="120" android:value="40" android:stepSize="10" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                    <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
+                    <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard">
+                        <LinearLayout style="@style/CellColumn">
+                            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+                                <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="行间缩放" />
+                                <com.google.android.material.textview.MaterialTextView android:id="@+id/home_motion_scale_value" style="@style/CellValue" android:text="100%" />
+                                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/home_motion_scale" style="@style/SettingsSwitch" android:layout_marginStart="8dp" />
+                            </LinearLayout>
+                            <com.google.android.material.slider.Slider android:id="@+id/home_motion_scale_strength" style="@style/SettingsSlider" android:contentDescription="行间缩放强度" android:valueFrom="0" android:valueTo="200" android:value="100" android:stepSize="5" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                    <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
+                    <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard">
+                        <LinearLayout style="@style/CellColumn">
+                            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+                                <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="远景模糊" />
+                                <com.google.android.material.textview.MaterialTextView android:id="@+id/home_motion_blur_value" style="@style/CellValue" android:text="100%" />
+                                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/home_motion_depth_blur" style="@style/SettingsSwitch" android:layout_marginStart="8dp" />
+                            </LinearLayout>
+                            <com.google.android.material.slider.Slider android:id="@+id/home_motion_blur_strength" style="@style/SettingsSlider" android:contentDescription="远景模糊强度" android:valueFrom="0" android:valueTo="200" android:value="100" android:stepSize="5" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
             <com.google.android.material.textview.MaterialTextView style="@style/GroupLabel" android:text="关于" />
