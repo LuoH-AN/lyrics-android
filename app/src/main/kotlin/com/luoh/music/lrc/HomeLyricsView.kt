@@ -551,8 +551,16 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         if (resumeFollowing) manualScrollUntil = 0L
         if (activeIndex != index || resumeFollowing) {
             val previousIndex = activeIndex
-            lyricRows.getOrNull(previousIndex)?.setPlaybackPosition(position)
             activeIndex = index
+            // Only the active row repaints per frame, so a multi-line jump or forced
+            // re-render must refresh every row's karaoke fill or stale lines stay sung.
+            if (abs(index - previousIndex) > 1) {
+                // Past lines rest fully sung even when their words overlap the next line.
+                lyricRows.forEachIndexed { rowIndex, row ->
+                    if (rowIndex < index) row.markFullySung() else row.setPlaybackPosition(position)
+                }
+            } else if (index > previousIndex) lyricRows.getOrNull(previousIndex)?.markFullySung()
+            else lyricRows.getOrNull(previousIndex)?.setPlaybackPosition(position)
             val following = !touchingLyrics && manualScrollUntil == 0L
             val target = if (following) lineScrollTarget(index.coerceAtLeast(0)) else null
             val animate = active && isAttachedToWindow && ViewCompat.isLaidOut(this) &&

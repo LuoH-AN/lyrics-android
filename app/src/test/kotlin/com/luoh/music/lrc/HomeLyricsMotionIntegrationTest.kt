@@ -190,6 +190,38 @@ class HomeLyricsMotionIntegrationTest {
         assertEquals(1, track.childCount)
     }
 
+    @Test fun seekingBackwardClearsStaleKaraokeFills() {
+        val timed = (0..5).map { index ->
+            LyricLine(index * 2000L, "aaaaa", words = listOf(LyricWord(index * 2000L, 1800L, "aaaaa")))
+        }
+        home.setLyrics(LyricDocument(timed, true))
+        for (position in longArrayOf(4500L, 6500L, 8500L, 9500L)) {
+            home.setSnapshot(snapshot.copy(positionMs = position))
+        }
+        assertEquals("Earlier lines rest fully sung before the seek", 5f, sungCharacters(track.getChildAt(2)), .001f)
+        home.setSnapshot(snapshot.copy(positionMs = 2500L))
+        for (row in 2..5) {
+            assertEquals("Lines below the focus must not stay sung after a seek",
+                0f, sungCharacters(track.getChildAt(row)), .001f)
+        }
+    }
+
+    @Test fun previousLineRestsFullySungWhenWordTimingOverlaps() {
+        val overlapping = (0..5).map { index ->
+            LyricLine(index * 2000L, "aaaaa", words = listOf(LyricWord(index * 2000L, 2500L, "aaaaa")))
+        }
+        home.setLyrics(LyricDocument(overlapping, true))
+        home.setSnapshot(snapshot.copy(positionMs = 1900L))
+        home.setSnapshot(snapshot.copy(positionMs = 2100L))
+        assertEquals("The line above must rest fully sung even though its words overlap the next line",
+            5f, sungCharacters(track.getChildAt(0)), .001f)
+    }
+
+    private fun sungCharacters(row: View): Float = LyricLineView::class.java.getDeclaredField("sungCharacters").let {
+        it.isAccessible = true
+        it.getFloat(row)
+    }
+
     @Test fun detachingHomeCancelsMotionAndClearsAHeldGesture() {
         startTransition()
         touch(MotionEvent.ACTION_DOWN, SystemClock.uptimeMillis())
