@@ -310,12 +310,12 @@ class HomeLyricMotionTest {
         assertEquals(0f, blur.radiusOf(rows[2]), 0f)
         assertEquals(0f, blur.radiusOf(rows[3]), 0f)
         assertEquals(0f, blur.radiusOf(rows[4]), 0f)
-        assertEquals(.125f, blur.radiusOf(rows[5]), 0f)
-        assertEquals(.25f, blur.radiusOf(rows[6]), 0f)
+        assertEquals(.625f, blur.radiusOf(rows[5]), 0f)
+        assertEquals(1.25f, blur.radiusOf(rows[6]), 0f)
         motion.moveTo(4, target(4), animate = true)
         assertEquals("A newly focused line must be sharp immediately", 0f, blur.radiusOf(rows[4]), 0f)
         advanceTo(120L)
-        rows.forEach { assertTrue(blur.radiusOf(it) in 0f..0.25f) }
+        rows.forEach { assertTrue(blur.radiusOf(it) in 0f..1.25f) }
         motion.cancel()
         rows.forEach { assertEquals(0f, blur.radiusOf(it), 0f) }
         motion.moveTo(4, target(4), animate = false)

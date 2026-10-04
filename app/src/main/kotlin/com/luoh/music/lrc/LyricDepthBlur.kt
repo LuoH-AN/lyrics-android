@@ -36,11 +36,11 @@ internal class LyricDepthBlur {
 
     companion object {
         private const val STEP_DP = .125f
-        const val MAX_RADIUS_DP = .25f
+        const val MAX_RADIUS_DP = 1.25f
 
         fun radiusForDistance(distance: Int): Float = when {
             distance < 3 -> 0f
-            distance == 3 -> .125f
+            distance == 3 -> .625f
             else -> MAX_RADIUS_DP
         }
     }
