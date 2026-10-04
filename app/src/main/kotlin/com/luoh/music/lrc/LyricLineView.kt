@@ -55,6 +55,13 @@ class LyricLineView @JvmOverloads constructor(context: Context, attrs: Attribute
         invalidate()
     }
 
+    /** A line that cedes focus rests fully sung, even when the next line starts before its words end. */
+    fun markFullySung() {
+        if (!wordTiming || sungCharacters >= primaryLength) return
+        sungCharacters = primaryLength.toFloat()
+        invalidate()
+    }
+
     override fun onDraw(canvas: Canvas) {
         val textLayout = layout
         if (!wordTiming || textLayout == null || primaryLength == 0) {
