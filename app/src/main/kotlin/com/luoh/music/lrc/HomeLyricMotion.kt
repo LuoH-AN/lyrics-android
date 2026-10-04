@@ -16,6 +16,7 @@ internal class HomeLyricMotion(
     private val rows: List<LyricLineView>,
     private val animationsEnabled: () -> Boolean = { ValueAnimator.areAnimatorsEnabled() }
 ) {
+    var mode: String = HomeMotionPrefs.FULL
     private var animator: ValueAnimator? = null
     private var focusedIndex = -1
     private var depthEnabled = false
@@ -38,11 +39,12 @@ internal class HomeLyricMotion(
     fun moveTo(index: Int, targetScrollY: Int?, animate: Boolean) {
         stopAnimator()
         focusedIndex = index
-        depthEnabled = targetScrollY != null
+        depthEnabled = targetScrollY != null && mode == HomeMotionPrefs.FULL
         val startScroll = scroll.scrollY
         val maxScroll = max(0, (scroll.getChildAt(0)?.height ?: 0) - scroll.height)
         val target = targetScrollY?.coerceIn(0, maxScroll) ?: startScroll
-        if (!animate || !animationsEnabled() || scroll.height == 0 || abs(target - startScroll) > scroll.height) {
+        val animated = animate && mode != HomeMotionPrefs.OFF
+        if (!animated || !animationsEnabled() || scroll.height == 0 || abs(target - startScroll) > scroll.height) {
             if (targetScrollY != null) scroll.scrollTo(0, target)
             settleRows()
             return
@@ -59,7 +61,7 @@ internal class HomeLyricMotion(
                 null
             } else RowStart(row, row.scaleX, row.alpha, row.translationY, depthBlur.radiusOf(row),
                 scale(distance), opacity(distance), if (depthEnabled) LyricDepthBlur.radiusForDistance(distance) else 0f,
-                if (targetScrollY == null) 0L else min(distance, 4) * 42L)
+                if (targetScrollY == null || mode != HomeMotionPrefs.FULL) 0L else min(distance, 4) * 42L)
         }
         val transitionDuration = 900L
         val durationMs = transitionDuration + (starts.maxOfOrNull { it.delayMs } ?: 0L)
@@ -127,6 +129,12 @@ internal class HomeLyricMotion(
     }
 
     private fun distance(index: Int) = if (focusedIndex < 0) index + 1 else abs(index - focusedIndex)
-    private fun scale(distance: Int) = when (distance) { 0 -> 1f; 1 -> .95f; 2 -> .92f; else -> .9f }
+    private fun scale(distance: Int) = when {
+        mode != HomeMotionPrefs.FULL -> 1f
+        distance == 0 -> 1f
+        distance == 1 -> .95f
+        distance == 2 -> .92f
+        else -> .9f
+    }
     private fun opacity(distance: Int) = when (distance) { 0 -> 1f; 1 -> .78f; 2 -> .62f; 3 -> .48f; else -> .36f }
 }

@@ -39,6 +39,9 @@ class SettingsActivity : AppCompatActivity() {
     private val appPrefs by lazy {
         getSharedPreferences(ThemePrefs.PREFS, Context.MODE_PRIVATE)
     }
+    private val motionPrefs by lazy {
+        getSharedPreferences(HomeMotionPrefs.PREFS, Context.MODE_PRIVATE)
+    }
 
     private lateinit var listenerState: TextView
     private lateinit var overlayState: TextView
@@ -50,6 +53,9 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var themeFollow: MaterialButton
     private lateinit var themeLight: MaterialButton
     private lateinit var themeDark: MaterialButton
+    private lateinit var motionFull: MaterialButton
+    private lateinit var motionReduced: MaterialButton
+    private lateinit var motionOff: MaterialButton
     private lateinit var backgroundModeTransparent: MaterialButton
     private lateinit var backgroundModeLow: MaterialButton
     private lateinit var backgroundModeHigh: MaterialButton
@@ -140,6 +146,9 @@ class SettingsActivity : AppCompatActivity() {
         themeFollow = findViewById(R.id.theme_follow)
         themeLight = findViewById(R.id.theme_light)
         themeDark = findViewById(R.id.theme_dark)
+        motionFull = findViewById(R.id.home_motion_full)
+        motionReduced = findViewById(R.id.home_motion_reduced)
+        motionOff = findViewById(R.id.home_motion_off)
         backgroundModeTransparent = findViewById(R.id.background_mode_transparent)
         backgroundModeLow = findViewById(R.id.background_mode_low)
         backgroundModeHigh = findViewById(R.id.background_mode_high)
@@ -195,6 +204,11 @@ class SettingsActivity : AppCompatActivity() {
         themeFollow.setOnClickListener { setTheme(ThemePrefs.FOLLOW) }
         themeLight.setOnClickListener { setTheme(ThemePrefs.LIGHT) }
         themeDark.setOnClickListener { setTheme(ThemePrefs.DARK) }
+
+        // 主页歌词动效
+        motionFull.setOnClickListener { setHomeMotionMode(HomeMotionPrefs.FULL) }
+        motionReduced.setOnClickListener { setHomeMotionMode(HomeMotionPrefs.REDUCED) }
+        motionOff.setOnClickListener { setHomeMotionMode(HomeMotionPrefs.OFF) }
 
         // 背景：透明 / 半透明 / 不透明
         backgroundModeTransparent.setOnClickListener { setBackgroundMode(LyricsOverlayService.BACKGROUND_TRANSPARENT) }
@@ -327,6 +341,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun refreshAll() {
         updatePermissionStates()
         updateThemeUi()
+        updateHomeMotionUi()
         updateBackgroundModeUi()
         updateFontSizeUi()
         updateFontWeightUi()
@@ -354,6 +369,24 @@ class SettingsActivity : AppCompatActivity() {
                 themeDark to ThemePrefs.DARK
             ),
             mode
+        )
+    }
+
+    // ---------- 主页歌词动效 ----------
+    private fun setHomeMotionMode(mode: String) {
+        if (HomeMotionPrefs.normalize(motionPrefs.getString(HomeMotionPrefs.KEY, null)) == mode) return
+        motionPrefs.edit().putString(HomeMotionPrefs.KEY, mode).apply()
+        updateHomeMotionUi()
+    }
+
+    private fun updateHomeMotionUi() {
+        applySeg(
+            listOf(
+                motionFull to HomeMotionPrefs.FULL,
+                motionReduced to HomeMotionPrefs.REDUCED,
+                motionOff to HomeMotionPrefs.OFF
+            ),
+            HomeMotionPrefs.normalize(motionPrefs.getString(HomeMotionPrefs.KEY, null))
         )
     }
 

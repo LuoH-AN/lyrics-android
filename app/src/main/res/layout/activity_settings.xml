@@ -170,6 +170,16 @@
                             <com.google.android.material.button.MaterialButton android:id="@+id/theme_dark" style="@style/SegItem" android:text="深色" />
                         </com.google.android.material.button.MaterialButtonToggleGroup>
                     </LinearLayout>
+                    <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
+                    <LinearLayout style="@style/CellColumn">
+                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="主页歌词动效" />
+                        <com.google.android.material.button.MaterialButtonToggleGroup android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal" app:singleSelection="true" app:selectionRequired="true">
+                            <com.google.android.material.button.MaterialButton android:id="@+id/home_motion_full" style="@style/SegItem" android:text="完整" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/home_motion_reduced" style="@style/SegItem" android:text="精简" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/home_motion_off" style="@style/SegItem" android:text="关闭" />
+                        </com.google.android.material.button.MaterialButtonToggleGroup>
+                        <com.google.android.material.textview.MaterialTextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:textSize="12sp" android:textColor="@color/text_secondary" android:text="精简去掉逐行错位、行间缩放与远景模糊；关闭后切行直接跳转。" />
+                    </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
             <com.google.android.material.textview.MaterialTextView style="@style/GroupLabel" android:text="关于" />
