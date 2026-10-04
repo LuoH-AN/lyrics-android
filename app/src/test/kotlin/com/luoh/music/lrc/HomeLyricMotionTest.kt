@@ -285,6 +285,44 @@ class HomeLyricMotionTest {
         assertSettled(3)
     }
 
+    @Test fun reducedModeDropsScaleAndStaggerWhileKeepingTheEasedScroll() {
+        motion.mode = HomeMotionPrefs.REDUCED
+        motion.cancel()
+        val from = scroll.scrollY
+        val target = target(3)
+        motion.moveTo(3, target, animate = true)
+        assertTrue("精简模式仍保留滚动缓动", motion.isRunning)
+        advanceTo(120L)
+        assertTrue(scroll.scrollY in (from + 1) until target)
+        rows.forEach { assertEquals("精简模式不缩放行", 1f, it.scaleX, .001f) }
+        assertEquals("精简模式各行同步跟随，不再错位", rows[3].translationY, rows[4].translationY, .001f)
+        assertTrue("精简模式仍保留行间渐隐", rows[2].alpha in .6f..1f && rows[2].alpha < 1f)
+        animator().end()
+        assertEquals(target, scroll.scrollY)
+        rows.forEach { assertEquals(0f, it.translationY, .001f) }
+    }
+
+    @Test
+    @Config(sdk = [31])
+    fun reducedModeKeepsEveryRowSharp() {
+        motion.mode = HomeMotionPrefs.REDUCED
+        motion.moveTo(3, target(3), animate = true)
+        advanceTo(300L)
+        rows.forEach { assertEquals(0f, depthBlur().radiusOf(it), 0f) }
+        animator().end()
+    }
+
+    @Test fun offModeSnapsWithoutAnimationAndKeepsStaticDimming() {
+        motion.mode = HomeMotionPrefs.OFF
+        val target = target(3)
+        motion.moveTo(3, target, animate = true)
+        assertFalse("关闭动效不启动动画", motion.isRunning)
+        assertEquals(target, scroll.scrollY)
+        rows.forEach { assertEquals(1f, it.scaleX, .001f) }
+        assertEquals("关闭动效仍保留行间渐隐层级", .78f, rows[2].alpha, .001f)
+        rows.forEach { assertEquals(0f, it.translationY, .001f) }
+    }
+
     @Test
     @Config(sdk = [28, 31])
     fun rowsCanArriveAfterTheMotionControllerAndGrowOnTheNextSong() {
@@ -310,12 +348,12 @@ class HomeLyricMotionTest {
         assertEquals(0f, blur.radiusOf(rows[2]), 0f)
         assertEquals(0f, blur.radiusOf(rows[3]), 0f)
         assertEquals(0f, blur.radiusOf(rows[4]), 0f)
-        assertEquals(.125f, blur.radiusOf(rows[5]), 0f)
-        assertEquals(.25f, blur.radiusOf(rows[6]), 0f)
+        assertEquals(.625f, blur.radiusOf(rows[5]), 0f)
+        assertEquals(1.25f, blur.radiusOf(rows[6]), 0f)
         motion.moveTo(4, target(4), animate = true)
         assertEquals("A newly focused line must be sharp immediately", 0f, blur.radiusOf(rows[4]), 0f)
         advanceTo(120L)
-        rows.forEach { assertTrue(blur.radiusOf(it) in 0f..0.25f) }
+        rows.forEach { assertTrue(blur.radiusOf(it) in 0f..1.25f) }
         motion.cancel()
         rows.forEach { assertEquals(0f, blur.radiusOf(it), 0f) }
         motion.moveTo(4, target(4), animate = false)

@@ -77,6 +77,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     private var manualScrollUntil = 0L
     private var touchingLyrics = false
     private var menu: BottomSheetDialog? = null
+    private var motionMode = HomeMotionPrefs.FULL
     private val lyricRows = mutableListOf<LyricLineView>()
 
     private val playerCard = MaterialCardView(context).apply {
@@ -336,10 +337,13 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         clock.sync(value.positionMs, value.playing, value.speed, forcePosition)
         song.text = value.track.ifBlank { "暂未播放" }
         if (value.cover != null) {
+            cover.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
             cover.imageTintList = null
             cover.setPadding(0, 0, 0, 0)
             cover.setImageBitmap(value.cover)
         } else {
+            // 占位图标必须完整可见，不能随容器纵横比被裁切。
+            cover.scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
             cover.setImageResource(R.drawable.ic_home_music)
             cover.imageTintList = ColorStateList.valueOf(color(R.color.text_secondary))
             cover.setPadding(dp(17), dp(17), dp(17), dp(17))
@@ -403,6 +407,15 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         lyricOffsetMs = offsetMs.toLong()
         activeIndex = -2
         renderFrame()
+    }
+
+    /** 主页切行动效模式：完整 / 精简 / 关闭；变更后立即按新模式静置当前行。 */
+    fun setMotionMode(mode: String) {
+        val normalized = HomeMotionPrefs.normalize(mode)
+        if (normalized == motionMode) return
+        motionMode = normalized
+        lyricMotion.mode = normalized
+        lyricMotion.cancel()
     }
 
     fun setOverlayState(running: Boolean) {
@@ -551,8 +564,16 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         if (resumeFollowing) manualScrollUntil = 0L
         if (activeIndex != index || resumeFollowing) {
             val previousIndex = activeIndex
-            lyricRows.getOrNull(previousIndex)?.setPlaybackPosition(position)
             activeIndex = index
+            // Only the active row repaints per frame, so a multi-line jump or forced
+            // re-render must refresh every row's karaoke fill or stale lines stay sung.
+            if (abs(index - previousIndex) > 1) {
+                // Past lines rest fully sung even when their words overlap the next line.
+                lyricRows.forEachIndexed { rowIndex, row ->
+                    if (rowIndex < index) row.markFullySung() else row.setPlaybackPosition(position)
+                }
+            } else if (index > previousIndex) lyricRows.getOrNull(previousIndex)?.markFullySung()
+            else lyricRows.getOrNull(previousIndex)?.setPlaybackPosition(position)
             val following = !touchingLyrics && manualScrollUntil == 0L
             val target = if (following) lineScrollTarget(index.coerceAtLeast(0)) else null
             val animate = active && isAttachedToWindow && ViewCompat.isLaidOut(this) &&
