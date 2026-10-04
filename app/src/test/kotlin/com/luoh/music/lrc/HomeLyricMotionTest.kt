@@ -287,6 +287,7 @@ class HomeLyricMotionTest {
 
     @Test fun reducedModeDropsScaleAndStaggerWhileKeepingTheEasedScroll() {
         motion.mode = HomeMotionPrefs.REDUCED
+        motion.cancel()
         val from = scroll.scrollY
         val target = target(3)
         motion.moveTo(3, target, animate = true)
