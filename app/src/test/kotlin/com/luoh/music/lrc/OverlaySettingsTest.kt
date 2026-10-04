@@ -120,6 +120,17 @@ class OverlaySettingsTest {
         } finally { active.destroy() }
     }
 
+    @Test fun homeMotionModePersistsAcrossSettingsRecreation() {
+        ApplicationProvider.getApplicationContext<Context>()
+            .getSharedPreferences(HomeMotionPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+        val first = Robolectric.buildActivity(SettingsActivity::class.java).create().get()
+        assertTrue(first.findViewById<com.google.android.material.button.MaterialButton>(R.id.home_motion_full).isChecked)
+        first.findViewById<com.google.android.material.button.MaterialButton>(R.id.home_motion_off).performClick()
+        val restored = Robolectric.buildActivity(SettingsActivity::class.java).create().get()
+        assertTrue(restored.findViewById<com.google.android.material.button.MaterialButton>(R.id.home_motion_off).isChecked)
+        assertFalse(restored.findViewById<com.google.android.material.button.MaterialButton>(R.id.home_motion_full).isChecked)
+    }
+
     @Test fun translationModeChangesThePreviewWithoutChangingItsDocument() {
         preferences().edit().clear().commit()
         val controller = Robolectric.buildActivity(SettingsActivity::class.java).create()

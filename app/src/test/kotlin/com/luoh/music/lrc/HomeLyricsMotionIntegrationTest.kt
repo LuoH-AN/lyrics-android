@@ -181,6 +181,17 @@ class HomeLyricsMotionIntegrationTest {
         assertResting()
     }
 
+    @Test fun motionModeFromSettingsDrivesTheHomeView() {
+        home.setMotionMode(HomeMotionPrefs.OFF)
+        home.setSnapshot(snapshot.copy(positionMs = 4000L))
+        assertFalse("关闭动效后切行不再播放动画", motion().isRunning)
+        assertEquals(target(2), scroll.scrollY)
+        assertEquals(1f, track.getChildAt(1).scaleX, .001f)
+        home.setMotionMode(HomeMotionPrefs.FULL)
+        home.setSnapshot(snapshot.copy(positionMs = 6000L))
+        assertTrue("恢复完整动效后切行重新播放动画", motion().isRunning)
+    }
+
     @Test fun replacingLyricsCancelsOldRows() {
         startTransition()
         val oldRows = (0 until track.childCount).map { track.getChildAt(it) }

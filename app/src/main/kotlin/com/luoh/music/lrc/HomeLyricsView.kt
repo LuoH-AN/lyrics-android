@@ -77,6 +77,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     private var manualScrollUntil = 0L
     private var touchingLyrics = false
     private var menu: BottomSheetDialog? = null
+    private var motionMode = HomeMotionPrefs.FULL
     private val lyricRows = mutableListOf<LyricLineView>()
 
     private val playerCard = MaterialCardView(context).apply {
@@ -403,6 +404,15 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         lyricOffsetMs = offsetMs.toLong()
         activeIndex = -2
         renderFrame()
+    }
+
+    /** 主页切行动效模式：完整 / 精简 / 关闭；变更后立即按新模式静置当前行。 */
+    fun setMotionMode(mode: String) {
+        val normalized = HomeMotionPrefs.normalize(mode)
+        if (normalized == motionMode) return
+        motionMode = normalized
+        lyricMotion.mode = normalized
+        lyricMotion.cancel()
     }
 
     fun setOverlayState(running: Boolean) {
