@@ -145,12 +145,14 @@ class MainActivity : AppCompatActivity() {
 
         home = findViewById(R.id.lyric_home)
         home.actions = HomeActions()
+        home.setAlignment(HomeLyricsPrefs.alignment(this))
         home.onTranslationSettings = { startActivity(Intent(this, TranslationSettingsActivity::class.java)) }
         gate = findViewById(R.id.gate_overlay)
         gateStatus = findViewById(R.id.gate_status)
         appliedNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         themeTransition = ThemeTransition(findViewById(android.R.id.content))
         ThemePrefs.updateSystemBars(this)
+        applyGateTheme(gate)
 
         // 权限浮层按钮
         findViewById<MaterialButton>(R.id.gate_listener).setOnClickListener {
@@ -190,13 +192,12 @@ class MainActivity : AppCompatActivity() {
         when (view) {
             is MaterialButton -> {
                 val primary = view.id == R.id.gate_start
-                view.setTextColor(ContextCompat.getColor(this, when {
-                    primary -> R.color.text_on_accent
+                view.setTextColor(if (primary) AccentPrefs.onAccent(this) else ContextCompat.getColor(this, when {
                     view.id == R.id.gate_settings_link -> R.color.text_secondary
                     else -> R.color.text_primary
                 }))
                 view.backgroundTintList = ColorStateList.valueOf(
-                    if (primary) ContextCompat.getColor(this, R.color.accent) else android.graphics.Color.TRANSPARENT)
+                    if (primary) AccentPrefs.accent(this) else android.graphics.Color.TRANSPARENT)
                 view.strokeColor = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.app_line))
                 view.rippleColor = ContextCompat.getColorStateList(this, R.color.native_ripple)
             }
@@ -225,6 +226,7 @@ class MainActivity : AppCompatActivity() {
         homeForeground = true
         ThemePrefs.apply(appPrefs.getString(ThemePrefs.KEY, ThemePrefs.FOLLOW))
         home.applyTheme()
+        applyGateTheme(gate)
         home.setActive(true)
         updateGate()
         startSessionMonitor()
@@ -611,6 +613,7 @@ class MainActivity : AppCompatActivity() {
         ) ?: LyricsOverlayService.TRANSLATION_BILINGUAL
         home.setTranslationMode(mode)
         home.setMotionStyle(HomeMotionPrefs.style(this))
+        home.setAlignment(HomeLyricsPrefs.alignment(this))
 
         if (currentTrack.isBlank()) return
         val local = localPayload(currentTrack, currentArtist, currentAlbum)

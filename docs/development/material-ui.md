@@ -4,7 +4,7 @@
 
 ## 组件与样式
 
-- 应用主题：Material 3 DayNight，以原有黑白灰调色板为底；播放键、当前歌词行与选中态使用启动图标里的橙色 `#E8590C` 作为品牌强调色，不启用动态彩色主题。
+- 应用主题：Material 3 DayNight，默认主调沿用原有黑白灰；用户可在「应用外观 › 主调颜色」中选择自定义强调色，应用到播放键、当前歌词行、进度条与选中态，并按对比度自动选择前景色。不启用动态彩色主题。
 - 按钮、图标、分段选择：MaterialButton / MaterialButtonToggleGroup。
 - 导航、弹窗和底部菜单：MaterialToolbar / MaterialAlertDialogBuilder / BottomSheetDialog。
 - 设置开关、字号和粗细滑杆：MaterialSwitch / Slider；粗细以默认 100% 显示，保留原有字重存储。

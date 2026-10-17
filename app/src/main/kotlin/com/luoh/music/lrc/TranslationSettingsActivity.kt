@@ -178,6 +178,7 @@ class TranslationSettingsActivity : AppCompatActivity() {
             }
         }
         modeSegments.forEach(segmentRail::addView)
+        modeSegments.forEach { AccentPrefs.styleSegment(this, it) }
         settingsCard.addView(segmentRail)
 
         apiBox = NativeUi.column(this, 0)
@@ -247,6 +248,9 @@ class TranslationSettingsActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (!::apiProfileButton.isInitialized) return
+        if (::modeSegments.isInitialized) {
+            modeSegments.forEach { AccentPrefs.styleSegment(this, it) }
+        }
         val requested = prefs.getString("active_api_profile", currentApiProfileId)
         val resolved = TranslationApiProfiles.find(this, requested)
         if (resolved.id != currentApiProfileId) {

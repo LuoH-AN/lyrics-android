@@ -15,12 +15,6 @@
     <color name="control_track">#DDDDE3</color>
     <color name="control_active">#18181B</color>
     <color name="overlay_preview_scene">#84848D</color>
-    <!-- Brand accent: matches the orange highlight in the launcher icon. Used sparingly. -->
-    <color name="brand_accent">#E8590C</color>
-    <color name="brand_accent_pressed">#C94A08</color>
-    <color name="brand_text">#B8430A</color>
-    <color name="brand_on_accent">#18181B</color>
-    <color name="brand_icon">#FFFFFF</color>
     <color name="nav_bar">#F5F5F7</color>
     <color name="status_bar">#F5F5F7</color>
 </resources>

@@ -51,6 +51,10 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var themeFollow: MaterialButton
     private lateinit var themeLight: MaterialButton
     private lateinit var themeDark: MaterialButton
+    private lateinit var accentColorValue: TextView
+    private lateinit var homeAlignLeft: MaterialButton
+    private lateinit var homeAlignCenter: MaterialButton
+    private lateinit var homeAlignRight: MaterialButton
     private lateinit var motionEasedScroll: MaterialSwitch
     private lateinit var motionDuration: Slider
     private lateinit var motionDurationValue: TextView
@@ -155,6 +159,10 @@ class SettingsActivity : AppCompatActivity() {
         themeFollow = findViewById(R.id.theme_follow)
         themeLight = findViewById(R.id.theme_light)
         themeDark = findViewById(R.id.theme_dark)
+        accentColorValue = findViewById(R.id.accent_color_value)
+        homeAlignLeft = findViewById(R.id.home_align_left)
+        homeAlignCenter = findViewById(R.id.home_align_center)
+        homeAlignRight = findViewById(R.id.home_align_right)
         motionEasedScroll = findViewById(R.id.home_motion_scroll_easing)
         motionDuration = findViewById(R.id.home_motion_scroll_duration)
         motionDurationValue = findViewById(R.id.home_motion_scroll_value)
@@ -223,6 +231,12 @@ class SettingsActivity : AppCompatActivity() {
         themeFollow.setOnClickListener { setTheme(ThemePrefs.FOLLOW) }
         themeLight.setOnClickListener { setTheme(ThemePrefs.LIGHT) }
         themeDark.setOnClickListener { setTheme(ThemePrefs.DARK) }
+        findViewById<View>(R.id.cell_accent_color).setOnClickListener { showAccentPicker() }
+
+        // 主页歌词对齐
+        homeAlignLeft.setOnClickListener { setHomeAlignment(HomeLyricsPrefs.LEFT) }
+        homeAlignCenter.setOnClickListener { setHomeAlignment(HomeLyricsPrefs.CENTER) }
+        homeAlignRight.setOnClickListener { setHomeAlignment(HomeLyricsPrefs.RIGHT) }
 
         // 主页歌词动效：每项效果独立开关 + 数值
         motionEasedScroll.setOnCheckedChangeListener { _, value ->
@@ -387,6 +401,8 @@ class SettingsActivity : AppCompatActivity() {
     private fun refreshAll() {
         updatePermissionStates()
         updateThemeUi()
+        updateAccentUi()
+        updateHomeAlignmentUi()
         updateHomeMotionUi()
         updateBackgroundModeUi()
         updateFontSizeUi()
@@ -396,6 +412,7 @@ class SettingsActivity : AppCompatActivity() {
         updateTranslationModeUi()
         updateContextUi()
         updateOverlayPreview()
+        applySegmentAccents()
     }
 
     // ---------- 主题 ----------
@@ -415,6 +432,69 @@ class SettingsActivity : AppCompatActivity() {
                 themeDark to ThemePrefs.DARK
             ),
             mode
+        )
+    }
+
+    // ---------- 主调颜色 ----------
+    private fun updateAccentUi() {
+        accentColorValue.text = AccentPrefs.customColor(this)?.let(::hexColor) ?: "黑白灰"
+        accentColorValue.setTextColor(AccentPrefs.textAccent(this, R.color.text_secondary))
+    }
+
+    private fun showAccentPicker() {
+        LyricColorPickerDialog(
+            context = this,
+            initialHex = hexColor(AccentPrefs.accent(this)),
+            title = "主调颜色",
+            onReset = {
+                AccentPrefs.clear(this)
+                refreshAccentUi()
+            },
+            onApply = { color ->
+                val defaultHex = hexColor(ContextCompat.getColor(this, R.color.accent))
+                if (color.equals(defaultHex, true)) AccentPrefs.clear(this) else AccentPrefs.set(this, color)
+                refreshAccentUi()
+            }
+        ).show()
+    }
+
+    private fun refreshAccentUi() {
+        updateAccentUi()
+        updateLyricColorUi()
+        applySegmentAccents()
+        if (LyricsOverlayService.isRunning) {
+            startService(Intent(this, LyricsOverlayService::class.java).apply {
+                action = LyricsOverlayService.ACTION_REFRESH_ACCENT
+            })
+        }
+    }
+
+    private fun hexColor(color: Int): String =
+        "#" + Integer.toHexString(color and 0xFFFFFF).uppercase().padStart(6, '0')
+
+    private fun applySegmentAccents() {
+        listOf(
+            themeFollow, themeLight, themeDark,
+            backgroundModeTransparent, backgroundModeLow, backgroundModeHigh,
+            translationOriginal, translationBilingual, translationTranslated,
+            homeAlignLeft, homeAlignCenter, homeAlignRight
+        ).forEach { AccentPrefs.styleSegment(this, it) }
+    }
+
+    // ---------- 主页歌词对齐 ----------
+    private fun setHomeAlignment(value: String) {
+        HomeLyricsPrefs.save(this, value)
+        updateHomeAlignmentUi()
+    }
+
+    private fun updateHomeAlignmentUi() {
+        applySeg(
+            listOf(
+                homeAlignLeft to HomeLyricsPrefs.LEFT,
+                homeAlignCenter to HomeLyricsPrefs.CENTER,
+                homeAlignRight to HomeLyricsPrefs.RIGHT
+            ),
+            HomeLyricsPrefs.alignment(this)
         )
     }
 
@@ -666,12 +746,12 @@ class SettingsActivity : AppCompatActivity() {
             val selectedColor = color.equals(selected, ignoreCase = true)
             option.isChecked = selectedColor
             option.strokeWidth = NativeUi.dp(this, if (selectedColor) 2 else 1)
-            option.strokeColor = ColorStateList.valueOf(resolveColor(if (selectedColor) R.color.accent else R.color.app_line))
+            option.strokeColor = ColorStateList.valueOf(if (selectedColor) AccentPrefs.accent(this) else resolveColor(R.color.app_line))
         }
         val isCustom = options.none { (_, color) -> color.equals(selected, ignoreCase = true) }
         lyricColorCustom.isChecked = isCustom
         lyricColorCustom.strokeWidth = NativeUi.dp(this, if (isCustom) 2 else 1)
-        lyricColorCustom.strokeColor = ColorStateList.valueOf(resolveColor(if (isCustom) R.color.accent else R.color.app_line))
+        lyricColorCustom.strokeColor = ColorStateList.valueOf(if (isCustom) AccentPrefs.accent(this) else resolveColor(R.color.app_line))
         val customColor = runCatching { Color.parseColor(selected) }.getOrDefault(Color.WHITE)
         if (isCustom) {
             // 选中自定义颜色时直接显示该颜色，而不是一直显示「＋」。

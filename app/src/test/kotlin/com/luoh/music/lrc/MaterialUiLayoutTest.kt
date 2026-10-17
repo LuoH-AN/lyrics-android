@@ -287,6 +287,29 @@ class MaterialUiLayoutTest {
         assertEquals("Song", home.findViewById<android.widget.TextView>(R.id.home_song).text.toString())
     }
 
+    @Test fun homeLyricAlignmentCanBeCenteredAndRightAligned() {
+        val home = HomeLyricsView(context())
+        home.setSnapshot(HomeLyricsView.Snapshot(track = "Song", durationMs = 10000, positionMs = 0), forcePosition = true)
+        home.setLyrics(LyricDocument(listOf(LyricLine(0, "Line")), true))
+        home.setAlignment(HomeLyricsPrefs.CENTER)
+        layout(home)
+        val track = home.findViewById<LinearLayout>(R.id.home_lyrics_track)
+        val row = track.getChildAt(0) as android.widget.TextView
+        assertEquals(android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL, row.gravity)
+        home.setAlignment(HomeLyricsPrefs.RIGHT)
+        assertEquals(android.view.Gravity.TOP or android.view.Gravity.END, row.gravity)
+    }
+
+    @Test fun accentDefaultsToMonochromeAndPersistsCustomColor() {
+        val context = context()
+        AccentPrefs.clear(context)
+        assertEquals(context.getColor(R.color.accent), AccentPrefs.accent(context))
+        assertEquals(context.getColor(R.color.text_on_accent), AccentPrefs.onAccent(context))
+        AccentPrefs.set(context, "#3366CC")
+        assertEquals(android.graphics.Color.parseColor("#3366CC"), AccentPrefs.accent(context))
+        AccentPrefs.clear(context)
+    }
+
     @Test fun loadedLyricsReplaceTheCentralStatusAndKeepActionableErrors() {
         val home = HomeLyricsView(context())
         home.setSnapshot(HomeLyricsView.Snapshot(track = "Song"), forcePosition = true)

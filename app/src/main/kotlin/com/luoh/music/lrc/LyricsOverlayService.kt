@@ -45,7 +45,6 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import com.google.android.material.button.MaterialButton
 import androidx.core.app.NotificationCompat
-import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -202,6 +201,10 @@ class LyricsOverlayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_REFRESH_ACCENT) {
+            updateChromeTint()
+            return START_STICKY
+        }
         if (intent?.action == ACTION_REFRESH_MATCHES) {
             webView?.evaluateJavascript("window.LobstaOverlay?.refreshMatchManagement();", null)
             return START_STICKY
@@ -1121,7 +1124,7 @@ class LyricsOverlayService : Service() {
     }
 
     private fun updateChromeTint() {
-        val lockedColor = ContextCompat.getColor(this, R.color.brand_accent)
+        val lockedColor = AccentPrefs.overlayAccent(this)
         lockButton?.iconTint = ColorStateList.valueOf(if (positionLocked) lockedColor else Color.WHITE)
         closeButton?.iconTint = ColorStateList.valueOf(Color.WHITE)
     }
@@ -1681,6 +1684,7 @@ class LyricsOverlayService : Service() {
         private const val PREF_POSITION_LOCKED = "position_locked"
         const val ACTION_SET_TRANSLATION_MODE = "com.luoh.music.lrc.action.SET_TRANSLATION_MODE"
         const val ACTION_REFRESH_MATCHES = "com.luoh.music.lrc.action.REFRESH_MATCHES"
+        const val ACTION_REFRESH_ACCENT = "com.luoh.music.lrc.action.REFRESH_ACCENT"
         const val ACTION_RELOAD_CUSTOM_LYRICS = "com.luoh.music.lrc.action.RELOAD_CUSTOM_LYRICS"
         const val EXTRA_BACKGROUND_MODE = "background_mode"
         const val EXTRA_FONT_SCALE_PERCENT = "font_scale_percent"

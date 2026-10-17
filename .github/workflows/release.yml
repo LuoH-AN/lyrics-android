@@ -34,7 +34,6 @@ jobs:
           assert re.fullmatch(r'\d+\.\d+\.\d+', version), 'Release must have a stable x.y.z version'
           if os.environ['GITHUB_REF'].startswith('refs/tags/'):
               assert os.environ['GITHUB_REF_NAME'] == f'v{version}', 'Tag and Android version must match'
-              assert Path(f'docs/releases/{version}.md').is_file(), 'Release notes are required before publishing'
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write(f'version={version}\n')
           PY
@@ -163,4 +162,4 @@ jobs:
             "dist/lyrics-android-${RELEASE_VERSION}-arm64-v8a.apk" dist/SHA256SUMS \
             --verify-tag --latest \
             --title "桌面歌词 ${RELEASE_VERSION}" \
-            --notes-file "docs/releases/${RELEASE_VERSION}.md"
+            --generate-notes

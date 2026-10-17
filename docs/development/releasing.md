@@ -19,9 +19,9 @@
 版本维护在 `app/build.gradle.kts`，`versionCode` 必须递增。正式包名保持 `com.luoh.music.lrc`。
 
 1. 在新仓库的 Actions Secrets 配置原有正式签名；GitHub 不会随源码迁移 Secrets。
-2. `release.yml` 在 `feat/release-*` 分支或手动触发时构建、签名并验证，但不创建 Release；这一步不要求发版说明已入库。
-3. 正式发布前确认 `docs/releases/<版本>.md` 文案，并将经过验证的代码与文档合入 `main`。
-4. 经维护者确认后推送对应 `v<版本>` 标签。工作流检查版本和发版说明，验证 APK 后发布正式 Release，附带 `lyrics-android-<版本>-arm64-v8a.apk` 和 `SHA256SUMS`。
+2. `release.yml` 在 `feat/release-*` 分支或手动触发时构建、签名并验证，但不创建 Release。
+3. 正式发布前将经过验证的代码合入 `main`。
+4. 经维护者确认后推送对应 `v<版本>` 标签。工作流检查版本，验证 APK 后发布正式 Release；发版说明由 GitHub 自动生成。
 
 所需 Secrets：
 

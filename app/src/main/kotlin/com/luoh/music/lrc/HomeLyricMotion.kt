@@ -17,6 +17,8 @@ internal class HomeLyricMotion(
     private val animationsEnabled: () -> Boolean = { ValueAnimator.areAnimatorsEnabled() }
 ) {
     var style: MotionStyle = MotionStyle()
+    /** 0 = 左侧，0.5 = 居中，1 = 右侧；跟随主页歌词对齐方式。 */
+    var pivotXFraction: Float = 0f
     private var animator: ValueAnimator? = null
     private var focusedIndex = -1
     private var depthEnabled = false
@@ -53,7 +55,7 @@ internal class HomeLyricMotion(
         val lastVisible = max(startScroll, target) + scroll.height * 5 / 4
         val starts = rows.mapIndexedNotNull { i, row ->
             val distance = distance(i)
-            row.pivotX = 0f
+            row.pivotX = row.width * pivotXFraction
             row.pivotY = row.height / 2f
             if (!depthEnabled || i == index) depthBlur.setRadius(row, 0f)
             if (row.bottom < firstVisible || row.top > lastVisible) {
@@ -117,7 +119,7 @@ internal class HomeLyricMotion(
 
     private fun settleRow(index: Int, row: LyricLineView) {
         val distance = distance(index)
-        row.pivotX = 0f
+        row.pivotX = row.width * pivotXFraction
         row.pivotY = row.height / 2f
         row.translationY = 0f
         row.scaleX = scale(distance)

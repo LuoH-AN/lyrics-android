@@ -8,7 +8,6 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputLayout
 
@@ -114,7 +113,7 @@ class ApiProfileManagerActivity : AppCompatActivity() {
                     LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = NativeUi.dp(context, 6) })
                 if (profile.id == activeId) {
                     addView(NativeUi.text(context, "使用中", 12f).apply {
-                        setTextColor(ContextCompat.getColor(context, R.color.brand_text))
+                        setTextColor(AccentPrefs.textAccent(context, R.color.text_primary))
                         setPadding(0, 0, NativeUi.dp(context, 8), 0)
                     })
                 }

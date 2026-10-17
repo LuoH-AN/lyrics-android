@@ -70,6 +70,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     private var lyricOffsetMs = 0L
     private var custom = false
     private var lyricStatus = "loading"
+    private var alignment = HomeLyricsPrefs.LEFT
     private var active = false
     private var activeIndex = -2
     private var coloredIndex = -2
@@ -204,7 +205,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         ViewCompat.setAccessibilityLiveRegion(this, ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE)
     }
     private val translationHint = label("去设置 ›", 12f).apply {
-        setTextColor(color(R.color.brand_text))
+        setTextColor(AccentPrefs.textAccent(context, R.color.text_secondary))
         setOnClickListener { onTranslationSettings?.invoke() }
     }
     private val translationRow = LinearLayout(context).apply {
@@ -274,7 +275,10 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         scroll.addView(lyricsTrack, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         emptyPanel.addView(empty, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         stage.addView(emptyColumn, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, Gravity.CENTER))
-        stage.addView(interlude, FrameLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply { leftMargin = dp(28) })
+        stage.addView(interlude, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            leftMargin = dp(28)
+            rightMargin = dp(28)
+        })
         stage.addView(topFade, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, dp(40), Gravity.TOP))
         stage.addView(bottomFade, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, dp(40), Gravity.BOTTOM))
         addView(stage, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
@@ -446,6 +450,25 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         renderLines()
     }
 
+    /** 主页歌词对齐：左 / 居中 / 右，默认沿用原来的左对齐。 */
+    fun setAlignment(value: String) {
+        val normalized = when (value) {
+            HomeLyricsPrefs.CENTER, HomeLyricsPrefs.RIGHT -> value
+            else -> HomeLyricsPrefs.LEFT
+        }
+        if (normalized == alignment) return
+        alignment = normalized
+        lyricMotion.pivotXFraction = when (normalized) {
+            HomeLyricsPrefs.CENTER -> .5f
+            HomeLyricsPrefs.RIGHT -> 1f
+            else -> 0f
+        }
+        val gravity = Gravity.TOP or horizontalGravity()
+        lyricRows.forEach { it.gravity = gravity }
+        interlude.gravity = gravity
+        lyricMotion.cancel()
+    }
+
     fun setLyricOffset(offsetMs: Int) {
         lyricOffsetMs = offsetMs.toLong()
         activeIndex = -2
@@ -523,10 +546,10 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
             it.backgroundTintList = ColorStateList.valueOf(color(R.color.app_surface_container))
         }
         val states = arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf())
-        play.backgroundTintList = ColorStateList(states, intArrayOf(color(R.color.app_surface_container), color(R.color.brand_accent)))
-        play.iconTint = ColorStateList(states, intArrayOf(color(R.color.text_tertiary), color(R.color.brand_icon)))
-        play.rippleColor = ColorStateList.valueOf(ColorUtils.setAlphaComponent(color(R.color.brand_icon), 48))
-        val progressColors = ColorStateList(states, intArrayOf(color(R.color.text_tertiary), color(R.color.accent)))
+        play.backgroundTintList = ColorStateList(states, intArrayOf(color(R.color.app_surface_container), AccentPrefs.accent(context)))
+        play.iconTint = ColorStateList(states, intArrayOf(color(R.color.text_tertiary), AccentPrefs.onAccent(context)))
+        play.rippleColor = ColorStateList.valueOf(ColorUtils.setAlphaComponent(AccentPrefs.onAccent(context), 48))
+        val progressColors = ColorStateList(states, intArrayOf(color(R.color.text_tertiary), AccentPrefs.accent(context)))
         progress.thumbTintList = ColorStateList.valueOf(color(R.color.app_surface))
         progress.thumbStrokeColor = progressColors
         progress.trackActiveTintList = progressColors
@@ -537,9 +560,10 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         bottomFade.background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
             intArrayOf(ColorUtils.setAlphaComponent(color(R.color.app_bg), 0), color(R.color.app_bg)))
         setOverlayState(overlayRunning)
+        translationHint.setTextColor(AccentPrefs.textAccent(context, R.color.text_secondary))
         coloredIndex = -1
         lyricRows.forEachIndexed { index, row ->
-            row.setTextColor(color(if (index == activeIndex) R.color.brand_accent else R.color.text_primary))
+            row.setTextColor(if (index == activeIndex) AccentPrefs.lyricAccent(context) else color(R.color.text_primary))
         }
         if (lyricRows.getOrNull(activeIndex) != null) coloredIndex = activeIndex
     }
@@ -588,6 +612,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
                 setHorizontallyScrolling(false)
                 maxLines = Int.MAX_VALUE
                 ellipsize = null
+                gravity = Gravity.TOP or horizontalGravity()
                 setTextColor(color(R.color.text_primary))
                 setPaddingRelative(0, dp(12), 0, dp(12))
                 setLineSpacing(0f, 1.2f)
@@ -618,7 +643,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
             activeIndex = index
             if (coloredIndex != index) {
                 lyricRows.getOrNull(coloredIndex)?.setTextColor(color(R.color.text_primary))
-                lyricRows.getOrNull(index)?.setTextColor(color(R.color.brand_accent))
+                lyricRows.getOrNull(index)?.setTextColor(AccentPrefs.lyricAccent(context))
                 coloredIndex = index
             }
             // Only the active row repaints per frame, so a multi-line jump or forced
@@ -789,6 +814,12 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         text = value
         textSize = size
         includeFontPadding = false
+    }
+
+    private fun horizontalGravity(): Int = when (alignment) {
+        HomeLyricsPrefs.CENTER -> Gravity.CENTER_HORIZONTAL
+        HomeLyricsPrefs.RIGHT -> Gravity.END
+        else -> Gravity.START
     }
     private fun color(id: Int) = ContextCompat.getColor(context, id)
     private fun dp(value: Int) = (value * resources.displayMetrics.density + .5f).toInt()

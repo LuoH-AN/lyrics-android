@@ -26,7 +26,9 @@ class LyricColorPickerDialog(
     private val context: Context,
     initialHex: String,
     draftHex: String? = null,
-    private val onApply: (String) -> Unit
+    private val onApply: (String) -> Unit,
+    title: String = "歌词颜色",
+    private val onReset: (() -> Unit)? = null
 ) {
     private val content = LayoutInflater.from(context).inflate(R.layout.dialog_color_picker, null)
     private val preview = content.findViewById<TextView>(R.id.color_picker_preview)
@@ -35,12 +37,13 @@ class LyricColorPickerDialog(
     private val defaultHex = normalizeHex(initialHex) ?: LyricsOverlayService.LYRIC_COLOR_DEFAULT
     private val choices = mutableListOf<Pair<MaterialButton, String>>()
     private var applyButton: Button? = null
-    private val dialog = MaterialAlertDialogBuilder(context)
-        .setTitle("歌词颜色")
-        .setView(content)
-        .setNegativeButton("取消", null)
-        .setPositiveButton("应用", null)
-        .create()
+    private val dialog = MaterialAlertDialogBuilder(context).apply {
+        setTitle(title)
+        setView(content)
+        setNegativeButton("取消", null)
+        setPositiveButton("应用", null)
+        if (onReset != null) setNeutralButton("恢复默认", null)
+    }.create()
 
     val draft: String get() = hexInput.text.toString()
     val isShowing: Boolean get() = dialog.isShowing
@@ -86,6 +89,12 @@ class LyricColorPickerDialog(
             setOnClickListener {
                 val color = normalizeHex(draft) ?: return@setOnClickListener
                 onApply(color)
+                dialog.dismiss()
+            }
+        }
+        if (onReset != null) {
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+                onReset.invoke()
                 dialog.dismiss()
             }
         }
