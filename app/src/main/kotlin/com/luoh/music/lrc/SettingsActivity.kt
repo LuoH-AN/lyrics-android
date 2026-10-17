@@ -809,9 +809,15 @@ class SettingsActivity : AppCompatActivity() {
         )
     }
 
-    // MaterialButtonToggleGroup owns segment shape, ripple and accessibility state.
+    // The MaterialButtons keep their ids and checked state; the surrounding
+    // SegmentedControl moves its pill to whichever one is now checked.
     private fun applySeg(options: List<Pair<MaterialButton, String>>, selected: String) {
         options.forEach { (option, value) -> option.isChecked = value == selected }
+        val container = options.firstOrNull()?.first?.parent as? SegmentedControl
+        val selectedButton = options.firstOrNull { it.second == selected }?.first
+        if (container != null && selectedButton != null) {
+            container.selectById(selectedButton.id)
+        }
     }
 
     // ---------- 调色板 ----------

@@ -20,6 +20,13 @@
         <item name="colorOnSecondaryContainer">@color/text_primary</item>
         <item name="colorTertiary">@color/accent</item>
         <item name="colorSurface">@color/app_surface</item>
+        <item name="colorSurfaceBright">@color/app_surface</item>
+        <item name="colorSurfaceDim">@color/app_bg</item>
+        <item name="colorSurfaceContainerLowest">@color/app_surface</item>
+        <item name="colorSurfaceContainerLow">@color/app_surface</item>
+        <item name="colorSurfaceContainer">@color/app_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/app_surface_container</item>
+        <item name="colorSurfaceContainerHighest">@color/app_surface_inset</item>
         <item name="colorOnSurface">@color/text_primary</item>
         <item name="colorSurfaceVariant">@color/app_surface_container</item>
         <item name="colorOnSurfaceVariant">@color/text_secondary</item>
@@ -47,7 +54,7 @@
         <item name="buttonBarPositiveButtonStyle">@style/MaterialDialogAction</item>
         <item name="buttonBarNegativeButtonStyle">@style/MaterialDialogAction</item>
         <item name="buttonBarNeutralButtonStyle">@style/MaterialDialogAction</item>
-        <item name="shapeAppearanceMediumComponent">@style/NativeShapeCard</item>
+        <item name="shapeAppearanceMediumComponent">@style/NativeShapeAlert</item>
     </style>
 
     <style name="NativeButtonTheme" parent=""><item name="materialButtonStyle">@style/MaterialAction</item></style>

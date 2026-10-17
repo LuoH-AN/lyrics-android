@@ -3,7 +3,6 @@ package com.luoh.music.lrc
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
@@ -110,11 +109,12 @@ class LyricColorPickerDialog(
         val color = Color.parseColor(hex ?: defaultHex)
         preview.text = hex ?: defaultHex
         preview.setTextColor(contrastColor(color))
-        preview.background = GradientDrawable().apply {
-            cornerRadius = dp(14).toFloat()
-            setColor(color)
-            setStroke(dp(1), ContextCompat.getColor(context, R.color.app_line))
-        }
+        preview.background = SquircleDrawable(
+            color,
+            dp(14).toFloat(),
+            ContextCompat.getColor(context, R.color.app_line),
+            dp(1).toFloat()
+        )
         choices.forEach { (choice, candidate) ->
             val selected = candidate == hex
             choice.isChecked = selected

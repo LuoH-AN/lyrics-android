@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="SquircleCardView">
+        <attr name="squircleRadius" format="dimension" />
+        <attr name="squircleFill" format="color" />
+        <attr name="squircleStroke" format="color" />
+        <attr name="squircleStrokeWidth" format="dimension" />
+        <attr name="squircleCorners" format="enum">
+            <enum name="all" value="0" />
+            <enum name="top" value="1" />
+            <enum name="bottom" value="2" />
+            <enum name="none" value="3" />
+        </attr>
+    </declare-styleable>
+</resources>

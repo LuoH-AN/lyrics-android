@@ -783,8 +783,14 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         dialog.setOnDismissListener { if (menu === dialog) menu = null }
         menu = dialog
         dialog.show()
-        dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.backgroundTintList =
-            ColorStateList.valueOf(color(R.color.app_surface))
+        dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.apply {
+            background = SquircleDrawable(
+                color(R.color.app_surface),
+                dp(28).toFloat(),
+                corners = SquircleDrawable.CORNER_TOP
+            )
+            clipToOutline = true
+        }
         dialog.behavior.state = BottomSheetBehavior.STATE_EXPANDED
     }
 

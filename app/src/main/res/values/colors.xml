@@ -4,8 +4,9 @@
     <color name="app_bg">#F5F5F7</color>
     <color name="app_surface">#FFFFFF</color>
     <color name="app_surface_container">#EEEEF1</color>
+    <color name="app_surface_inset">#E4E4E9</color>
     <color name="app_line">#E2E2E7</color>
-    <color name="app_line_soft">#EBEBEF</color>
+    <color name="app_line_soft">#2418181B</color>
     <color name="text_primary">#18181B</color>
     <color name="text_secondary">#65656F</color>
     <color name="text_tertiary">#92929C</color>

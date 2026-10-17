@@ -4,7 +4,7 @@
     <androidx.core.widget.NestedScrollView android:id="@+id/settings_scroll" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true" android:overScrollMode="never" android:clipToPadding="false">
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingStart="18dp" android:paddingEnd="18dp" android:paddingBottom="28dp">
             <com.google.android.material.textview.MaterialTextView style="@style/GroupLabel" android:text="桌面歌词" />
-            <com.google.android.material.card.MaterialCardView style="@style/GroupCard">
+            <com.luoh.music.lrc.SquircleCardView style="@style/GroupCard">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                     <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard" android:id="@+id/cell_overlay_toggle">
                         <LinearLayout style="@style/Cell">
@@ -29,9 +29,9 @@
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+            </com.luoh.music.lrc.SquircleCardView>
             <com.google.android.material.textview.MaterialTextView style="@style/GroupLabel" android:text="桌面歌词外观" />
-            <com.google.android.material.card.MaterialCardView style="@style/GroupCard">
+            <com.luoh.music.lrc.SquircleCardView style="@style/GroupCard">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                     <LinearLayout style="@style/CellColumn">
                         <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="歌词预览" />
@@ -76,11 +76,14 @@
                     <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
                     <LinearLayout style="@style/CellColumn">
                         <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="背景" />
-                        <com.google.android.material.button.MaterialButtonToggleGroup android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal" app:singleSelection="true" app:selectionRequired="true">
+                        <com.luoh.music.lrc.SegmentedControl
+                            android:layout_width="match_parent"
+                            android:layout_height="44dp"
+                            android:layout_marginTop="8dp">
                             <com.google.android.material.button.MaterialButton android:id="@+id/background_mode_transparent" style="@style/SegItem" android:text="透明" />
                             <com.google.android.material.button.MaterialButton android:id="@+id/background_mode_low" style="@style/SegItem" android:text="半透明" />
                             <com.google.android.material.button.MaterialButton android:id="@+id/background_mode_high" style="@style/SegItem" android:text="不透明" />
-                        </com.google.android.material.button.MaterialButtonToggleGroup>
+                        </com.luoh.music.lrc.SegmentedControl>
                     </LinearLayout>
                     <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
                     <LinearLayout style="@style/CellColumn">
@@ -104,9 +107,9 @@
                         </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+            </com.luoh.music.lrc.SquircleCardView>
             <com.google.android.material.textview.MaterialTextView style="@style/GroupLabel" android:text="歌词同步" />
-            <com.google.android.material.card.MaterialCardView style="@style/GroupCard">
+            <com.luoh.music.lrc.SquircleCardView style="@style/GroupCard">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                     <LinearLayout style="@style/CellColumn">
                         <com.google.android.material.textview.MaterialTextView android:id="@+id/lyric_offset_value" style="@style/CellColumnLabel" android:accessibilityLiveRegion="polite" android:text="未调整" />
@@ -124,17 +127,20 @@
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+            </com.luoh.music.lrc.SquircleCardView>
             <com.google.android.material.textview.MaterialTextView style="@style/GroupLabel" android:text="歌词与翻译" />
-            <com.google.android.material.card.MaterialCardView style="@style/GroupCard">
+            <com.luoh.music.lrc.SquircleCardView style="@style/GroupCard">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                     <LinearLayout style="@style/CellColumn">
                         <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="外语歌词" />
-                        <com.google.android.material.button.MaterialButtonToggleGroup android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal" app:singleSelection="true" app:selectionRequired="true">
+                        <com.luoh.music.lrc.SegmentedControl
+                            android:layout_width="match_parent"
+                            android:layout_height="44dp"
+                            android:layout_marginTop="8dp">
                             <com.google.android.material.button.MaterialButton android:id="@+id/translation_original" style="@style/SegItem" android:text="原文" />
                             <com.google.android.material.button.MaterialButton android:id="@+id/translation_bilingual" style="@style/SegItem" android:text="双语" />
                             <com.google.android.material.button.MaterialButton android:id="@+id/translation_translated" style="@style/SegItem" android:text="中文" />
-                        </com.google.android.material.button.MaterialButtonToggleGroup>
+                        </com.luoh.music.lrc.SegmentedControl>
                     </LinearLayout>
                     <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
                     <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard" android:id="@+id/cell_supplement_translation">
@@ -158,17 +164,20 @@
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+            </com.luoh.music.lrc.SquircleCardView>
             <com.google.android.material.textview.MaterialTextView style="@style/GroupLabel" android:text="应用外观" />
-            <com.google.android.material.card.MaterialCardView style="@style/GroupCard">
+            <com.luoh.music.lrc.SquircleCardView style="@style/GroupCard">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                     <LinearLayout style="@style/CellColumn">
                         <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="主题" />
-                        <com.google.android.material.button.MaterialButtonToggleGroup android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal" app:singleSelection="true" app:selectionRequired="true">
+                        <com.luoh.music.lrc.SegmentedControl
+                            android:layout_width="match_parent"
+                            android:layout_height="44dp"
+                            android:layout_marginTop="8dp">
                             <com.google.android.material.button.MaterialButton android:id="@+id/theme_follow" style="@style/SegItem" android:text="跟随系统" />
                             <com.google.android.material.button.MaterialButton android:id="@+id/theme_light" style="@style/SegItem" android:text="浅色" />
                             <com.google.android.material.button.MaterialButton android:id="@+id/theme_dark" style="@style/SegItem" android:text="深色" />
-                        </com.google.android.material.button.MaterialButtonToggleGroup>
+                        </com.luoh.music.lrc.SegmentedControl>
                     </LinearLayout>
                     <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
                     <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard" android:id="@+id/cell_accent_color">
@@ -179,22 +188,25 @@
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+            </com.luoh.music.lrc.SquircleCardView>
             <com.google.android.material.textview.MaterialTextView style="@style/GroupLabel" android:text="主页歌词" />
-            <com.google.android.material.card.MaterialCardView style="@style/GroupCard">
+            <com.luoh.music.lrc.SquircleCardView style="@style/GroupCard">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                     <LinearLayout style="@style/CellColumn">
                         <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="对齐方式" />
-                        <com.google.android.material.button.MaterialButtonToggleGroup android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal" app:singleSelection="true" app:selectionRequired="true">
+                        <com.luoh.music.lrc.SegmentedControl
+                            android:layout_width="match_parent"
+                            android:layout_height="44dp"
+                            android:layout_marginTop="8dp">
                             <com.google.android.material.button.MaterialButton android:id="@+id/home_align_left" style="@style/SegItem" android:text="左对齐" />
                             <com.google.android.material.button.MaterialButton android:id="@+id/home_align_center" style="@style/SegItem" android:text="居中" />
                             <com.google.android.material.button.MaterialButton android:id="@+id/home_align_right" style="@style/SegItem" android:text="右对齐" />
-                        </com.google.android.material.button.MaterialButtonToggleGroup>
+                        </com.luoh.music.lrc.SegmentedControl>
                     </LinearLayout>
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+            </com.luoh.music.lrc.SquircleCardView>
             <com.google.android.material.textview.MaterialTextView style="@style/GroupLabel" android:text="主页歌词动效" />
-            <com.google.android.material.card.MaterialCardView style="@style/GroupCard">
+            <com.luoh.music.lrc.SquircleCardView style="@style/GroupCard">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                     <com.luoh.music.lrc.HomeMotionPreview android:id="@+id/home_motion_preview" android:layout_width="match_parent" android:layout_height="176dp" android:layout_marginStart="16dp" android:layout_marginTop="14dp" android:layout_marginEnd="16dp" android:layout_marginBottom="10dp" />
                     <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
@@ -242,9 +254,9 @@
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+            </com.luoh.music.lrc.SquircleCardView>
             <com.google.android.material.textview.MaterialTextView style="@style/GroupLabel" android:text="关于" />
-            <com.google.android.material.card.MaterialCardView style="@style/GroupCard">
+            <com.luoh.music.lrc.SquircleCardView style="@style/GroupCard">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                     <com.google.android.material.card.MaterialCardView style="@style/SettingsRowCard" android:id="@+id/cell_check_update">
                         <LinearLayout style="@style/Cell">
@@ -275,7 +287,7 @@
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+            </com.luoh.music.lrc.SquircleCardView>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 </LinearLayout>

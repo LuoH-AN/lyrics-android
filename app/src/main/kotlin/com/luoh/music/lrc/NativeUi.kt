@@ -15,7 +15,6 @@ import androidx.core.graphics.ColorUtils
 import androidx.core.widget.NestedScrollView
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
@@ -75,7 +74,7 @@ object NativeUi {
             }, LinearLayout.LayoutParams(-1, -2))
         }
 
-    fun card(context: Context): MaterialCardView = MaterialCardView(context).apply {
+    fun card(context: Context): SquircleCardView = SquircleCardView(context).apply {
         layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(context, 12) }
     }
 

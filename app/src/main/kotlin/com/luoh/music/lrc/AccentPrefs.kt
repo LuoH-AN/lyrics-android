@@ -68,6 +68,11 @@ object AccentPrefs {
     }
 
     fun styleSegment(context: Context, button: MaterialButton) {
+        val segmented = button.parent as? SegmentedControl
+        if (segmented != null) {
+            segmented.setAccentColor(accent(context))
+            return
+        }
         val states = arrayOf(
             intArrayOf(android.R.attr.state_enabled, android.R.attr.state_checked),
             intArrayOf(android.R.attr.state_enabled),
