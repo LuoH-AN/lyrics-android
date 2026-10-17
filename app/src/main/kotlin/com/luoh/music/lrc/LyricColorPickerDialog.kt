@@ -48,6 +48,8 @@ class LyricColorPickerDialog(
     val isShowing: Boolean get() = dialog.isShowing
 
     init {
+        dialog.window?.setWindowAnimations(0)
+        dialog.setOnShowListener { Springs.animateDialogIn(dialog) }
         val palette = content.findViewById<LinearLayout>(R.id.color_palette)
         COLORS.chunked(4).forEach { colors ->
             val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }

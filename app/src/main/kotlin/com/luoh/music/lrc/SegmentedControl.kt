@@ -9,10 +9,11 @@ import android.util.AttributeSet
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
-import android.view.animation.OvershootInterpolator
 import android.view.animation.PathInterpolator
 import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
+import androidx.dynamicanimation.animation.DynamicAnimation
+import androidx.dynamicanimation.animation.SpringAnimation
 import com.google.android.material.button.MaterialButton
 
 /**
@@ -20,7 +21,7 @@ import com.google.android.material.button.MaterialButton
  *
  * The children stay the XML [MaterialButton]s, so existing ids, click
  * listeners, checked state and accessibility keep working. The pill is a
- * separate view behind them; it slides with an ease-out cubic and the text
+ * separate view behind them; it travels on a retargetable spring and the text
  * colors cross-fade at the same time.
  */
 class SegmentedControl @JvmOverloads constructor(
@@ -30,12 +31,10 @@ class SegmentedControl @JvmOverloads constructor(
 ) : FrameLayout(context, attrs, defStyleAttr) {
 
     companion object {
-        private const val DURATION_PILL = 260L
         private const val DURATION_TEXT = 180L
         private const val HEIGHT_DP = 44f
         private const val INSET_DP = 4f
         private val EASE_OUT_CUBIC = PathInterpolator(0.215f, 0.61f, 0.355f, 1f)
-        private val PILL_SETTLE = OvershootInterpolator(1.12f)
         private val ARGB = ArgbEvaluator()
     }
 
@@ -51,6 +50,7 @@ class SegmentedControl @JvmOverloads constructor(
     private var segmentWidth = 0
     private var textAnimator: ValueAnimator? = null
     private var accentAnimator: ValueAnimator? = null
+    private var indicatorSpring: SpringAnimation? = null
     private var indicatorAnimating = false
 
     init {
@@ -175,20 +175,22 @@ class SegmentedControl @JvmOverloads constructor(
     private fun positionIndicator(animate: Boolean) {
         if (segmentWidth <= 0) return
         val target = (selectedIndex.coerceAtLeast(0) * segmentWidth).toFloat()
-        indicator.animate().cancel()
-        indicatorAnimating = false
-        if (animate && ValueAnimator.areAnimatorsEnabled()) {
-            indicatorAnimating = true
-            indicator.animate()
-                .translationX(target)
-                .setDuration(DURATION_PILL)
-                .setInterpolator(PILL_SETTLE)
-                .withEndAction { indicatorAnimating = false }
-                .start()
-        } else {
+        if (!animate || !ValueAnimator.areAnimatorsEnabled()) {
+            indicatorSpring?.cancel()
+            indicatorAnimating = false
             indicator.translationX = target
+            return
         }
+        indicatorAnimating = true
+        indicatorSpring().animateToFinalPosition(target)
     }
+
+    private fun indicatorSpring(): SpringAnimation =
+        indicatorSpring ?: SpringAnimation(indicator, DynamicAnimation.TRANSLATION_X).apply {
+            spring = Springs.force(Springs.TRAVEL_STIFFNESS, Springs.TRAVEL_DAMPING_RATIO)
+            setMinimumVisibleChange(DynamicAnimation.MIN_VISIBLE_CHANGE_PIXELS)
+            addEndListener { _, _, _, _ -> indicatorAnimating = false }
+        }.also { indicatorSpring = it }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = MeasureSpec.getSize(widthMeasureSpec)
@@ -256,7 +258,7 @@ class SegmentedControl @JvmOverloads constructor(
     override fun onDetachedFromWindow() {
         textAnimator?.cancel()
         accentAnimator?.cancel()
-        indicator.animate().cancel()
+        indicatorSpring?.cancel()
         super.onDetachedFromWindow()
     }
 

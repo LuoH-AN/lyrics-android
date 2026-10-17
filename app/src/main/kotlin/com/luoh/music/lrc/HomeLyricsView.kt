@@ -13,7 +13,6 @@ import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
-import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -842,13 +841,11 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         stateListAnimator = null
         elevation = 0f
         contentDescription = description
-        setOnTouchListener { view, event ->
+        val pressSpring = Springs.Scale(this)
+        setOnTouchListener { _, event ->
             when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> view.animate()
-                    .scaleX(0.94f).scaleY(0.94f).setDuration(90).start()
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> view.animate()
-                    .scaleX(1f).scaleY(1f).setDuration(180)
-                    .setInterpolator(OvershootInterpolator(1.5f)).start()
+                MotionEvent.ACTION_DOWN -> pressSpring.animateTo(0.94f)
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> pressSpring.animateTo(1f)
             }
             false
         }

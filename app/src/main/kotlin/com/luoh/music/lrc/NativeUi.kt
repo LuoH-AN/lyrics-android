@@ -93,13 +93,19 @@ object NativeUi {
         layoutParams = LinearLayout.LayoutParams(-1, dp(activity, 64))
     }
 
-    fun confirm(context: Context, title: String, message: String, positive: String, onConfirm: () -> Unit): AlertDialog =
-        MaterialAlertDialogBuilder(context)
+    fun confirm(context: Context, title: String, message: String, positive: String, onConfirm: () -> Unit): AlertDialog {
+        val dialog = MaterialAlertDialogBuilder(context)
             .setTitle(title)
             .setMessage(message)
             .setNegativeButton("取消", null)
             .setPositiveButton(positive) { _, _ -> onConfirm() }
-            .show()
+            .create()
+        // The alert grows in on a spring instead of the window's fixed curve.
+        dialog.window?.setWindowAnimations(0)
+        dialog.setOnShowListener { Springs.animateDialogIn(dialog) }
+        dialog.show()
+        return dialog
+    }
 
     fun screen(activity: AppCompatActivity, title: String, onBack: () -> Unit = { activity.finish() }): LinearLayout {
         val root = column(activity, 0).apply {
