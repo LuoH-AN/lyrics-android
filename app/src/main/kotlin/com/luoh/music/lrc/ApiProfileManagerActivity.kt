@@ -3,7 +3,6 @@ package com.luoh.music.lrc
 import android.content.Context
 import android.os.Bundle
 import android.text.InputType
-import android.view.Gravity
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -43,12 +42,14 @@ class ApiProfileManagerActivity : AppCompatActivity() {
         status = NativeUi.text(this, "填写完整后保存；密钥会加密保存在本机。", 12f).apply { setPadding(0, NativeUi.dp(context, 10), 0, 0) }
         editor.addView(status)
         content.addView(NativeUi.card(this).apply { addView(editor) })
-        val saved = NativeUi.column(this)
-        saved.addView(NativeUi.text(this, "API 配置", 19f))
-        saved.addView(NativeUi.text(this, "内置与自行添加的配置都可以编辑或删除。", 12f))
-        list = NativeUi.column(this, 0)
-        saved.addView(list)
-        content.addView(NativeUi.card(this).apply { addView(saved) })
+        val savedHeader = NativeUi.column(this)
+        savedHeader.addView(NativeUi.text(this, "API 配置", 19f))
+        savedHeader.addView(NativeUi.text(this, "内置与自行添加的配置都可以编辑或删除。", 12f))
+        list = NativeUi.cardColumn(this)
+        val savedColumn = NativeUi.cardColumn(this)
+        savedColumn.addView(savedHeader)
+        savedColumn.addView(list)
+        content.addView(NativeUi.card(this).apply { addView(savedColumn) })
         renderProfiles()
     }
 
@@ -100,26 +101,34 @@ class ApiProfileManagerActivity : AppCompatActivity() {
         list.removeAllViews()
         val profiles = TranslationApiProfiles.all(this)
         if (profiles.isEmpty()) {
-            list.addView(NativeUi.text(this, "还没有 API 配置，请在上方添加", 13f))
+            list.addView(NativeUi.row(
+                this,
+                title = "还没有 API 配置",
+                iconRes = R.drawable.ic_setting_link,
+                subtitle = "在上方填写并保存"
+            ))
             return
         }
         val activeId = prefs.getString("active_api_profile", "").orEmpty()
-        profiles.forEach { profile ->
-            list.addView(LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = NativeUi.dp(context, 8) }
-                addView(NativeUi.button(context, profile.label) { edit(profile) },
-                    LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = NativeUi.dp(context, 6) })
-                if (profile.id == activeId) {
-                    addView(NativeUi.text(context, "使用中", 12f).apply {
-                        setTextColor(AccentPrefs.textAccent(context, R.color.text_primary))
-                        setPadding(0, 0, NativeUi.dp(context, 8), 0)
-                    })
-                }
-                addView(NativeUi.button(context, "删除") { confirmDelete(profile) },
-                    LinearLayout.LayoutParams(NativeUi.dp(context, 82), -2))
-            })
+        profiles.forEachIndexed { index, profile ->
+            if (index > 0) list.addView(NativeUi.divider(this))
+            val address = prefs.getString(TranslationApiProfiles.endpointKey(profile.id), "").orEmpty()
+            val modelName = prefs.getString(TranslationApiProfiles.modelKey(profile.id), "").orEmpty()
+            val subtitle = listOf(address, modelName)
+                .filter { it.isNotBlank() }
+                .joinToString(" · ")
+                .ifBlank { "未配置地址" }
+            val active = profile.id == activeId
+            list.addView(NativeUi.row(
+                this,
+                title = profile.label,
+                iconRes = R.drawable.ic_setting_link,
+                subtitle = subtitle,
+                value = if (active) "使用中" else null,
+                valueColor = if (active) AccentPrefs.textAccent(this, R.color.text_primary) else null,
+                chevron = true,
+                trailing = NativeUi.dangerButton(this, "删除") { confirmDelete(profile) }
+            ) { edit(profile) })
         }
     }
 

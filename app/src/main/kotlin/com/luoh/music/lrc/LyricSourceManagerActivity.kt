@@ -3,13 +3,11 @@ package com.luoh.music.lrc
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.view.View
 import android.widget.LinearLayout
 import android.text.Editable
 import android.text.TextWatcher
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -58,12 +56,20 @@ class LyricSourceManagerActivity : AppCompatActivity() {
             val searchField = NativeUi.field(this, "搜索已记录的歌名或歌手", songQuery)
             val input = searchField.editText!!
             content.addView(searchField)
-            val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            val list = NativeUi.cardColumn(this)
             content.addView(list)
-            content.addView(button("清除匹配记录与缓存…") { confirmClearAll() }.apply {
-                isEnabled = !busy && (values.isNotEmpty() ||
-                    getSharedPreferences("home_lyric_cache_v1", Context.MODE_PRIVATE).all.isNotEmpty())
-            })
+            val canClear = !busy && (values.isNotEmpty() ||
+                getSharedPreferences("home_lyric_cache_v1", Context.MODE_PRIVATE).all.isNotEmpty())
+            val clearRow = NativeUi.row(
+                this,
+                title = "清除匹配记录与缓存…",
+                iconRes = R.drawable.ic_native_delete,
+                danger = true,
+                chevron = canClear,
+                onClick = if (canClear) ({ confirmClearAll() }) else null
+            )
+            if (!canClear) clearRow.alpha = 0.45f
+            content.addView(NativeUi.cardWithRow(this, clearRow))
             fun fillSongs() {
                 list.removeAllViews()
                 val groups = values.asReversed().groupBy {
@@ -71,21 +77,47 @@ class LyricSourceManagerActivity : AppCompatActivity() {
                 }.values.filter { group -> group.any {
                     (it.optString("title") + " " + it.optString("artist")).contains(songQuery.trim(), ignoreCase = true)
                 } }
-                if(groups.isEmpty()) list.addView(label(if(values.isEmpty()) "暂无重匹配记录" else "没有符合搜索条件的歌曲", 16f))
+                if (groups.isEmpty()) {
+                    list.addView(NativeUi.cardWithRow(this, NativeUi.row(
+                        this,
+                        title = if (values.isEmpty()) "暂无重匹配记录" else "没有符合搜索条件的歌曲",
+                        iconRes = R.drawable.ic_setting_lyrics,
+                        subtitle = if (values.isEmpty()) "播放歌曲并获取歌词后会记录在这里" else "换个关键词试试"
+                    )))
+                }
                 groups.forEach { group ->
                     val item = group.first()
-                    list.addView(card {
-                        addView(label(item.optString("title").ifBlank { "未知歌曲" },18f))
-                        addView(label(item.optString("artist"),13f))
-                        group.forEach { source ->
-                            val name = source.optString("source").ifBlank { source.optJSONObject("candidate")?.optString("source").orEmpty() }
-                            val seconds = source.optLong("duration") / 1000
-                            val variant = if(group.count { it.optString("source") == name } > 1) " · ${seconds / 60}:${(seconds % 60).toString().padStart(2,'0')}" else ""
-                            addView(button("$name$variant · 查看版本与预览  ›") {
-                                selected = source.optString("key"); message = ""; render()
-                            })
+                    val card = NativeUi.card(this)
+                    val rows = NativeUi.cardColumn(this)
+                    rows.addView(NativeUi.row(
+                        this,
+                        title = item.optString("title").ifBlank { "未知歌曲" },
+                        iconRes = R.drawable.ic_setting_lyrics,
+                        subtitle = item.optString("artist").ifBlank { "未知歌手" }
+                    ))
+                    group.forEach { source ->
+                        rows.addView(NativeUi.divider(this, 52))
+                        val name = source.optString("source").ifBlank {
+                            source.optJSONObject("candidate")?.optString("source").orEmpty()
                         }
-                    })
+                        val seconds = source.optLong("duration") / 1000
+                        val variant = if (group.count { it.optString("source") == name } > 1) {
+                            " · ${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}"
+                        } else ""
+                        rows.addView(NativeUi.row(
+                            this,
+                            title = "$name$variant",
+                            iconRes = R.drawable.ic_home_library,
+                            subtitle = "查看版本与预览",
+                            chevron = true
+                        ) {
+                            selected = source.optString("key")
+                            message = ""
+                            render()
+                        })
+                    }
+                    card.addView(rows)
+                    list.addView(card)
                 }
             }
             fillSongs()
@@ -97,21 +129,63 @@ class LyricSourceManagerActivity : AppCompatActivity() {
             return
         }
         val key = entry.optString("key")
-        content.addView(label(entry.optString("title"), 20f))
-        content.addView(button(if (busy) "正在搜索…" else "搜索下一个匹配结果（仅预览）") { search(entry) }.apply { isEnabled = !busy })
+        content.addView(NativeUi.sectionLabel(this, "来源记忆"))
+        content.addView(NativeUi.cardWithRow(this, NativeUi.row(
+            this,
+            title = entry.optString("title").ifBlank { "未知歌曲" },
+            iconRes = R.drawable.ic_setting_lyrics,
+            subtitle = entry.optString("artist").ifBlank { "未知歌手" } +
+                " · " + entry.optString("source").ifBlank { "歌词源" }
+        )))
+        val actions = NativeUi.card(this)
+        val actionRows = NativeUi.cardColumn(this)
+        val searchRow = NativeUi.row(
+            this,
+            title = if (busy) "正在搜索…" else "搜索下一个匹配结果（仅预览）",
+            iconRes = R.drawable.ic_home_refresh,
+            chevron = !busy,
+            onClick = if (!busy) ({ search(entry) }) else null
+        )
+        if (busy) searchRow.alpha = 0.45f
+        actionRows.addView(searchRow)
         entry.optJSONObject("original")?.let { original ->
-            content.addView(button("恢复最初的歌词") { update(key) { it.put("candidate", original).put("needsReview", false) }; message = "已恢复最初的歌词"; render() })
+            actionRows.addView(NativeUi.divider(this))
+            actionRows.addView(NativeUi.row(
+                this,
+                title = "恢复最初的歌词",
+                iconRes = R.drawable.ic_setting_history,
+                chevron = true
+            ) {
+                update(key) { it.put("candidate", original).put("needsReview", false) }
+                message = "已恢复最初的歌词"
+                render()
+            })
         }
-        content.addView(button("删除记忆 / 恢复自动匹配") {
-            MaterialAlertDialogBuilder(this)
-                .setTitle("删除这首歌的来源记忆？")
-                .setMessage("将删除《${entry.optString("title")}》在 ${entry.optString("source")} 的选择及历史版本，下次搜索恢复自动匹配。")
-                .setNegativeButton("取消", null)
-                .setPositiveButton("删除记忆") { _, _ ->
+        actionRows.addView(NativeUi.divider(this))
+        val deleteRow = NativeUi.row(
+            this,
+            title = "删除记忆 / 恢复自动匹配",
+            iconRes = R.drawable.ic_native_delete,
+            danger = true,
+            chevron = !busy,
+            onClick = if (!busy) ({
+                NativeUi.confirm(
+                    this,
+                    "删除这首歌的来源记忆？",
+                    "将删除《${entry.optString("title")}》在 ${entry.optString("source")} 的选择及历史版本，下次搜索恢复自动匹配。",
+                    "删除记忆"
+                ) {
                     save(entries().filter { it.optString("key") != key })
-                    selected = null; message = "已删除，下次搜索使用自动匹配"; render()
-                }.show()
-        }.apply { isEnabled = !busy })
+                    selected = null
+                    message = "已删除，下次搜索使用自动匹配"
+                    render()
+                }
+            }) else null
+        )
+        if (busy) deleteRow.alpha = 0.45f
+        actionRows.addView(deleteRow)
+        actions.addView(actionRows)
+        content.addView(actions)
         val history = entry.optJSONArray("history") ?: JSONArray().put(entry.optJSONObject("candidate"))
         for (i in 0 until history.length()) {
             val candidate = history.optJSONObject(i) ?: continue
@@ -140,17 +214,18 @@ class LyricSourceManagerActivity : AppCompatActivity() {
     private fun confirmClearAll() {
         if (busy) return
         val count = entries().map { it.optString("title") + "\u0000" + it.optString("artist") }.distinct().size
-        MaterialAlertDialogBuilder(this)
-            .setTitle("清除匹配记录与缓存？")
-            .setMessage("将清除 $count 首歌曲的匹配记录（包括手动选定的版本与历史版本），以及主页缓存的歌词。此操作无法撤销。\n\n自定义歌词、翻译语言包和同步设置都会保留。")
-            .setNegativeButton("取消", null)
-            .setPositiveButton("确认清除") { _, _ ->
-                save(emptyList())
-                getSharedPreferences("home_lyric_cache_v1", Context.MODE_PRIVATE).edit().clear().apply()
-                selected = null
-                message = "已清除匹配记录与缓存，下次搜索恢复自动匹配"
-                render()
-            }.show()
+        NativeUi.confirm(
+            this,
+            "清除匹配记录与缓存？",
+            "将清除 $count 首歌曲的匹配记录（包括手动选定的版本与历史版本），以及主页缓存的歌词。此操作无法撤销。\n\n自定义歌词、翻译语言包和同步设置都会保留。",
+            "确认清除"
+        ) {
+            save(emptyList())
+            getSharedPreferences("home_lyric_cache_v1", Context.MODE_PRIVATE).edit().clear().apply()
+            selected = null
+            message = "已清除匹配记录与缓存，下次搜索恢复自动匹配"
+            render()
+        }
     }
 
     private fun search(entry: JSONObject) {

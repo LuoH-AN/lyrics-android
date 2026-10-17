@@ -3,10 +3,8 @@ package com.luoh.music.lrc
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.view.Gravity
 import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import org.json.JSONObject
 
 class LyricOffsetMemoryActivity : AppCompatActivity() {
@@ -29,34 +27,48 @@ class LyricOffsetMemoryActivity : AppCompatActivity() {
         content.removeAllViews()
         val entries = readEntries()
         if (entries.isEmpty()) {
-            content.addView(NativeUi.card(this).apply {
-                addView(NativeUi.column(context).apply {
-                    addView(NativeUi.text(context, "还没有保存的同步调整", 15f).apply { gravity = Gravity.CENTER })
-                })
-            })
+            content.addView(NativeUi.cardWithRow(this, NativeUi.row(
+                this,
+                title = "还没有保存的同步调整",
+                iconRes = R.drawable.ic_setting_history,
+                subtitle = "调整歌词同步后会自动记录在这里"
+            )))
             return
         }
-        content.addView(NativeUi.button(this, "重置全部同步记忆") { showClearDialog() })
-        entries.forEach { entry ->
-            val body = NativeUi.column(this)
-            body.addView(NativeUi.text(this, entry.title.ifBlank { "未知歌曲" }, 17f).apply {
-                setTextColor(ContextCompat.getColor(context, R.color.text_primary))
-            })
-            if (entry.artist.isNotBlank()) body.addView(NativeUi.text(this, entry.artist, 12f))
-            body.addView(LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, NativeUi.dp(context, 8), 0, 0)
-                addView(NativeUi.text(context, entry.source.ifBlank { "歌词源" }, 12f), LinearLayout.LayoutParams(0, -2, 1f))
-                addView(NativeUi.text(context, LyricSyncText.format(entry.offsetMs), 14f).apply {
-                    setTextColor(ContextCompat.getColor(context, R.color.text_primary))
-                })
-            })
-            body.addView(NativeUi.button(this, "删除这条记忆") {
-                NativeUi.confirm(this, "删除这条同步记忆？", "《${entry.title}》在 ${entry.source} 的歌词将恢复原始同步时间。", "删除记忆") { delete(entry) }
-            })
-            content.addView(NativeUi.card(this).apply { addView(body) })
+        content.addView(NativeUi.sectionLabel(this, "已保存 ${entries.size} 条同步调整"))
+        val card = NativeUi.card(this)
+        val rows = NativeUi.cardColumn(this)
+        entries.forEachIndexed { index, entry ->
+            if (index > 0) rows.addView(NativeUi.divider(this))
+            val subtitle = listOf(entry.artist, entry.source)
+                .filter { it.isNotBlank() }
+                .joinToString(" · ")
+                .ifBlank { "歌词源" }
+            rows.addView(NativeUi.row(
+                this,
+                title = entry.title.ifBlank { "未知歌曲" },
+                iconRes = R.drawable.ic_setting_history,
+                subtitle = subtitle,
+                value = LyricSyncText.format(entry.offsetMs),
+                trailing = NativeUi.dangerButton(this, "删除") {
+                    NativeUi.confirm(
+                        this,
+                        "删除这条同步记忆？",
+                        "《${entry.title}》在 ${entry.source} 的歌词将恢复原始同步时间。",
+                        "删除记忆"
+                    ) { delete(entry) }
+                }
+            ))
         }
+        card.addView(rows)
+        content.addView(card)
+        content.addView(NativeUi.cardWithRow(this, NativeUi.row(
+            this,
+            title = "重置全部同步记忆",
+            iconRes = R.drawable.ic_native_delete,
+            danger = true,
+            chevron = true
+        ) { showClearDialog() }))
     }
 
     private fun readEntries(): List<Entry> {

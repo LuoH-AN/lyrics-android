@@ -11,6 +11,7 @@
     <color name="text_secondary">#65656F</color>
     <color name="text_tertiary">#92929C</color>
     <color name="text_on_accent">#FFFFFF</color>
+    <color name="danger">#D92D20</color>
     <color name="accent">#18181B</color>
     <color name="accent_pressed">#36363C</color>
     <color name="control_track">#DDDDE3</color>
