@@ -186,9 +186,7 @@ class SegmentedControl @JvmOverloads constructor(
     }
 
     private fun indicatorSpring(): SpringAnimation =
-        indicatorSpring ?: SpringAnimation(indicator, DynamicAnimation.TRANSLATION_X).apply {
-            spring = Springs.force(Springs.TRAVEL_STIFFNESS, Springs.TRAVEL_DAMPING_RATIO)
-            setMinimumVisibleChange(DynamicAnimation.MIN_VISIBLE_CHANGE_PIXELS)
+        indicatorSpring ?: Springs.spring(indicator, DynamicAnimation.TRANSLATION_X).apply {
             addEndListener { _, _, _, _ -> indicatorAnimating = false }
         }.also { indicatorSpring = it }
 
