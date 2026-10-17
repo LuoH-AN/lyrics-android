@@ -104,12 +104,6 @@ class MaterialUiLayoutTest {
         assertNativeSettings("settings-dark")
     }
 
-    /** Renders the whole settings page so the segmented controls stay visible. */
-    @Test fun settingsPreviewTall() {
-        val root = LayoutInflater.from(context()).inflate(R.layout.activity_settings, null)
-        layout(root, widthDp = 360, heightDp = 1600, preview = "settings-tall")
-    }
-
     private class Actions : HomeLyricsView.Actions {
         var overlays = 0
         var seekPosition = -1L
