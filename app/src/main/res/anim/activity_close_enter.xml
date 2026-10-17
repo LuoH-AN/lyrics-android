@@ -3,12 +3,12 @@
     <translate
         android:fromXDelta="-3%p"
         android:toXDelta="0"
-        android:duration="240"
-        android:interpolator="@android:interpolator/fast_out_slow_in" />
+        android:duration="320"
+        android:interpolator="@interpolator/spring_settle" />
     <alpha
         android:fromAlpha="0"
         android:toAlpha="1"
-        android:duration="170"
+        android:duration="200"
         android:startOffset="30"
         android:interpolator="@android:interpolator/fast_out_slow_in" />
 </set>

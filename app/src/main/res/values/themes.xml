@@ -7,6 +7,7 @@
         <item name="android:navigationBarColor">@color/nav_bar</item>
         <item name="android:windowBackground">@color/app_bg</item>
         <item name="android:colorBackground">@color/app_bg</item>
+        <item name="android:windowAnimationStyle">@style/AppWindowAnimation</item>
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_secondary</item>
         <item name="android:colorAccent">@color/accent</item>

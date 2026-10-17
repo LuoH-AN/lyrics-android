@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A damped spring settle: rises quickly, overshoots about 6%, then settles.
+  PathInterpolator needs a monotonic x, so the overshoot lives in y.
+-->
+<pathInterpolator xmlns:android="http://schemas.android.com/apk/res/android"
+    android:pathData="M0,0 C0.16,0.88 0.24,1.08 0.46,1.06 C0.68,1.04 0.84,0.995 1,1" />
