@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.SystemClock
 import android.text.TextUtils
 import android.util.AttributeSet
@@ -13,6 +14,8 @@ import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import android.view.WindowManager
+import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -808,14 +811,21 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         dialog.setOnDismissListener { if (menu === dialog) menu = null }
         menu = dialog
         dialog.show()
-        dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.apply {
-            background = SquircleDrawable(
-                color(R.color.app_surface),
-                dp(28).toFloat(),
-                corners = SquircleDrawable.CORNER_TOP
-            )
-            clipToOutline = true
+        val sheet = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+        val frosted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+            dialog.window?.setBackgroundBlurRadius(dp(28))
+            ColorUtils.setAlphaComponent(color(R.color.app_surface), 236)
+        } else {
+            color(R.color.app_surface)
         }
+        dialog.window?.setDimAmount(0.32f)
+        sheet?.background = SquircleDrawable(
+            frosted,
+            dp(28).toFloat(),
+            corners = SquircleDrawable.CORNER_TOP
+        )
+        sheet?.clipToOutline = true
         dialog.behavior.state = BottomSheetBehavior.STATE_EXPANDED
     }
 
@@ -839,6 +849,16 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         stateListAnimator = null
         elevation = 0f
         contentDescription = description
+        setOnTouchListener { view, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> view.animate()
+                    .scaleX(0.94f).scaleY(0.94f).setDuration(90).start()
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> view.animate()
+                    .scaleX(1f).scaleY(1f).setDuration(180)
+                    .setInterpolator(OvershootInterpolator(1.5f)).start()
+            }
+            false
+        }
     }
 
     private fun label(value: String, size: Float) = MaterialTextView(context).apply {
