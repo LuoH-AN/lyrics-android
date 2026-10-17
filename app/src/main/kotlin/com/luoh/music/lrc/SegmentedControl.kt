@@ -9,6 +9,7 @@ import android.util.AttributeSet
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.animation.OvershootInterpolator
 import android.view.animation.PathInterpolator
 import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
@@ -29,11 +30,12 @@ class SegmentedControl @JvmOverloads constructor(
 ) : FrameLayout(context, attrs, defStyleAttr) {
 
     companion object {
-        private const val DURATION_PILL = 250L
+        private const val DURATION_PILL = 260L
         private const val DURATION_TEXT = 180L
         private const val HEIGHT_DP = 44f
         private const val INSET_DP = 4f
         private val EASE_OUT_CUBIC = PathInterpolator(0.215f, 0.61f, 0.355f, 1f)
+        private val PILL_SETTLE = OvershootInterpolator(1.12f)
         private val ARGB = ArgbEvaluator()
     }
 
@@ -48,6 +50,8 @@ class SegmentedControl @JvmOverloads constructor(
     private var selectedIndex = -1
     private var segmentWidth = 0
     private var textAnimator: ValueAnimator? = null
+    private var accentAnimator: ValueAnimator? = null
+    private var indicatorAnimating = false
 
     init {
         background = SquircleDrawable(
@@ -126,8 +130,20 @@ class SegmentedControl @JvmOverloads constructor(
     /** Called when the custom accent changes without recreating the page. */
     fun setAccentColor(color: Int) {
         if (accentColor == color) return
+        val from = accentColor
         accentColor = color
-        indicatorDrawable.setFillColor(color)
+        accentAnimator?.cancel()
+        if (ValueAnimator.areAnimatorsEnabled()) {
+            accentAnimator = ValueAnimator.ofObject(ArgbEvaluator(), from, color).apply {
+                duration = 180
+                addUpdateListener {
+                    indicatorDrawable.setFillColor(it.animatedValue as Int)
+                }
+                start()
+            }
+        } else {
+            indicatorDrawable.setFillColor(color)
+        }
         val ripple = ColorStateList.valueOf(withAlpha(color, 28))
         buttons.forEachIndexed { index, button ->
             button.setRippleColor(ripple)
@@ -160,11 +176,14 @@ class SegmentedControl @JvmOverloads constructor(
         if (segmentWidth <= 0) return
         val target = (selectedIndex.coerceAtLeast(0) * segmentWidth).toFloat()
         indicator.animate().cancel()
+        indicatorAnimating = false
         if (animate && ValueAnimator.areAnimatorsEnabled()) {
+            indicatorAnimating = true
             indicator.animate()
                 .translationX(target)
                 .setDuration(DURATION_PILL)
-                .setInterpolator(EASE_OUT_CUBIC)
+                .setInterpolator(PILL_SETTLE)
+                .withEndAction { indicatorAnimating = false }
                 .start()
         } else {
             indicator.translationX = target
@@ -215,7 +234,9 @@ class SegmentedControl @JvmOverloads constructor(
             indicatorLeft + (segmentWidth - inset * 2f).coerceAtLeast(0f).toInt(),
             indicatorTop + (innerHeight - inset * 2f).coerceAtLeast(0f).toInt()
         )
-        positionIndicator(false)
+        // A layout pass during the pill animation must not snap it to the
+        // destination; only size changes need a fresh base position.
+        if (!indicatorAnimating) positionIndicator(false)
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
@@ -234,6 +255,7 @@ class SegmentedControl @JvmOverloads constructor(
 
     override fun onDetachedFromWindow() {
         textAnimator?.cancel()
+        accentAnimator?.cancel()
         indicator.animate().cancel()
         super.onDetachedFromWindow()
     }

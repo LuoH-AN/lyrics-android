@@ -6,7 +6,6 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.os.Build
 import android.os.SystemClock
 import android.text.TextUtils
 import android.util.AttributeSet
@@ -14,7 +13,6 @@ import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
-import android.view.WindowManager
 import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -93,8 +91,10 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         setSquircleFillColor(DesignTokens.card(context))
         // The player floats over the lyric page, so it keeps a soft shadow;
         // the SquircleDrawable outline makes the shadow follow the same curve.
-        elevation = dp(10).toFloat()
-        clipToOutline = true
+        // Do not clip the card: its children stay inside the rounded bounds,
+        // and an offscreen clip on a card that redraws with playback costs frames.
+        elevation = dp(6).toFloat()
+        clipToOutline = false
     }
     private val bar = LinearLayout(context).apply { orientation = VERTICAL }
     private val transport = LinearLayout(context).apply { gravity = Gravity.CENTER }
@@ -812,16 +812,9 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         menu = dialog
         dialog.show()
         val sheet = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
-        val frosted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-            dialog.window?.setBackgroundBlurRadius(dp(28))
-            ColorUtils.setAlphaComponent(color(R.color.app_surface), 236)
-        } else {
-            color(R.color.app_surface)
-        }
         dialog.window?.setDimAmount(0.32f)
         sheet?.background = SquircleDrawable(
-            frosted,
+            color(R.color.app_surface),
             dp(28).toFloat(),
             corners = SquircleDrawable.CORNER_TOP
         )

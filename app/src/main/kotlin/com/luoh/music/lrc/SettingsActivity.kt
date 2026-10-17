@@ -459,9 +459,6 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun refreshAccentUi() {
-        // Reuse the theme snapshot fade so a new accent cross-fades instead
-        // of every row and pill changing color in one frame.
-        if (::themeTransition.isInitialized) themeTransition.capture()
         updateAccentUi()
         updateLyricColorUi()
         applySegmentAccents()
@@ -470,7 +467,6 @@ class SettingsActivity : AppCompatActivity() {
                 action = LyricsOverlayService.ACTION_REFRESH_ACCENT
             })
         }
-        if (::themeTransition.isInitialized) themeTransition.finish()
     }
 
     private fun hexColor(color: Int): String =
