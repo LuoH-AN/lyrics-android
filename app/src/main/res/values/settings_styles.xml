@@ -1,7 +1,23 @@
 <resources>
     <style name="NativeShapeCard" parent=""><item name="cornerFamily">rounded</item><item name="cornerSize">24dp</item></style>
     <style name="NativeShapeAlert" parent=""><item name="cornerFamily">rounded</item><item name="cornerSize">34dp</item></style>
+    <style name="NativeShapeSwatch" parent=""><item name="cornerFamily">rounded</item><item name="cornerSize">14dp</item></style>
     <style name="NativeShapeCircle" parent=""><item name="cornerFamily">rounded</item><item name="cornerSize">50%</item></style>
+    <style name="ToolbarTitle" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:textSize">22sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColor">@color/text_primary</item>
+    </style>
+    <style name="AppWindowAnimation">
+        <item name="android:activityOpenEnterAnimation">@anim/activity_open_enter</item>
+        <item name="android:activityOpenExitAnimation">@anim/activity_open_exit</item>
+        <item name="android:activityCloseEnterAnimation">@anim/activity_close_enter</item>
+        <item name="android:activityCloseExitAnimation">@anim/activity_close_exit</item>
+    </style>
+    <style name="AppDialogAnimation">
+        <item name="android:windowEnterAnimation">@anim/dialog_enter</item>
+        <item name="android:windowExitAnimation">@anim/dialog_exit</item>
+    </style>
 
     <style name="MaterialAction" parent="Widget.Material3.Button.TonalButton">
         <item name="android:fontFamily">sans-serif-medium</item>
@@ -12,7 +28,7 @@
         <item name="strokeColor">@color/app_line</item>
         <item name="strokeWidth">0dp</item>
         <item name="rippleColor">@color/native_ripple</item>
-        <item name="cornerRadius">16dp</item>
+        <item name="cornerRadius">24dp</item>
         <item name="android:stateListAnimator">@null</item>
         <item name="android:elevation">0dp</item>
         <item name="android:minWidth">0dp</item>
@@ -54,13 +70,14 @@
         <item name="cardBackgroundColor">@color/app_surface</item><item name="strokeColor">@color/app_line</item><item name="strokeWidth">0dp</item>
     </style>
     <style name="MaterialField" parent="Widget.Material3.TextInputLayout.OutlinedBox">
-        <item name="boxCornerRadiusTopStart">14dp</item><item name="boxCornerRadiusTopEnd">14dp</item>
-        <item name="boxCornerRadiusBottomStart">14dp</item><item name="boxCornerRadiusBottomEnd">14dp</item>
+        <item name="boxCornerRadiusTopStart">16dp</item><item name="boxCornerRadiusTopEnd">16dp</item>
+        <item name="boxCornerRadiusBottomStart">16dp</item><item name="boxCornerRadiusBottomEnd">16dp</item>
         <item name="boxBackgroundColor">@android:color/transparent</item><item name="boxStrokeColor">@color/native_field_stroke</item>
         <item name="hintTextColor">@color/text_secondary</item>
     </style>
     <style name="MaterialToolbarStyle" parent="Widget.Material3.Toolbar">
         <item name="android:background">@color/app_bg</item><item name="android:elevation">0dp</item>
+        <item name="titleTextAppearance">@style/ToolbarTitle</item>
         <item name="titleTextColor">@color/text_primary</item><item name="navigationIconTint">@color/text_primary</item>
     </style>
     <style name="SettingsSwitch" parent="Widget.Material3.CompoundButton.MaterialSwitch">
@@ -125,7 +142,7 @@
     </style>
     <style name="Swatch" parent="MaterialIconAction">
         <item name="android:layout_width">48dp</item><item name="android:layout_height">48dp</item><item name="android:layout_gravity">center</item>
-        <item name="shapeAppearance">@style/NativeShapeCircle</item><item name="cornerRadius">24dp</item><item name="android:textSize">20sp</item>
+        <item name="shapeAppearance">@style/NativeShapeSwatch</item><item name="cornerRadius">14dp</item><item name="android:textSize">20sp</item>
         <item name="strokeWidth">1dp</item><item name="strokeColor">@color/app_line</item>
     </style>
     <style name="PreviewLyric"><item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item><item name="android:paddingVertical">3dp</item><item name="android:fontFamily">sans-serif-medium</item><item name="android:maxLines">1</item><item name="android:ellipsize">end</item><item name="android:textColor">#FFFFFF</item></style>

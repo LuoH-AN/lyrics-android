@@ -42,6 +42,7 @@ object NativeUi {
             setToggleCheckedStateOnClick(false)
             val color = ContextCompat.getColor(context, R.color.text_primary)
             iconTint = ColorStateList.valueOf(color)
+            cornerRadius = dp(context, 24)
             backgroundTintList = ColorStateList(
                 arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
                 intArrayOf(ColorUtils.setAlphaComponent(color, 24), Color.TRANSPARENT)
@@ -89,7 +90,7 @@ object NativeUi {
         setNavigationIcon(R.drawable.ic_native_back)
         navigationContentDescription = "返回"
         setNavigationOnClickListener { onBack() }
-        layoutParams = LinearLayout.LayoutParams(-1, dp(activity, 56))
+        layoutParams = LinearLayout.LayoutParams(-1, dp(activity, 64))
     }
 
     fun confirm(context: Context, title: String, message: String, positive: String, onConfirm: () -> Unit): AlertDialog =

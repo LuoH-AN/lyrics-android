@@ -20,6 +20,7 @@ class SquircleCardView @JvmOverloads constructor(
 ) : FrameLayout(context, attrs, defStyleAttr) {
 
     private val surface = SquircleDrawable()
+    private var cornerRadiusPx = DesignTokens.dp(context, DesignTokens.RADIUS_CARD)
 
     init {
         val a = context.obtainStyledAttributes(
@@ -52,6 +53,7 @@ class SquircleCardView @JvmOverloads constructor(
 
         surface.setFillColor(fill)
         surface.setRadius(radius)
+        cornerRadiusPx = radius
         surface.setStrokeColor(stroke)
         surface.setStrokeWidth(strokeWidth)
         surface.setCorners(corners)
@@ -70,9 +72,12 @@ class SquircleCardView @JvmOverloads constructor(
     }
 
     fun setSquircleRadiusDp(radiusDp: Float) {
-        surface.setRadius(DesignTokens.dp(context, radiusDp))
+        cornerRadiusPx = DesignTokens.dp(context, radiusDp)
+        surface.setRadius(cornerRadiusPx)
         invalidateOutline()
     }
+
+    fun squircleRadiusPx(): Float = cornerRadiusPx
 
     fun setSquircleStroke(color: Int, widthDp: Float) {
         surface.setStrokeColor(color)

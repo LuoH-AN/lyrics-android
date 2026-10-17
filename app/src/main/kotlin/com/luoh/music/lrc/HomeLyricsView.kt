@@ -84,14 +84,14 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     private var motionStyle = MotionStyle()
     private val lyricRows = mutableListOf<LyricLineView>()
 
-    private val playerCard = MaterialCardView(context).apply {
+    private val playerCard = SquircleCardView(context).apply {
         id = R.id.home_player_card
-        radius = dp(28).toFloat()
-        cardElevation = dp(1).toFloat()
-        maxCardElevation = dp(2).toFloat()
-        useCompatPadding = false
-        preventCornerOverlap = false
-        strokeWidth = 0
+        setSquircleRadiusDp(28f)
+        setSquircleFillColor(DesignTokens.card(context))
+        // The player floats over the lyric page, so it keeps a soft shadow;
+        // the SquircleDrawable outline makes the shadow follow the same curve.
+        elevation = dp(10).toFloat()
+        clipToOutline = true
     }
     private val bar = LinearLayout(context).apply { orientation = VERTICAL }
     private val transport = LinearLayout(context).apply { gravity = Gravity.CENTER }
@@ -525,7 +525,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         val primary = color(R.color.text_primary)
         val secondary = color(R.color.text_secondary)
         setBackgroundColor(color(R.color.app_bg))
-        playerCard.setCardBackgroundColor(color(R.color.app_surface))
+        playerCard.setSquircleFillColor(color(R.color.app_surface))
         song.setTextColor(primary)
         artist.setTextColor(secondary)
         translationStatus.setTextColor(secondary)
@@ -738,26 +738,46 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
             ellipsize = TextUtils.TruncateAt.END
             setTextColor(color(R.color.text_secondary))
         }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6); bottomMargin = dp(16) })
+        val group = SquircleCardView(dialog.context).apply {
+            setSquircleRadiusDp(20f)
+            setSquircleFillColor(color(R.color.app_surface_container))
+        }
+        val rows = LinearLayout(dialog.context).apply { orientation = VERTICAL }
+        group.addView(rows, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        var firstRow = true
         fun action(title: String, icon: Int, viewId: Int = View.NO_ID, callback: () -> Unit) {
-            content.addView(MaterialButton(dialog.context).apply {
+            if (!firstRow) {
+                rows.addView(MaterialDivider(dialog.context).apply {
+                    dividerColor = color(R.color.app_line_soft)
+                }, LayoutParams(LayoutParams.MATCH_PARENT, dp(1)).apply { marginStart = dp(16) })
+            }
+            firstRow = false
+            rows.addView(MaterialButton(dialog.context).apply {
                 id = viewId
                 text = title
-                textSize = 14f
+                textSize = 15f
                 isAllCaps = false
                 gravity = Gravity.START or Gravity.CENTER_VERTICAL
                 setIconResource(icon)
-                iconSize = dp(22)
+                iconSize = dp(20)
                 iconPadding = dp(12)
-                iconGravity = MaterialButton.ICON_GRAVITY_START
-                iconTint = ColorStateList.valueOf(color(R.color.text_primary))
-                backgroundTintList = ColorStateList.valueOf(color(R.color.app_surface_container))
+                iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
+                iconTint = ColorStateList.valueOf(color(R.color.text_secondary))
+                backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
                 setTextColor(color(R.color.text_primary))
-                setPaddingRelative(dp(16), dp(10), dp(16), dp(10))
+                setPaddingRelative(dp(16), 0, dp(16), 0)
+                rippleColor = ColorStateList.valueOf(ColorUtils.setAlphaComponent(color(R.color.text_primary), 24))
+                stateListAnimator = null
+                elevation = 0f
                 strokeWidth = 0
+                cornerRadius = 0
+                minWidth = 0
+                minimumWidth = 0
                 minHeight = dp(56)
-                cornerRadius = dp(16)
+                insetTop = 0
+                insetBottom = 0
                 setOnClickListener { dialog.dismiss(); callback() }
-            }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(8) })
+            }, LayoutParams(LayoutParams.MATCH_PARENT, dp(56)))
         }
         action(if (custom) "编辑自定义歌词" else "添加自定义歌词", R.drawable.ic_home_edit) { actions?.editCustomLyrics() }
         action("管理自定义歌词", R.drawable.ic_home_library) { actions?.manageCustomLyrics() }
@@ -765,15 +785,20 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         action("补充翻译", R.drawable.ic_home_translate, R.id.home_more_translation) { onTranslationSettings?.invoke() }
         action("下载当前歌词为 .lrc", R.drawable.ic_home_download, R.id.home_more_export) { actions?.exportLrc() }
         action("设置", R.drawable.ic_home_settings, R.id.home_more_settings) { actions?.openSettings() }
-        content.addView(MaterialDivider(dialog.context).apply { dividerColor = color(R.color.app_line_soft) },
-            LayoutParams(LayoutParams.MATCH_PARENT, dp(1)).apply { topMargin = dp(8) })
+        content.addView(group, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(4)
+            bottomMargin = dp(12)
+        })
         content.addView(MaterialButton(dialog.context).apply {
             text = "取消"
+            textSize = 15f
+            isAllCaps = false
             backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
             strokeWidth = 0
+            cornerRadius = dp(24)
             setTextColor(color(R.color.text_secondary))
             setOnClickListener { dialog.dismiss() }
-        }, LayoutParams(LayoutParams.MATCH_PARENT, dp(48)).apply { topMargin = dp(8) })
+        }, LayoutParams(LayoutParams.MATCH_PARENT, dp(48)))
         dialog.setContentView(androidx.core.widget.NestedScrollView(dialog.context).apply {
             overScrollMode = OVER_SCROLL_NEVER
             addView(content, android.widget.FrameLayout.LayoutParams(

@@ -64,7 +64,7 @@ class CustomLyricsEditActivity : AppCompatActivity() {
             setPadding(dp(16), 0, dp(16), 0)
             insetTop = dp(4)
             insetBottom = dp(4)
-            cornerRadius = dp(14)
+            cornerRadius = dp(24)
         }
         toolbar.menu.add("保存").apply {
             actionView = FrameLayout(this@CustomLyricsEditActivity).apply {
