@@ -29,6 +29,7 @@ object NativeUi {
             this.text = text
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(context, 8) }
             setOnClickListener { action() }
+            Springs.attachPress(this)
         }
 
     fun iconButton(context: Context, drawableRes: Int, description: String, action: () -> Unit): MaterialButton =
@@ -49,6 +50,7 @@ object NativeUi {
             )
             layoutParams = LinearLayout.LayoutParams(dp(context, 48), dp(context, 48))
             setOnClickListener { action() }
+            Springs.attachPress(this)
         }
 
     fun text(context: Context, text: String, size: Float = 14f): MaterialTextView = MaterialTextView(context).apply {

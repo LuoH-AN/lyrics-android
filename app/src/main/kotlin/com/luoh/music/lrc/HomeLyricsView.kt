@@ -819,6 +819,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         )
         sheet?.clipToOutline = true
         dialog.behavior.state = BottomSheetBehavior.STATE_EXPANDED
+        Springs.animateContentIn(content, dp(20).toFloat())
     }
 
     private fun iconButton(iconRes: Int, description: String) = MaterialButton(context).apply {
@@ -841,14 +842,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         stateListAnimator = null
         elevation = 0f
         contentDescription = description
-        val pressSpring = Springs.Scale(this)
-        setOnTouchListener { _, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> pressSpring.animateTo(0.94f)
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> pressSpring.animateTo(1f)
-            }
-            false
-        }
+        Springs.attachPress(this)
     }
 
     private fun label(value: String, size: Float) = MaterialTextView(context).apply {

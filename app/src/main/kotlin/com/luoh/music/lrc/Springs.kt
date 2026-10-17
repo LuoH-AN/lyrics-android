@@ -2,6 +2,7 @@ package com.luoh.music.lrc
 
 import android.animation.ValueAnimator
 import android.app.Dialog
+import android.view.MotionEvent
 import android.view.View
 import androidx.dynamicanimation.animation.DynamicAnimation
 import androidx.dynamicanimation.animation.SpringAnimation
@@ -36,7 +37,7 @@ object Springs {
 
     /** A two-property spring for press feedback on one view. */
     class Scale(
-        private val view: View,
+        view: View,
         stiffness: Float = PRESS_STIFFNESS,
         dampingRatio: Float = PRESS_DAMPING_RATIO
     ) {
@@ -58,6 +59,35 @@ object Springs {
             scaleX.cancel()
             scaleY.cancel()
         }
+    }
+
+    /** Press feedback for a button: 1 → [pressedScale] → 1, retargetable. */
+    fun attachPress(view: View, pressedScale: Float = 0.94f) {
+        val scale = Scale(view)
+        view.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> scale.animateTo(pressedScale)
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> scale.animateTo(1f)
+            }
+            false
+        }
+    }
+
+    /** A panel entering with a short upward spring, used by sheets. */
+    fun animateContentIn(view: View, offsetPx: Float) {
+        if (!ValueAnimator.areAnimatorsEnabled()) {
+            view.translationY = 0f
+            view.alpha = 1f
+            return
+        }
+        view.translationY = offsetPx
+        view.alpha = 0f
+        SpringAnimation(view, DynamicAnimation.TRANSLATION_Y, 0f).apply {
+            spring = force(TRAVEL_STIFFNESS, TRAVEL_DAMPING_RATIO)
+            setMinimumVisibleChange(DynamicAnimation.MIN_VISIBLE_CHANGE_PIXELS)
+            start()
+        }
+        view.animate().alpha(1f).setDuration(180).start()
     }
 
     /** FlClash's alert motion: grow from slightly larger on a damped spring. */
