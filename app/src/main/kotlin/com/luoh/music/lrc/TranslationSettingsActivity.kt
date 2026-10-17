@@ -13,7 +13,6 @@ import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.textfield.TextInputLayout
@@ -32,6 +31,7 @@ class TranslationSettingsActivity : AppCompatActivity() {
     private lateinit var languages: LinearLayout
     private lateinit var search: EditText
     private var selectedMode = 0
+    private lateinit var modeRail: SegmentedControl
     private lateinit var modeSegments: List<MaterialButton>
     private lateinit var apiBox: LinearLayout
     private lateinit var offlineBox: LinearLayout
@@ -102,6 +102,9 @@ class TranslationSettingsActivity : AppCompatActivity() {
         modeSegments.forEachIndexed { index, view ->
             view.isChecked = index == selectedMode
         }
+        if (::modeRail.isInitialized && selectedMode in modeSegments.indices) {
+            modeRail.selectById(modeSegments[selectedMode].id)
+        }
         val showApi = selectedMode == 2
         setPanelVisible(apiBox, showApi, animate)
         setPanelVisible(offlineBox, selectedMode == 1, animate)
@@ -163,10 +166,8 @@ class TranslationSettingsActivity : AppCompatActivity() {
         val settingsCard = NativeUi.column(this)
         settingsCard.addView(label("翻译方式", 19f))
         selectedMode = listOf("off", "offline", "api").indexOf(prefs.getString("mode", "off")).coerceAtLeast(0)
-        val segmentRail = MaterialButtonToggleGroup(this).apply {
-            isSingleSelection = true
-            isSelectionRequired = true
-            layoutParams = LinearLayout.LayoutParams(-1, -2)
+        modeRail = SegmentedControl(this).apply {
+            layoutParams = LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) }
         }
         modeSegments = listOf("关闭", "离线机翻", "自定义 API").mapIndexed { index, text ->
             NativeUi.button(this, text) { if (selectedMode != index) applyMode(index) }.apply {
@@ -177,9 +178,9 @@ class TranslationSettingsActivity : AppCompatActivity() {
                 layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
             }
         }
-        modeSegments.forEach(segmentRail::addView)
+        modeSegments.forEach(modeRail::addView)
         modeSegments.forEach { AccentPrefs.styleSegment(this, it) }
-        settingsCard.addView(segmentRail)
+        settingsCard.addView(modeRail)
 
         apiBox = NativeUi.column(this, 0)
         apiProfileButton = button("") { showApiProfileMenu() }

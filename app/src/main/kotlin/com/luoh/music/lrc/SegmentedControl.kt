@@ -65,14 +65,23 @@ class SegmentedControl @JvmOverloads constructor(
         addView(indicator)
     }
 
+    override fun onViewAdded(child: View?) {
+        super.onViewAdded(child)
+        if (child is MaterialButton && child !== indicator && buttons.none { it === child }) {
+            styleButton(child)
+            buttons.add(child)
+        }
+    }
+
     override fun onFinishInflate() {
         super.onFinishInflate()
-        buttons.clear()
-        for (index in 0 until childCount) {
-            val child = getChildAt(index)
-            if (child is MaterialButton) {
-                styleButton(child)
-                buttons.add(child)
+        if (buttons.isEmpty()) {
+            for (index in 0 until childCount) {
+                val child = getChildAt(index)
+                if (child is MaterialButton) {
+                    styleButton(child)
+                    buttons.add(child)
+                }
             }
         }
         if (buttons.isEmpty()) return
@@ -91,6 +100,7 @@ class SegmentedControl @JvmOverloads constructor(
         button.stateListAnimator = null
         button.elevation = 0f
         button.gravity = Gravity.CENTER
+        button.textSize = 13f
         button.setPadding(0, 0, 0, 0)
         button.cornerRadius = DesignTokens.dp(context, DesignTokens.RADIUS_PILL).toInt()
         button.strokeWidth = 0

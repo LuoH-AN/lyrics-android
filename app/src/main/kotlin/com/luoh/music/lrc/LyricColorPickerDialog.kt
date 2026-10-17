@@ -64,7 +64,7 @@ class LyricColorPickerDialog(
                     setToggleCheckedStateOnClick(false)
                     backgroundTintList = ColorStateList.valueOf(Color.parseColor(hex))
                     setTextColor(contrastColor(Color.parseColor(hex)))
-                    cornerRadius = dp(24)
+                    cornerRadius = dp(14)
                     textSize = 20f
                     setPadding(0, 0, 0, 0)
                     layoutParams = FrameLayout.LayoutParams(dp(48), dp(48), Gravity.CENTER)
