@@ -19,8 +19,13 @@ assert.doesNotMatch(home, /emptyIcon|emptyDetail|home_empty_detail|先在音乐�
 const emptyState = home.slice(home.indexOf('private fun renderEmpty()'), home.indexOf('private fun renderLines()'));
 assert.match(emptyState, /snapshot\.track\.isBlank\(\) -> "暂未播放"/);
 assert.match(emptyState, /lyricStatus == "loading" -> "正在获取歌词"/);
+assert.match(emptyState, /lyricStatus == "empty" -> "未找到歌词"/);
 assert.match(emptyState, /else -> ""/);
-assert.match(emptyState, /document\.lines\.isEmpty\(\) && empty\.text\.isNotEmpty\(\)/);
+assert.match(emptyState, /val visible = document\.lines\.isEmpty\(\) && empty\.text\.isNotEmpty\(\)/);
+assert.match(emptyState, /emptyActions\.visibility/);
+assert.match(home, /fun retryLyrics\(\)/);
+assert.match(home, /R\.id\.home_retry_lyrics/);
+assert.match(home, /R\.id\.home_empty_custom/);
 assert.doesNotMatch(fs.readFileSync('app/src/main/res/values/home_ids.xml', 'utf8'), /home_empty_detail/);
 assert.match(home, /val following = !touchingLyrics && manualScrollUntil == 0L/);
 assert.match(home, /MotionEvent\.ACTION_UP \|\| event\.actionMasked == MotionEvent\.ACTION_CANCEL/);

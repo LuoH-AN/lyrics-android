@@ -75,7 +75,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:minHeight="56dp"
-                android:text="开启歌词悬浮窗"
+                android:text="开启桌面歌词"
                 android:textColor="@color/text_on_accent"
                 app:backgroundTint="@color/accent"
                 app:cornerRadius="12dp" />

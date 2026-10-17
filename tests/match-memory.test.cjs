@@ -13,7 +13,7 @@ const context={console,TextEncoder,setTimeout:()=>1,clearTimeout:()=>{},requestA
     readMatchMemory:()=>stored,writeMatchMemory:x=>{stored=x},rematchLyrics:()=>requests++
   }}};
 vm.createContext(context);
-vm.runInContext(html.slice(html.indexOf('    let sourceClickTimer='),html.indexOf('    function showMatchMenu()')),context);
+vm.runInContext(html.slice(html.indexOf('    let sourceClickTimer='),html.indexOf('    function setCover(')),context);
 vm.runInContext('matchNotice=()=>{};',context);
 context.rematchCurrentSource();
 assert.equal(JSON.parse(stored)[0].original.recordId,'a');

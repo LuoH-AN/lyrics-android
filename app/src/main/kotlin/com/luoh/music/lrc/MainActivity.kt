@@ -540,25 +540,27 @@ class MainActivity : AppCompatActivity() {
         home.setLyricOffset(offset)
     }
 
-    private fun fetchLyrics(track: String, artist: String, album: String, durationMs: Long) {
+    private fun fetchLyrics(track: String, artist: String, album: String, durationMs: Long, forceNetwork: Boolean = false) {
         val reqId = ++lyricRequestId
         val cacheKey = cacheKeyOf(track, artist, album)
 
         // 1) 本地命中（自定义 / 缓存）立即上屏，不打网络
-        val local = localPayload(track, artist, album)
-        if (local != null) {
-            applyLyricPayload(local)
-            // 自定义歌词不写入自动匹配记忆；缓存来源补一条歌词源管理记录
-            if (local.source != CustomLyricsStore.SOURCE) {
-                mirrorToMatchMemory(
-                    track, artist, album, durationMs,
-                    local.source, local.recordId, local.lyrics, local.translated, local.word
-                )
+        if (!forceNetwork) {
+            val local = localPayload(track, artist, album)
+            if (local != null) {
+                applyLyricPayload(local)
+                // 自定义歌词不写入自动匹配记忆；缓存来源补一条歌词源管理记录
+                if (local.source != CustomLyricsStore.SOURCE) {
+                    mirrorToMatchMemory(
+                        track, artist, album, durationMs,
+                        local.source, local.recordId, local.lyrics, local.translated, local.word
+                    )
+                }
+                return
             }
-            return
         }
 
-        // 2) 未命中才清空并联网
+        // 2) 未命中或手动重试才清空并联网
         home.showLoading()
         ioScope.launch {
             val result = runCatching {
@@ -733,8 +735,17 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        override fun retryLyrics() {
+            if (currentTrack.isBlank()) return
+            fetchLyrics(currentTrack, currentArtist, currentAlbum, currentDurationMs, forceNetwork = true)
+        }
+
         override fun manageCustomLyrics() {
             startActivity(Intent(this@MainActivity, CustomLyricsManagerActivity::class.java))
+        }
+
+        override fun manageLyricSources() {
+            startActivity(Intent(this@MainActivity, LyricSourceManagerActivity::class.java))
         }
 
         override fun exportLrc() {

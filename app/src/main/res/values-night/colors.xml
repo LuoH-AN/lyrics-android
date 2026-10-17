@@ -15,6 +15,11 @@
     <color name="control_track">#3A3A43</color>
     <color name="control_active">#FAFAFC</color>
     <color name="overlay_preview_scene">#62626C</color>
+    <color name="brand_accent">#E8590C</color>
+    <color name="brand_accent_pressed">#C94A08</color>
+    <color name="brand_text">#FF8A4C</color>
+    <color name="brand_on_accent">#18181B</color>
+    <color name="brand_icon">#FFFFFF</color>
     <color name="nav_bar">#0C0C0F</color>
     <color name="status_bar">#0C0C0F</color>
 </resources>

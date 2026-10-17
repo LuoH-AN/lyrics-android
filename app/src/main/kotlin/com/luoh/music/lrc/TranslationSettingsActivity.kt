@@ -383,20 +383,42 @@ class TranslationSettingsActivity : AppCompatActivity() {
             else codes.filter { title(it).contains(query, true) }
         filtered.forEach { code ->
             val ready = downloaded.containsAll(needed(code))
-            val label = title(code) + when {
-                code in downloading -> " · 下载中…"
-                ready -> " · 已下载"
-                code in downloaded -> " · 缺中文模型"
-                else -> " · 下载"
+            val downloadedAny = code in downloaded
+            val inProgress = code in downloading
+            val state = when {
+                inProgress -> "下载中…"
+                ready -> "已下载"
+                downloadedAny -> "缺中文模型"
+                else -> "未下载"
             }
-            languages.addView(button(label) {
-                if (ready || code in downloaded) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(56)
+            }
+            row.addView(NativeUi.text(this, title(code), 15f).apply {
+                setTextColor(col(R.color.text_primary))
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+            row.addView(NativeUi.text(this, state, 12f).apply {
+                setPadding(0, 0, dp(4), 0)
+            }, LinearLayout.LayoutParams(-2, -2))
+            val action = NativeUi.iconButton(
+                this,
+                if (downloadedAny) R.drawable.ic_native_delete else R.drawable.ic_home_download,
+                if (downloadedAny) "删除 ${title(code)} 语言包" else "下载 ${title(code)} 语言包"
+            ) {
+                if (downloadedAny) {
                     val removable = if (code == "en") "zh" else code
                     showDeleteDialog(code, removable)
                 } else {
                     showDownloadDialog(code)
                 }
-            }.apply { isEnabled = code !in downloading })
+            }.apply {
+                isCheckable = false
+                isEnabled = !inProgress
+            }
+            row.addView(action, LinearLayout.LayoutParams(dp(48), dp(48)))
+            languages.addView(row)
         }
     }
     private fun download(code: String, wifi: Boolean) {

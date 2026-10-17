@@ -18,6 +18,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
 import androidx.core.widget.NestedScrollView
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -321,11 +322,7 @@ class SettingsActivity : AppCompatActivity() {
             openUrl("https://github.com/LuoH-AN/lyrics-android")
         }
         findViewById<View>(R.id.cell_privacy).setOnClickListener {
-            MaterialAlertDialogBuilder(this)
-                .setTitle("隐私说明")
-                .setMessage(R.string.privacy_summary)
-                .setPositiveButton("知道了", null)
-                .show()
+            startActivity(Intent(this, PrivacyActivity::class.java))
         }
 
         refreshAll()
@@ -675,7 +672,27 @@ class SettingsActivity : AppCompatActivity() {
         lyricColorCustom.isChecked = isCustom
         lyricColorCustom.strokeWidth = NativeUi.dp(this, if (isCustom) 2 else 1)
         lyricColorCustom.strokeColor = ColorStateList.valueOf(resolveColor(if (isCustom) R.color.accent else R.color.app_line))
+        val customColor = runCatching { Color.parseColor(selected) }.getOrDefault(Color.WHITE)
+        if (isCustom) {
+            // 选中自定义颜色时直接显示该颜色，而不是一直显示「＋」。
+            lyricColorCustom.text = "✓"
+            lyricColorCustom.setTextColor(contrastColor(customColor))
+            lyricColorCustom.icon = null
+            lyricColorCustom.backgroundTintList = ColorStateList.valueOf(customColor)
+            lyricColorCustom.contentDescription = "自定义颜色 $selected，已选中"
+        } else {
+            lyricColorCustom.text = ""
+            lyricColorCustom.setIconResource(R.drawable.ic_native_add)
+            lyricColorCustom.iconTint = ColorStateList.valueOf(resolveColor(R.color.text_secondary))
+            lyricColorCustom.backgroundTintList =
+                ContextCompat.getColorStateList(this, R.color.native_button_background)
+                    ?: ColorStateList.valueOf(resolveColor(R.color.app_surface_container))
+            lyricColorCustom.contentDescription = "自定义歌词颜色"
+        }
     }
+
+    private fun contrastColor(color: Int): Int =
+        if (ColorUtils.calculateContrast(Color.WHITE, color) >= 4.5) Color.WHITE else Color.BLACK
 
     private fun resolveColor(res: Int): Int = ContextCompat.getColor(this, res)
 
@@ -734,7 +751,12 @@ class SettingsActivity : AppCompatActivity() {
             result.onSuccess { release ->
                 val newer = UpdateChecker.isNewer(release.version, currentVersionName)
                 if (newer) {
-                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.pageUrl)))
+                    MaterialAlertDialogBuilder(this@SettingsActivity)
+                        .setTitle("发现新版本 ${release.version}")
+                        .setMessage(release.summary)
+                        .setNegativeButton("稍后", null)
+                        .setPositiveButton("前往下载") { _, _ -> openUrl(release.pageUrl) }
+                        .show()
                 } else {
                     Toast.makeText(this@SettingsActivity, "当前已是最新版", Toast.LENGTH_SHORT).show()
                 }

@@ -45,6 +45,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import com.google.android.material.button.MaterialButton
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -84,6 +85,8 @@ class LyricsOverlayService : Service() {
     private var lockButton: MaterialButton? = null
     private var closeButton: MaterialButton? = null
     private var nativeLyrics: CompactLyricsView? = null
+    private var chromeHideTask: Runnable? = null
+    private var keepScreenOn = false
     private var nativeTrack = ""
     private var nativeArtist = ""
     private var nativeDocumentRequestId = -1
@@ -369,6 +372,8 @@ class LyricsOverlayService : Service() {
         dragTouchArea = null
         lockButton = null
         closeButton = null
+        chromeHideTask = null
+        keepScreenOn = false
         isRunning = false
         announceOverlayState()
         super.onDestroy()
@@ -709,14 +714,14 @@ class LyricsOverlayService : Service() {
         )
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("${getString(R.string.app_name)} 正在监听")
-            .setContentText("本地实时同步当前媒体会话")
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("桌面歌词已开启")
+            .setContentText("桌面歌词正在显示，点按返回应用")
             .setContentIntent(openPendingIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .addAction(0, "关闭悬浮窗", stopPendingIntent)
+            .addAction(0, "关闭桌面歌词", stopPendingIntent)
             .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -736,10 +741,10 @@ class LyricsOverlayService : Service() {
         manager.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
-                "歌词悬浮窗",
+                "桌面歌词",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "保持本地歌词悬浮窗与 MediaSession 实时同步"
+                description = "保持桌面歌词与正在播放的音乐实时同步"
                 setShowBadge(false)
             }
         )
@@ -773,8 +778,7 @@ class LyricsOverlayService : Service() {
             },
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -846,15 +850,19 @@ class LyricsOverlayService : Service() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, 0)
-            setBackgroundColor(Color.TRANSPARENT)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(24).toFloat()
+                setColor(Color.argb(150, 12, 12, 14))
+            }
         }
         chromeBar = chrome
 
         val dragArea = View(uiContext)
         dragTouchArea = dragArea
 
-        closeButton = chromeButton(R.drawable.ic_overlay_close, "关闭悬浮窗") { stopSelf() }
-        lockButton = chromeButton(R.drawable.ic_overlay_unlocked, "锁定悬浮窗位置") {
+        closeButton = chromeButton(R.drawable.ic_overlay_close, "关闭桌面歌词") { stopSelf() }
+        lockButton = chromeButton(R.drawable.ic_overlay_unlocked, "锁定桌面歌词位置") {
             positionLocked = !positionLocked
             prefs.edit().putBoolean(PREF_POSITION_LOCKED, positionLocked).apply()
             updateLockControl()
@@ -871,6 +879,7 @@ class LyricsOverlayService : Service() {
 
             override fun onTouch(view: View, event: MotionEvent): Boolean {
                 val lp = windowParams ?: return false
+                if (event.actionMasked == MotionEvent.ACTION_DOWN) revealChrome()
                 if (positionLocked) return true
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
@@ -912,7 +921,7 @@ class LyricsOverlayService : Service() {
         content.addView(lyrics, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
-        ).apply { marginEnd = dp(96) })
+        ))
         applyNativeAppearance()
 
         val player = WebView(uiContext).apply {
@@ -956,10 +965,13 @@ class LyricsOverlayService : Service() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         ))
-        content.addView(chrome, FrameLayout.LayoutParams(dp(96), dp(48), Gravity.END or Gravity.CENTER_VERTICAL))
+        content.addView(chrome, FrameLayout.LayoutParams(dp(96), dp(48), Gravity.END or Gravity.CENTER_VERTICAL).apply {
+            marginEnd = dp(2)
+        })
         updateControlLayout()
 
         windowManager.addView(root, params)
+        revealChrome()
     }
 
     private fun currentDisplaySize(): Pair<Int, Int> {
@@ -1098,14 +1110,40 @@ class LyricsOverlayService : Service() {
     private fun chromeButton(icon: Int, description: String, action: () -> Unit): MaterialButton =
         NativeUi.iconButton(uiContext, icon, description, action).apply {
             backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
-            iconTint = ColorStateList.valueOf(Color.parseColor(lyricColor))
+            iconTint = ColorStateList.valueOf(Color.WHITE)
             rippleColor = ColorStateList.valueOf(Color.argb(40, 255, 255, 255))
             strokeWidth = 0
         }
 
     private fun setChromeIcon(button: MaterialButton, drawableRes: Int) {
         button.setIconResource(drawableRes)
-        button.iconTint = ColorStateList.valueOf(Color.parseColor(lyricColor))
+        updateChromeTint()
+    }
+
+    private fun updateChromeTint() {
+        val lockedColor = ContextCompat.getColor(this, R.color.brand_accent)
+        lockButton?.iconTint = ColorStateList.valueOf(if (positionLocked) lockedColor else Color.WHITE)
+        closeButton?.iconTint = ColorStateList.valueOf(Color.WHITE)
+    }
+
+    /** 控制条默认淡出，避免长期占用歌词宽度；触摸小窗时再出现。 */
+    private fun revealChrome(retainMs: Long = 3500L) {
+        val chrome = chromeBar ?: return
+        chromeHideTask?.let(mainHandler::removeCallbacks)
+        chrome.animate().cancel()
+        chrome.visibility = View.VISIBLE
+        chrome.alpha = 1f
+        val task = Runnable { hideChrome() }
+        chromeHideTask = task
+        mainHandler.postDelayed(task, retainMs)
+    }
+
+    private fun hideChrome() {
+        val chrome = chromeBar ?: return
+        chromeHideTask = null
+        chrome.animate().alpha(0f).setDuration(220).withEndAction {
+            if (chromeHideTask == null) chrome.visibility = View.INVISIBLE
+        }.start()
     }
 
     private fun overlayBackground(isCompact: Boolean): GradientDrawable = OverlayAppearance.background(this, backgroundMode).apply {
@@ -1159,7 +1197,7 @@ class LyricsOverlayService : Service() {
     private fun applyNativeAppearance() {
         val color = Color.parseColor(lyricColor)
         nativeLyrics?.setAppearance(fontScalePercent, color, translationMode, contextLines(true), contextLines(false), fontWeight)
-        listOfNotNull(lockButton, closeButton).forEach { it.iconTint = ColorStateList.valueOf(color) }
+        updateChromeTint()
     }
 
     private fun applyFontScale() {
@@ -1296,11 +1334,12 @@ class LyricsOverlayService : Service() {
 
     private fun updateLockControl() {
         lockButton?.let { button ->
-            button.contentDescription = if (positionLocked) "位置已锁定，点击解锁" else "锁定悬浮窗位置"
+            button.contentDescription = if (positionLocked) "位置已锁定，点按解锁" else "锁定桌面歌词位置"
             button.isChecked = positionLocked
             button.isSelected = positionLocked
             setChromeIcon(button, if (positionLocked) R.drawable.ic_overlay_locked else R.drawable.ic_overlay_unlocked)
         }
+        revealChrome()
     }
 
     private fun updateControlLayout() {
@@ -1313,7 +1352,7 @@ class LyricsOverlayService : Service() {
         }
         dragTouchArea?.layoutParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
-        ).apply { marginEnd = dp(96) }
+        )
     }
 
     private fun startMediaMonitor() {
@@ -1572,6 +1611,7 @@ class LyricsOverlayService : Service() {
         if (snapshot.optBoolean("permissionRequired") || !snapshot.optBoolean("hasSession") || track.isBlank()) {
             nativeTrack = ""
             nativeArtist = ""
+            updateKeepScreenOn(false)
             nativeLyrics?.clear(if (snapshot.optBoolean("permissionRequired")) "请授予通知使用权" else "未在播放")
             return
         }
@@ -1580,11 +1620,29 @@ class LyricsOverlayService : Service() {
             nativeArtist = artist
             nativeLyrics?.clear("正在匹配歌词…")
         }
+        val playing = snapshot.optString("state") == "playing"
+        updateKeepScreenOn(playing)
         nativeLyrics?.setPlayback(
             "$track\u0000$artist",
             snapshot.optLong("positionMs"), snapshot.optLong("durationMs"),
-            snapshot.optString("state") == "playing", snapshot.optDouble("speed", 1.0).toFloat()
+            playing, snapshot.optDouble("speed", 1.0).toFloat()
         )
+    }
+
+    /** 只在音乐播放时保持屏幕常亮；暂停或没有会话时释放。 */
+    private fun updateKeepScreenOn(playing: Boolean) {
+        val lp = windowParams ?: return
+        if (keepScreenOn == playing) return
+        keepScreenOn = playing
+        lp.flags = if (playing) {
+            lp.flags or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+        } else {
+            lp.flags and WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON.inv()
+        }
+        val root = overlayRoot ?: return
+        if (root.isAttachedToWindow) {
+            runCatching { windowManager.updateViewLayout(root, lp) }
+        }
     }
 
     private fun deliverToWeb(snapshot: JSONObject) {

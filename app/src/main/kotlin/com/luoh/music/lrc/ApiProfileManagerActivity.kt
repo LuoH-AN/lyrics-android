@@ -8,6 +8,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputLayout
 
@@ -19,6 +20,7 @@ class ApiProfileManagerActivity : AppCompatActivity() {
     private lateinit var key: EditText
     private lateinit var list: LinearLayout
     private lateinit var status: TextView
+    private lateinit var editorTitle: TextView
     private lateinit var save: MaterialButton
     private var editingId: String? = null
 
@@ -27,7 +29,8 @@ class ApiProfileManagerActivity : AppCompatActivity() {
         val content = NativeUi.screen(this, "API 配置")
         content.addView(NativeUi.text(this, "可添加多套兼容 Chat Completions 的服务，并随时切换。", 12f))
         val editor = NativeUi.column(this)
-        editor.addView(NativeUi.text(this, "添加 API", 19f))
+        editorTitle = NativeUi.text(this, "添加 API", 19f)
+        editor.addView(editorTitle)
         editor.addView(NativeUi.field(this, "配置名称").also { name = it.editText!! })
         editor.addView(NativeUi.field(this, "HTTPS 服务地址").also { endpoint = it.editText!! })
         editor.addView(NativeUi.field(this, "模型名称").also { model = it.editText!! })
@@ -76,6 +79,7 @@ class ApiProfileManagerActivity : AppCompatActivity() {
         if (secret.isNotBlank()) SecretStorage(this, profile.id).save(secret)
         editingId = profile.id
         save.text = "保存修改并使用"
+        editorTitle.text = "编辑 API 配置"
         showStatus("${profile.label} 已保存并切换使用")
         renderProfiles()
         LyricsOverlayService.instance?.refreshSupplementTranslation()
@@ -89,6 +93,7 @@ class ApiProfileManagerActivity : AppCompatActivity() {
         key.setText(SecretStorage(this, profile.id).read())
         key.setSelection(key.text.length)
         save.text = "保存修改并使用"
+        editorTitle.text = "编辑 API 配置"
         showStatus("正在编辑 ${profile.label}")
     }
 
@@ -99,6 +104,7 @@ class ApiProfileManagerActivity : AppCompatActivity() {
             list.addView(NativeUi.text(this, "还没有 API 配置，请在上方添加", 13f))
             return
         }
+        val activeId = prefs.getString("active_api_profile", "").orEmpty()
         profiles.forEach { profile ->
             list.addView(LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -106,6 +112,12 @@ class ApiProfileManagerActivity : AppCompatActivity() {
                 layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = NativeUi.dp(context, 8) }
                 addView(NativeUi.button(context, profile.label) { edit(profile) },
                     LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = NativeUi.dp(context, 6) })
+                if (profile.id == activeId) {
+                    addView(NativeUi.text(context, "使用中", 12f).apply {
+                        setTextColor(ContextCompat.getColor(context, R.color.brand_text))
+                        setPadding(0, 0, NativeUi.dp(context, 8), 0)
+                    })
+                }
                 addView(NativeUi.button(context, "删除") { confirmDelete(profile) },
                     LinearLayout.LayoutParams(NativeUi.dp(context, 82), -2))
             })
@@ -128,5 +140,6 @@ class ApiProfileManagerActivity : AppCompatActivity() {
         editingId = null
         name.setText(""); endpoint.setText(""); model.setText(""); key.setText("")
         save.text = "保存并使用"
+        editorTitle.text = "添加 API"
     }
 }

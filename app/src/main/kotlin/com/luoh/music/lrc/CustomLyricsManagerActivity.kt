@@ -37,7 +37,7 @@ class CustomLyricsManagerActivity : AppCompatActivity() {
                 setTextColor(ContextCompat.getColor(context, R.color.text_primary))
             })
             if (track.artist.isNotBlank()) body.addView(NativeUi.text(this, track.artist, 12f))
-            body.addView(NativeUi.button(this, if (existing != null) "编辑这首歌的歌词" else "为这首歌指定 LRC 歌词", true) {
+            body.addView(NativeUi.button(this, if (existing != null) "编辑这首歌的自定义歌词" else "为这首歌添加自定义歌词", true) {
                 startActivity(CustomLyricsEditActivity.intent(this, track.title, track.artist))
             })
             content.addView(NativeUi.card(this).apply { addView(body) })

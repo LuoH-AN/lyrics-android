@@ -46,7 +46,7 @@ const context = {
   } }
 };
 vm.createContext(context);
-vm.runInContext(html.slice(html.indexOf('    let contextBefore ='), html.indexOf('    function setLyricsTranslate(')), context);
+vm.runInContext(html.slice(html.indexOf('    let contextBefore ='), html.indexOf('    function isPlainLyrics(')), context);
 vm.runInContext('contextBefore=2; contextAfter=2;', context);
 context.setCompactLyric('line 2', false, '', 2, context.playback.lyrics[2], false);
 let row = context.ui.compactLyric.children[0];

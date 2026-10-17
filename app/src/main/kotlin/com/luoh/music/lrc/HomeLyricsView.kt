@@ -54,8 +54,10 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         fun togglePlay()
         fun skipPrev()
         fun skipNext()
+        fun retryLyrics()
         fun editCustomLyrics()
         fun manageCustomLyrics()
+        fun manageLyricSources()
         fun exportLrc()
     }
 
@@ -70,6 +72,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     private var lyricStatus = "loading"
     private var active = false
     private var activeIndex = -2
+    private var coloredIndex = -2
     private var dragging = false
     private var overlayRunning = false
     private var wideLayout = false
@@ -134,6 +137,30 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         gravity = Gravity.CENTER
         ViewCompat.setAccessibilityLiveRegion(this, ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE)
     }
+    private val retry = iconButton(R.drawable.ic_home_refresh, "重新获取歌词").apply {
+        id = R.id.home_retry_lyrics
+        setOnClickListener { actions?.retryLyrics() }
+    }
+    private val customLrc = iconButton(R.drawable.ic_home_edit, "添加自定义歌词").apply {
+        id = R.id.home_empty_custom
+        setOnClickListener { actions?.editCustomLyrics() }
+    }
+    private val emptyActions = LinearLayout(context).apply {
+        orientation = HORIZONTAL
+        gravity = Gravity.CENTER
+        addView(retry, LayoutParams(dp(48), dp(48)))
+        addView(customLrc, LayoutParams(dp(48), dp(48)).apply { marginStart = dp(12) })
+        visibility = GONE
+    }
+    private val emptyColumn = LinearLayout(context).apply {
+        orientation = VERTICAL
+        gravity = Gravity.CENTER
+        addView(emptyPanel, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        addView(emptyActions, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(8)
+            gravity = Gravity.CENTER_HORIZONTAL
+        })
+    }
     private val interlude = label("···", 32f).apply {
         visibility = GONE
         contentDescription = "间奏"
@@ -175,6 +202,19 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         setPadding(0, dp(8), 0, dp(8))
         setOnClickListener { onTranslationSettings?.invoke() }
         ViewCompat.setAccessibilityLiveRegion(this, ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE)
+    }
+    private val translationHint = label("去设置 ›", 12f).apply {
+        setTextColor(color(R.color.brand_text))
+        setOnClickListener { onTranslationSettings?.invoke() }
+    }
+    private val translationRow = LinearLayout(context).apply {
+        orientation = HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        visibility = GONE
+        addView(translationStatus, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+        addView(translationHint, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+            marginStart = dp(8)
+        })
     }
     private val overlay = iconButton(R.drawable.ic_home_lyrics, "显示桌面歌词").apply {
         id = R.id.home_overlay
@@ -233,7 +273,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         stage.addView(scroll, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         scroll.addView(lyricsTrack, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         emptyPanel.addView(empty, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
-        stage.addView(emptyPanel, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+        stage.addView(emptyColumn, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, Gravity.CENTER))
         stage.addView(interlude, FrameLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply { leftMargin = dp(28) })
         stage.addView(topFade, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, dp(40), Gravity.TOP))
         stage.addView(bottomFade, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, dp(40), Gravity.BOTTOM))
@@ -253,7 +293,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         metadata.addView(text, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) })
         metadata.addView(utilities, LayoutParams(LayoutParams.WRAP_CONTENT, dp(48)).apply { marginStart = dp(4) })
         bar.addView(metadata, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
-        bar.addView(translationStatus, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        bar.addView(translationRow, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         bar.addView(progress, LayoutParams(LayoutParams.MATCH_PARENT, dp(48)))
         val times = LinearLayout(context).apply { setPadding(dp(16), 0, dp(16), 0) }
         times.addView(timeCurrent, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
@@ -393,7 +433,10 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     fun setTranslationStatus(message: String) {
         if (translationStatus.text.toString() == message) return
         translationStatus.text = message
-        translationStatus.visibility = if (message.isBlank()) GONE else VISIBLE
+        val visible = message.isNotBlank()
+        translationStatus.visibility = if (visible) VISIBLE else GONE
+        translationRow.visibility = if (visible) VISIBLE else GONE
+        translationHint.visibility = if (visible) VISIBLE else GONE
     }
 
     fun setTranslationMode(mode: String) {
@@ -472,7 +515,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         if (snapshot.cover == null) cover.imageTintList = ColorStateList.valueOf(secondary)
         val iconColors = ColorStateList(arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf()),
             intArrayOf(ColorUtils.setAlphaComponent(primary, 72), primary))
-        listOf(overlay, more, previous, play, next).forEach {
+        listOf(overlay, more, previous, play, next, retry, customLrc).forEach {
             it.iconTint = iconColors
             it.rippleColor = ColorStateList.valueOf(ColorUtils.setAlphaComponent(primary, 31))
         }
@@ -480,9 +523,9 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
             it.backgroundTintList = ColorStateList.valueOf(color(R.color.app_surface_container))
         }
         val states = arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf())
-        play.backgroundTintList = ColorStateList(states, intArrayOf(color(R.color.app_surface_container), color(R.color.accent)))
-        play.iconTint = ColorStateList(states, intArrayOf(color(R.color.text_tertiary), color(R.color.text_on_accent)))
-        play.rippleColor = ColorStateList.valueOf(ColorUtils.setAlphaComponent(color(R.color.text_on_accent), 48))
+        play.backgroundTintList = ColorStateList(states, intArrayOf(color(R.color.app_surface_container), color(R.color.brand_accent)))
+        play.iconTint = ColorStateList(states, intArrayOf(color(R.color.text_tertiary), color(R.color.brand_icon)))
+        play.rippleColor = ColorStateList.valueOf(ColorUtils.setAlphaComponent(color(R.color.brand_icon), 48))
         val progressColors = ColorStateList(states, intArrayOf(color(R.color.text_tertiary), color(R.color.accent)))
         progress.thumbTintList = ColorStateList.valueOf(color(R.color.app_surface))
         progress.thumbStrokeColor = progressColors
@@ -494,7 +537,11 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         bottomFade.background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
             intArrayOf(ColorUtils.setAlphaComponent(color(R.color.app_bg), 0), color(R.color.app_bg)))
         setOverlayState(overlayRunning)
-        lyricRows.forEach { it.setTextColor(primary) }
+        coloredIndex = -1
+        lyricRows.forEachIndexed { index, row ->
+            row.setTextColor(color(if (index == activeIndex) R.color.brand_accent else R.color.text_primary))
+        }
+        if (lyricRows.getOrNull(activeIndex) != null) coloredIndex = activeIndex
     }
 
     private fun renderArtist() {
@@ -515,9 +562,13 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         empty.text = when {
             snapshot.track.isBlank() -> "暂未播放"
             lyricStatus == "loading" -> "正在获取歌词"
+            lyricStatus == "empty" -> "未找到歌词"
             else -> ""
         }
-        emptyPanel.visibility = if (document.lines.isEmpty() && empty.text.isNotEmpty()) VISIBLE else GONE
+        val visible = document.lines.isEmpty() && empty.text.isNotEmpty()
+        emptyPanel.visibility = if (visible) VISIBLE else GONE
+        emptyActions.visibility = if (visible && lyricStatus == "empty") VISIBLE else GONE
+        emptyColumn.visibility = if (visible) VISIBLE else GONE
     }
 
     private fun renderLines() {
@@ -525,6 +576,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         lyricsTrack.removeAllViews()
         lyricRows.clear()
         activeIndex = -2
+        coloredIndex = -2
         manualScrollUntil = 0L
         interlude.visibility = GONE
         val position = clock.positionMs() + lyricOffsetMs
@@ -564,6 +616,11 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         if (activeIndex != index || resumeFollowing) {
             val previousIndex = activeIndex
             activeIndex = index
+            if (coloredIndex != index) {
+                lyricRows.getOrNull(coloredIndex)?.setTextColor(color(R.color.text_primary))
+                lyricRows.getOrNull(index)?.setTextColor(color(R.color.brand_accent))
+                coloredIndex = index
+            }
             // Only the active row repaints per frame, so a multi-line jump or forced
             // re-render must refresh every row's karaoke fill or stale lines stay sung.
             if (abs(index - previousIndex) > 1) {
@@ -677,8 +734,10 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
                 setOnClickListener { dialog.dismiss(); callback() }
             }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(8) })
         }
-        action(if (custom) "编辑这首歌的自定义歌词" else "指定 LRC 歌词", R.drawable.ic_home_edit) { actions?.editCustomLyrics() }
+        action(if (custom) "编辑自定义歌词" else "添加自定义歌词", R.drawable.ic_home_edit) { actions?.editCustomLyrics() }
         action("管理自定义歌词", R.drawable.ic_home_library) { actions?.manageCustomLyrics() }
+        action("歌词源管理", R.drawable.ic_home_library, R.id.home_more_sources) { actions?.manageLyricSources() }
+        action("补充翻译", R.drawable.ic_home_translate, R.id.home_more_translation) { onTranslationSettings?.invoke() }
         action("下载当前歌词为 .lrc", R.drawable.ic_home_download, R.id.home_more_export) { actions?.exportLrc() }
         action("设置", R.drawable.ic_home_settings, R.id.home_more_settings) { actions?.openSettings() }
         content.addView(MaterialDivider(dialog.context).apply { dividerColor = color(R.color.app_line_soft) },
@@ -690,7 +749,12 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
             setTextColor(color(R.color.text_secondary))
             setOnClickListener { dialog.dismiss() }
         }, LayoutParams(LayoutParams.MATCH_PARENT, dp(48)).apply { topMargin = dp(8) })
-        dialog.setContentView(content)
+        dialog.setContentView(androidx.core.widget.NestedScrollView(dialog.context).apply {
+            overScrollMode = OVER_SCROLL_NEVER
+            addView(content, android.widget.FrameLayout.LayoutParams(
+                LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT
+            ))
+        })
         dialog.setOnDismissListener { if (menu === dialog) menu = null }
         menu = dialog
         dialog.show()

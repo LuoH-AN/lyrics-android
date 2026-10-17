@@ -43,13 +43,22 @@ class NativeActivitySmokeTest {
         try {
             val activity = controller.get()
             activity.findViewById<View>(R.id.cell_privacy).performClick()
-            val dialog = org.robolectric.shadows.ShadowDialog.getLatestDialog()
-            assertTrue(dialog.isShowing)
-            val message = dialog.findViewById<android.widget.TextView>(android.R.id.message).text.toString()
-            assertTrue(message.contains("MediaSession"))
-            assertTrue(message.contains("Google ML Kit"))
-            assertTrue(message.contains("HTTPS"))
-            dialog.dismiss()
+            val intent = org.robolectric.Shadows.shadowOf(activity).nextStartedActivity
+            org.junit.Assert.assertEquals(PrivacyActivity::class.java.name, intent.component?.className)
+        } finally {
+            controller.destroy()
+        }
+    }
+
+    @Test fun privacyPageKeepsFullDisclosure() {
+        val controller = Robolectric.buildActivity(PrivacyActivity::class.java).create()
+        try {
+            val content = controller.get().findViewById<ViewGroup>(android.R.id.content)
+            val text = views(content).filterIsInstance<android.widget.TextView>()
+                .joinToString("\n") { it.text.toString() }
+            assertTrue(text.contains("MediaSession"))
+            assertTrue(text.contains("Google ML Kit"))
+            assertTrue(text.contains("HTTPS"))
         } finally {
             controller.destroy()
         }

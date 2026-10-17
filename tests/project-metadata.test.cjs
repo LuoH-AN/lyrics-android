@@ -14,7 +14,8 @@ const activity = read(base + 'SettingsActivity.kt');
 assert.ok(layout.includes('cell_maintainer') && layout.includes('维护者 · LuoH-AN'));
 assert.ok(activity.includes('openUrl("https://github.com/LuoH-AN")'));
 assert.ok(activity.includes('openUrl("https://github.com/LuoH-AN/lyrics-android")'));
-assert.ok(activity.includes('.setMessage(R.string.privacy_summary)'), 'privacy information must be available offline');
+assert.ok(read(base + 'PrivacyActivity.kt').includes('R.string.privacy_summary'), 'privacy information must be available offline');
+assert.ok(activity.includes('PrivacyActivity::class.java'), 'settings must open the offline privacy page');
 assert.ok(read('app/src/main/res/values/strings.xml').includes('name="privacy_summary"'));
 assert.doesNotMatch(activity, /PRIVACY\.md|LuoH-AN\/desktop-lyrics/);
 

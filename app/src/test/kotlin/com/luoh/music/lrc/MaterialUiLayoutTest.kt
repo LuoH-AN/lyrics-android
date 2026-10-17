@@ -109,14 +109,19 @@ class MaterialUiLayoutTest {
         var seekPosition = -1L
         var settingsOpened = 0
         var exports = 0
+        var retries = 0
+        var customEdits = 0
+        var sources = 0
         override fun toggleOverlay() { overlays++ }
         override fun openSettings() { settingsOpened++ }
         override fun seekTo(positionMs: Long) { seekPosition = positionMs }
         override fun togglePlay() {}
         override fun skipPrev() {}
         override fun skipNext() {}
-        override fun editCustomLyrics() {}
+        override fun retryLyrics() { retries++ }
+        override fun editCustomLyrics() { customEdits++ }
         override fun manageCustomLyrics() {}
+        override fun manageLyricSources() { sources++ }
         override fun exportLrc() { exports++ }
     }
 
@@ -198,8 +203,9 @@ class MaterialUiLayoutTest {
         layout(home, widthDp, heightDp, preview = preview)
         home.setLyrics(LyricDocument(emptyList(), true))
         home.setSnapshot(snapshot.copy(playing = false))
-        assertEquals("", home.findViewById<android.widget.TextView>(R.id.home_empty).text.toString())
-        assertEquals(View.GONE, (home.findViewById<View>(R.id.home_empty).parent as View).visibility)
+        assertEquals("未找到歌词", home.findViewById<android.widget.TextView>(R.id.home_empty).text.toString())
+        assertEquals(View.VISIBLE, (home.findViewById<View>(R.id.home_empty).parent as View).visibility)
+        assertEquals(View.VISIBLE, home.findViewById<View>(R.id.home_retry_lyrics).visibility)
         home.setSnapshot(HomeLyricsView.Snapshot())
         assertFalse(home.findViewById<MaterialButton>(R.id.home_play).isEnabled)
         assertTrue(overlay.isEnabled)
@@ -264,12 +270,20 @@ class MaterialUiLayoutTest {
         assertEquals("Artist", home.findViewById<android.widget.TextView>(R.id.home_artist).text.toString())
     }
 
-    @Test fun completedEmptyLyricsLeaveTheCenterBlank() {
+    @Test fun completedEmptyLyricsOfferRetryAndCustomEntry() {
         val home = HomeLyricsView(context())
+        val actions = Actions()
+        home.actions = actions
         home.setSnapshot(HomeLyricsView.Snapshot(track = "Song"), forcePosition = true)
         home.setLyrics(LyricDocument(emptyList(), true))
         layout(home, preview = "home-no-lyrics")
-        assertCentralStatus(home, "", visible = false)
+        assertCentralStatus(home, "未找到歌词", visible = true)
+        assertEquals(View.VISIBLE, home.findViewById<View>(R.id.home_retry_lyrics).visibility)
+        assertEquals(View.VISIBLE, home.findViewById<View>(R.id.home_empty_custom).visibility)
+        home.findViewById<View>(R.id.home_retry_lyrics).performClick()
+        assertEquals(1, actions.retries)
+        home.findViewById<View>(R.id.home_empty_custom).performClick()
+        assertEquals(1, actions.customEdits)
         assertEquals("Song", home.findViewById<android.widget.TextView>(R.id.home_song).text.toString())
     }
 

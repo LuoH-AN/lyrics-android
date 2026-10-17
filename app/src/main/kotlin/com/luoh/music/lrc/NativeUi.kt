@@ -42,6 +42,7 @@ object NativeUi {
             isCheckable = true
             setToggleCheckedStateOnClick(false)
             val color = ContextCompat.getColor(context, R.color.text_primary)
+            iconTint = ColorStateList.valueOf(color)
             backgroundTintList = ColorStateList(
                 arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
                 intArrayOf(ColorUtils.setAlphaComponent(color, 24), Color.TRANSPARENT)

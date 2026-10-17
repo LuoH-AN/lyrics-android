@@ -1,6 +1,7 @@
 package com.luoh.music.lrc
 
 import android.content.Context
+import android.animation.ValueAnimator
 import android.graphics.Color
 import android.os.SystemClock
 import android.text.Layout
@@ -253,6 +254,11 @@ class CompactLyricsView @JvmOverloads constructor(context: Context, attrs: Attri
 
         fun paintPosition(position: Long, lineStart: Long, lineEnd: Long, elapsed: Long, rewound: Boolean) {
             if (model.current) lyric.setPlaybackPosition(position)
+            // 系统开启“减少动态效果”时不做长句横向跟随，避免持续运动。
+            if (!ValueAnimator.areAnimatorsEnabled()) {
+                lyric.translationX = 0f
+                return
+            }
             val overflow = contentWidth - width
             if (width <= 0 || overflow <= dp(4) || (!model.current && !model.translated)) {
                 lyric.translationX = 0f
