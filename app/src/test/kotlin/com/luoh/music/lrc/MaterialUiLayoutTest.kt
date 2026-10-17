@@ -350,14 +350,14 @@ class MaterialUiLayoutTest {
                 output.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
                 bitmap.recycle()
             }
-            requireNotNull(dialog.findViewById<MaterialButton>(R.id.home_more_export)).performClick()
+            requireNotNull(dialog.findViewById<View>(R.id.home_more_export)).performClick()
             assertEquals(1, actions.exports)
             assertFalse("Export must close the sheet", dialog.isShowing)
             home.findViewById<View>(R.id.home_more).performClick()
             org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(500))
             val reopened = org.robolectric.shadows.ShadowDialog.getLatestDialog() as BottomSheetDialog
             try {
-                requireNotNull(reopened.findViewById<MaterialButton>(R.id.home_more_settings)).performClick()
+                requireNotNull(reopened.findViewById<View>(R.id.home_more_settings)).performClick()
                 assertEquals(1, actions.settingsOpened)
                 assertFalse(reopened.isShowing)
             } finally {

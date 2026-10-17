@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.os.SystemClock
 import android.text.TextUtils
 import android.util.AttributeSet
@@ -14,6 +15,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.core.content.ContextCompat
@@ -754,32 +756,37 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
                 }, LayoutParams(LayoutParams.MATCH_PARENT, dp(1)).apply { marginStart = dp(16) })
             }
             firstRow = false
-            rows.addView(MaterialButton(dialog.context).apply {
+            val row = LinearLayout(dialog.context).apply {
                 id = viewId
+                orientation = HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(16), 0, dp(14), 0)
+                isClickable = true
+                isFocusable = true
+                foreground = RippleDrawable(
+                    ColorStateList.valueOf(ColorUtils.setAlphaComponent(color(R.color.text_primary), 24)),
+                    null,
+                    null
+                )
+                setOnClickListener { dialog.dismiss(); callback() }
+            }
+            row.addView(ImageView(dialog.context).apply {
+                setImageResource(icon)
+                imageTintList = ColorStateList.valueOf(color(R.color.text_secondary))
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }, LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(14) })
+            row.addView(MaterialTextView(dialog.context).apply {
                 text = title
                 textSize = 15f
-                isAllCaps = false
-                gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                setIconResource(icon)
-                iconSize = dp(20)
-                iconPadding = dp(12)
-                iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
-                iconTint = ColorStateList.valueOf(color(R.color.text_secondary))
-                backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
+                includeFontPadding = false
                 setTextColor(color(R.color.text_primary))
-                setPaddingRelative(dp(16), 0, dp(16), 0)
-                rippleColor = ColorStateList.valueOf(ColorUtils.setAlphaComponent(color(R.color.text_primary), 24))
-                stateListAnimator = null
-                elevation = 0f
-                strokeWidth = 0
-                cornerRadius = 0
-                minWidth = 0
-                minimumWidth = 0
-                minHeight = dp(56)
-                insetTop = 0
-                insetBottom = 0
-                setOnClickListener { dialog.dismiss(); callback() }
-            }, LayoutParams(LayoutParams.MATCH_PARENT, dp(56)))
+            }, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+            row.addView(ImageView(dialog.context).apply {
+                setImageResource(R.drawable.ic_chevron_forward)
+                imageTintList = ColorStateList.valueOf(color(R.color.text_tertiary))
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }, LayoutParams(dp(18), dp(18)))
+            rows.addView(row, LayoutParams(LayoutParams.MATCH_PARENT, dp(56)))
         }
         action(if (custom) "编辑自定义歌词" else "添加自定义歌词", R.drawable.ic_home_edit) { actions?.editCustomLyrics() }
         action("管理自定义歌词", R.drawable.ic_home_library) { actions?.manageCustomLyrics() }
