@@ -34,7 +34,7 @@
             <com.luoh.music.lrc.SquircleCardView style="@style/GroupCard">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                     <LinearLayout style="@style/CellColumn">
-                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="歌词预览" />
+                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:drawableStart="@drawable/ic_setting_lyrics" android:text="歌词预览" />
                         <com.luoh.music.lrc.CompactLyricsView android:id="@+id/overlay_preview" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="96dp" android:layout_marginTop="10dp" />
                     </LinearLayout>
                     <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
@@ -59,7 +59,7 @@
                     </LinearLayout>
                     <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
                     <LinearLayout style="@style/CellColumn">
-                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="上下文展示" />
+                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:drawableStart="@drawable/ic_setting_context" android:text="上下文展示" />
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="64dp" android:gravity="center_vertical" android:orientation="horizontal">
                             <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:drawableStart="@drawable/ic_setting_context" android:text="上文" />
                             <com.google.android.material.button.MaterialButton android:id="@+id/context_before_less" style="@style/StepButton" android:text="−" android:contentDescription="少显示一句上文" />
@@ -75,7 +75,7 @@
                     </LinearLayout>
                     <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
                     <LinearLayout style="@style/CellColumn">
-                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="背景" />
+                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:drawableStart="@drawable/ic_setting_theme" android:text="背景" />
                         <com.luoh.music.lrc.SegmentedControl
                             android:layout_width="match_parent"
                             android:layout_height="44dp"
@@ -87,7 +87,7 @@
                     </LinearLayout>
                     <com.google.android.material.divider.MaterialDivider style="@style/CellDivider" />
                     <LinearLayout style="@style/CellColumn">
-                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="歌词颜色" />
+                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:drawableStart="@drawable/ic_setting_palette" android:text="歌词颜色" />
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:orientation="horizontal">
                             <FrameLayout android:layout_width="0dp" android:layout_height="56dp" android:layout_weight="1">
                                 <com.google.android.material.button.MaterialButton android:id="@+id/lyric_color_white" style="@style/Swatch" android:contentDescription="白色歌词" android:checkable="true" app:toggleCheckedStateOnClick="false" app:backgroundTint="#FFFFFF" />
@@ -132,7 +132,7 @@
             <com.luoh.music.lrc.SquircleCardView style="@style/GroupCard">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                     <LinearLayout style="@style/CellColumn">
-                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="外语歌词" />
+                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:drawableStart="@drawable/ic_home_translate" android:text="外语歌词" />
                         <com.luoh.music.lrc.SegmentedControl
                             android:layout_width="match_parent"
                             android:layout_height="44dp"
@@ -169,7 +169,7 @@
             <com.luoh.music.lrc.SquircleCardView style="@style/GroupCard">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                     <LinearLayout style="@style/CellColumn">
-                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="主题" />
+                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:drawableStart="@drawable/ic_setting_theme" android:text="主题" />
                         <com.luoh.music.lrc.SegmentedControl
                             android:layout_width="match_parent"
                             android:layout_height="44dp"
@@ -193,7 +193,7 @@
             <com.luoh.music.lrc.SquircleCardView style="@style/GroupCard">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                     <LinearLayout style="@style/CellColumn">
-                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="对齐方式" />
+                        <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:drawableStart="@drawable/ic_setting_alignment" android:text="对齐方式" />
                         <com.luoh.music.lrc.SegmentedControl
                             android:layout_width="match_parent"
                             android:layout_height="44dp"
