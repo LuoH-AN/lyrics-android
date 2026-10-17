@@ -82,9 +82,7 @@ class SegmentedControl @JvmOverloads constructor(
         button.minHeight = 0
         button.minimumWidth = 0
         button.minimumHeight = 0
-        button.insetLeft = 0
         button.insetTop = 0
-        button.insetRight = 0
         button.insetBottom = 0
         button.stateListAnimator = null
         button.elevation = 0f
