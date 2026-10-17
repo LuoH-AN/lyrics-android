@@ -74,7 +74,7 @@ class CustomLyricsEditActivity : AppCompatActivity() {
             setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
         }
         root.addView(toolbar)
-        val content = NativeUi.column(this, 20)
+        val content = NativeUi.column(this, 16)
         root.addView(NestedScrollView(this).apply {
             isFillViewport = true
             overScrollMode = View.OVER_SCROLL_NEVER

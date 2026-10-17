@@ -3,6 +3,7 @@ package com.luoh.music.lrc
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Typeface
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
@@ -56,8 +57,14 @@ object NativeUi {
     fun text(context: Context, text: String, size: Float = 14f): MaterialTextView = MaterialTextView(context).apply {
         this.text = text
         textSize = size
-        setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
         includeFontPadding = false
+        if (size >= 17f) {
+            // Card headings use the same title color/weight as the settings page.
+            setTextColor(ContextCompat.getColor(context, R.color.text_primary))
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        } else {
+            setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
+        }
     }
 
     fun field(context: Context, hint: String, value: String = "", multiline: Boolean = false): TextInputLayout =
@@ -115,7 +122,7 @@ object NativeUi {
             setBackgroundColor(ContextCompat.getColor(activity, R.color.app_bg))
         }
         root.addView(toolbar(activity, title, onBack))
-        val content = column(activity, 20)
+        val content = column(activity, 16)
         root.addView(NestedScrollView(activity).apply {
             isFillViewport = true
             overScrollMode = View.OVER_SCROLL_NEVER
