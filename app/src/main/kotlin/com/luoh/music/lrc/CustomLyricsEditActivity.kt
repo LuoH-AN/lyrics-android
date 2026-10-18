@@ -57,7 +57,11 @@ class CustomLyricsEditActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(-1, -1)
             setBackgroundColor(col(R.color.app_bg))
         }
-        val toolbar = NativeUi.toolbar(this, if (existing == null) "添加自定义歌词" else "编辑自定义歌词") { leave() }
+        val toolbar = NativeUi.toolbar(this, if (existing == null) "添加自定义歌词" else "编辑自定义歌词") { leave() }.apply {
+            // Material's action menu keeps a 64 dp bar; matching it here keeps
+            // the trailing save action optically centered.
+            layoutParams = LinearLayout.LayoutParams(-1, dp(64))
+        }
         val saveButton = NativeUi.button(this, "保存", true) { save() }.apply {
             isSingleLine = true
             minWidth = dp(64)
