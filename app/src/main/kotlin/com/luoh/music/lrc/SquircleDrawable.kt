@@ -166,6 +166,9 @@ class SquircleDrawable @JvmOverloads constructor(
         invalidateSelf()
     }
 
+    /** The current fill, for previews and tests that only need the colour. */
+    fun fillColor(): Int = fillPaint.color
+
     fun setStrokeColor(color: Int) {
         if (strokePaint.color == color) return
         strokePaint.color = color

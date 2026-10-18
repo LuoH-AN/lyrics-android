@@ -21,7 +21,6 @@
             android:textSize="16sp" />
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/color_hex_field"
-            style="@style/MaterialField"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
@@ -34,7 +33,7 @@
                 android:inputType="textCapCharacters|textNoSuggestions"
                 android:singleLine="true"
                 android:selectAllOnFocus="true"
-                android:textAppearance="@style/Text.Subheadline" />
+                android:textSize="15sp" />
         </com.google.android.material.textfield.TextInputLayout>
         <LinearLayout
             android:id="@+id/color_palette"

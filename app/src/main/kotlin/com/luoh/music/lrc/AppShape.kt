@@ -32,7 +32,7 @@ class SuperellipseCornerTreatment(
         bounds: RectF,
         size: CornerSize
     ) {
-        val limit = min(bounds.width(), bounds.height()) / 2f
+        val limit = (min(bounds.width(), bounds.height()) / 2f).coerceAtLeast(0f)
         getCornerPath(shapePath, angle, interpolation, size.getCornerSize(bounds).coerceIn(0f, limit))
     }
 

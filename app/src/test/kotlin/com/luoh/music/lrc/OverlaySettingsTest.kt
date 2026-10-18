@@ -222,7 +222,13 @@ class OverlaySettingsTest {
                 for ((button, alpha) in listOf(R.id.background_mode_transparent to 0,
                     R.id.background_mode_low to 140, R.id.background_mode_high to 255)) {
                     activity.findViewById<View>(button).performClick()
-                    assertEquals(alpha, Color.alpha((preview.background as GradientDrawable).color!!.defaultColor))
+                    val background = preview.background
+                    val fill = when (background) {
+                        is SquircleDrawable -> background.fillColor()
+                        is GradientDrawable -> background.color!!.defaultColor
+                        else -> error("Unexpected preview background: $background")
+                    }
+                    assertEquals(alpha, Color.alpha(fill))
                     layout(root)
                     val bitmap = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
                     root.draw(Canvas(bitmap))
