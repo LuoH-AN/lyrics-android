@@ -40,6 +40,21 @@ class SquircleDrawable @JvmOverloads constructor(
         private const val CURVE_STEPS = 24
         private const val SUPER_ELLIPSE_POWER = 0.5f
 
+        /** A white fill used as a ripple mask; the ripple then follows the squircle. */
+        fun mask(radiusPx: Float, corners: Int = CORNER_ALL): SquircleDrawable =
+            SquircleDrawable(Color.WHITE, radiusPx, corners = corners)
+
+        fun fill(color: Int, radiusPx: Float, corners: Int = CORNER_ALL): SquircleDrawable =
+            SquircleDrawable(color, radiusPx, corners = corners)
+
+        fun stroked(
+            fillColor: Int,
+            radiusPx: Float,
+            strokeColor: Int,
+            strokeWidthPx: Float,
+            corners: Int = CORNER_ALL
+        ): SquircleDrawable = SquircleDrawable(fillColor, radiusPx, strokeColor, strokeWidthPx, corners)
+
         /**
          * Builds the same path used by [SquircleDrawable] for callers that
          * need an outline, a clip, or a custom blend.
@@ -137,6 +152,7 @@ class SquircleDrawable @JvmOverloads constructor(
     private var cornerRadiusPx: Float = radiusPx
     private var cornerMode: Int = corners
     private var cachedPath: Path? = null
+    private var cachedStrokePath: Path? = null
 
     init {
         fillPaint.color = fillColor
@@ -160,6 +176,7 @@ class SquircleDrawable @JvmOverloads constructor(
         if (strokePaint.strokeWidth == widthPx) return
         strokePaint.strokeWidth = widthPx
         cachedPath = null
+        cachedStrokePath = null
         invalidateSelf()
     }
 
@@ -167,6 +184,7 @@ class SquircleDrawable @JvmOverloads constructor(
         if (cornerRadiusPx == radiusPx) return
         cornerRadiusPx = radiusPx
         cachedPath = null
+        cachedStrokePath = null
         invalidateSelf()
     }
 
@@ -174,11 +192,13 @@ class SquircleDrawable @JvmOverloads constructor(
         if (this.cornerMode == corners) return
         this.cornerMode = corners
         cachedPath = null
+        cachedStrokePath = null
         invalidateSelf()
     }
 
     override fun onBoundsChange(bounds: Rect) {
         cachedPath = null
+        cachedStrokePath = null
     }
 
     private fun path(): Path {
@@ -195,14 +215,33 @@ class SquircleDrawable @JvmOverloads constructor(
         }
     }
 
+    /**
+     * The stroke is drawn inside the bounds: a stroke centred on the edge
+     * loses half its width to the view's clip, which makes a 1 dp hairline
+     * render as a lighter 0.5 dp line.
+     */
+    private fun strokePath(): Path {
+        cachedStrokePath?.let { return it }
+        val rect = bounds
+        val inset = strokePaint.strokeWidth / 2f
+        return path(
+            (rect.width() - inset * 2f).coerceAtLeast(0f),
+            (rect.height() - inset * 2f).coerceAtLeast(0f),
+            (cornerRadiusPx - inset).coerceAtLeast(0f),
+            cornerMode
+        ).also {
+            it.offset(rect.left + inset, rect.top + inset)
+            cachedStrokePath = it
+        }
+    }
+
     override fun draw(canvas: Canvas) {
         if (bounds.isEmpty()) return
-        val path = path()
         if (fillPaint.color != Color.TRANSPARENT && fillPaint.alpha > 0) {
-            canvas.drawPath(path, fillPaint)
+            canvas.drawPath(path(), fillPaint)
         }
         if (strokePaint.strokeWidth > 0f && strokePaint.alpha > 0) {
-            canvas.drawPath(path, strokePaint)
+            canvas.drawPath(strokePath(), strokePaint)
         }
     }
 

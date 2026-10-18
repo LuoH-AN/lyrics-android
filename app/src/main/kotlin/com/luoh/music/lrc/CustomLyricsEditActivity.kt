@@ -81,6 +81,7 @@ class CustomLyricsEditActivity : AppCompatActivity() {
             addView(content)
         }, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
+        AppTheme.apply(this)
 
         val info = NativeUi.column(this)
         info.addView(NativeUi.field(this, "歌名（必填）", existing?.title ?: requestedTitle).also { titleField = it.editText!! })

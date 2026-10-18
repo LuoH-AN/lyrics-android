@@ -1,22 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Neutral Material surfaces: canvas, card, and tonal controls. -->
-    <color name="app_bg">#F5F5F7</color>
-    <color name="app_surface">#FFFFFF</color>
-    <color name="app_surface_container">#EEEEF1</color>
-    <color name="app_surface_inset">#E4E4E9</color>
-    <color name="app_line">#E2E2E7</color>
+    <!-- Surface levels: page, card, block, inset. No borders, only fill steps. -->
+    <color name="app_bg">#F2F2F7</color>
+    <color name="app_surface">#FCFCFD</color>
+    <color name="app_surface_container">#ECECF0</color>
+    <color name="app_surface_inset">#E3E3E8</color>
+    <color name="app_line">#E4E4E9</color>
     <color name="app_line_soft">#2418181B</color>
     <color name="text_primary">#18181B</color>
-    <color name="text_secondary">#65656F</color>
-    <color name="text_tertiary">#92929C</color>
+    <color name="text_secondary">#6B6B75</color>
+    <color name="text_tertiary">#9999A3</color>
     <color name="text_on_accent">#FFFFFF</color>
     <color name="danger">#D92D20</color>
     <color name="accent">#18181B</color>
     <color name="accent_pressed">#36363C</color>
-    <color name="control_track">#DDDDE3</color>
+    <color name="control_track">#E3E3E8</color>
     <color name="control_active">#18181B</color>
     <color name="overlay_preview_scene">#84848D</color>
-    <color name="nav_bar">#F5F5F7</color>
-    <color name="status_bar">#F5F5F7</color>
+    <color name="nav_bar">#F2F2F7</color>
+    <color name="status_bar">#F2F2F7</color>
+
+    <!-- Status and container roles. -->
+    <color name="primary_container">#E6E6EB</color>
+    <color name="on_primary_container">#18181B</color>
+    <color name="success">#248A3D</color>
+    <color name="success_container">#D9F2DE</color>
+    <color name="on_success_container">#0B3D1B</color>
+    <color name="warning">#B25000</color>
+    <color name="warning_container">#FFE3CC</color>
+    <color name="on_warning_container">#4A2100</color>
+    <color name="destructive">#FF383C</color>
+    <color name="error_container">#FADAD7</color>
+    <color name="on_error_container">#410E0B</color>
+    <color name="chrome">#E3E3E8</color>
+    <color name="scrim">#33000000</color>
 </resources>

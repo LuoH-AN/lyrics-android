@@ -49,7 +49,15 @@ class LyricColorPickerDialog(
 
     init {
         dialog.window?.setWindowAnimations(0)
-        dialog.setOnShowListener { Springs.animateDialogIn(dialog) }
+        dialog.window?.setDimAmount(if (DesignTokens.scheme(context).dark) 0.48f else 0.20f)
+        dialog.setOnShowListener {
+            Springs.animateDialogIn(dialog)
+            dialog.window?.setLayout(NativeUi.dp(context, 348), android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
+            val scheme = DesignTokens.scheme(context)
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(scheme.primary)
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(scheme.onSurface)
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.setTextColor(scheme.onSurface)
+        }
         val palette = content.findViewById<LinearLayout>(R.id.color_palette)
         COLORS.chunked(4).forEach { colors ->
             val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
@@ -64,8 +72,9 @@ class LyricColorPickerDialog(
                     setToggleCheckedStateOnClick(false)
                     backgroundTintList = ColorStateList.valueOf(Color.parseColor(hex))
                     setTextColor(contrastColor(Color.parseColor(hex)))
-                    cornerRadius = dp(14)
-                    textSize = 20f
+                    cornerRadius = dp(DesignTokens.RADIUS_MD.toInt())
+                    applySuperellipseShape()
+                    applyTextStyle(AppTextStyle.title3, emphasized = true)
                     setPadding(0, 0, 0, 0)
                     layoutParams = FrameLayout.LayoutParams(dp(48), dp(48), Gravity.CENTER)
                 }
@@ -113,7 +122,7 @@ class LyricColorPickerDialog(
         preview.setTextColor(contrastColor(color))
         preview.background = SquircleDrawable(
             color,
-            dp(14).toFloat(),
+            dp(DesignTokens.RADIUS_MD.toInt()).toFloat(),
             ContextCompat.getColor(context, R.color.app_line),
             dp(1).toFloat()
         )

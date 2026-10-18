@@ -15,7 +15,6 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
-import android.graphics.drawable.GradientDrawable
 import android.media.AudioManager
 import android.media.MediaMetadata
 import android.media.session.MediaController
@@ -853,11 +852,10 @@ class LyricsOverlayService : Service() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, 0)
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dp(24).toFloat()
-                setColor(Color.argb(150, 12, 12, 14))
-            }
+            background = SquircleDrawable(
+                Color.argb(150, 12, 12, 14),
+                DesignTokens.dp(this, DesignTokens.RADIUS_XL)
+            )
         }
         chromeBar = chrome
 
@@ -1149,11 +1147,13 @@ class LyricsOverlayService : Service() {
         }.start()
     }
 
-    private fun overlayBackground(isCompact: Boolean): GradientDrawable = OverlayAppearance.background(this, backgroundMode).apply {
-        if (!isCompact) {
-            setStroke(dp(1), Color.argb(45, 255, 255, 255))
+    private fun overlayBackground(isCompact: Boolean): SquircleDrawable =
+        OverlayAppearance.background(this, backgroundMode).apply {
+            if (!isCompact) {
+                setStrokeColor(Color.argb(45, 255, 255, 255))
+                setStrokeWidth(dp(1).toFloat())
+            }
         }
-    }
 
     private fun positionXPreferenceKey(targetCompact: Boolean): String =
         if (targetCompact) PREF_COMPACT_X else PREF_EXPANDED_X

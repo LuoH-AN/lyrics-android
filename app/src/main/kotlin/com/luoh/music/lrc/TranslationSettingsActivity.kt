@@ -173,7 +173,6 @@ class TranslationSettingsActivity : AppCompatActivity() {
             NativeUi.button(this, text) { if (selectedMode != index) applyMode(index) }.apply {
                 id = View.generateViewId()
                 isCheckable = true
-                textSize = 12f
                 setPadding(dp(4), dp(10), dp(4), dp(10))
                 layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
             }
@@ -209,8 +208,9 @@ class TranslationSettingsActivity : AppCompatActivity() {
         downloadProgress = LinearProgressIndicator(this).apply {
             isIndeterminate = true
             visibility = View.GONE
-            setIndicatorColor(col(R.color.control_active))
-            trackColor = col(R.color.control_track)
+            val scheme = DesignTokens.scheme(this@TranslationSettingsActivity)
+            setIndicatorColor(scheme.primary)
+            trackColor = scheme.track
         }
         offlineBox.addView(downloadProgress, LinearLayout.LayoutParams(-1, dp(4)).apply { topMargin = dp(6) })
         offlineBox.addView(NativeUi.field(this, "搜索更多语言").also { search = it.editText!! })
@@ -281,7 +281,7 @@ class TranslationSettingsActivity : AppCompatActivity() {
     }
     private fun showApiProfileMenu() {
         val profiles = TranslationApiProfiles.all(this)
-        MaterialAlertDialogBuilder(this)
+        val dialog = MaterialAlertDialogBuilder(this)
             .setTitle("选择翻译 API")
             .setSingleChoiceItems(profiles.map { it.label }.toTypedArray(), profiles.indexOfFirst { it.id == currentApiProfileId }) { dialog, which ->
                 dialog.dismiss()
@@ -293,6 +293,7 @@ class TranslationSettingsActivity : AppCompatActivity() {
             }
             .setNegativeButton("取消", null)
             .show()
+        NativeUi.styleDialog(dialog)
     }
     private fun switchApiProfile(selected: TranslationApiProfile) {
         if (selected.id == currentApiProfileId) return
@@ -362,13 +363,14 @@ class TranslationSettingsActivity : AppCompatActivity() {
     }
     private fun needed(code: String) = setOf(code, "zh").filter { it != "en" }
     private fun showDownloadDialog(code: String) {
-        MaterialAlertDialogBuilder(this)
+        val dialog = MaterialAlertDialogBuilder(this)
             .setTitle("下载 ${title(code)}")
             .setMessage("将下载该语言及缺失的共用中文模型。请先确保手机代理可用；每个模型约 30 MB。")
             .setPositiveButton("仅 Wi-Fi 下载") { _, _ -> download(code, true) }
             .setNeutralButton("允许当前网络") { _, _ -> download(code, false) }
             .setNegativeButton("取消", null)
             .show()
+        NativeUi.styleDialog(dialog)
     }
     private fun showDeleteDialog(code: String, removable: String) {
         val message = if (removable == "zh") {

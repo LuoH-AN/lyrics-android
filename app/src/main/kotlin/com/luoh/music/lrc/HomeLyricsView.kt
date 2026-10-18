@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.Color
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.os.SystemClock
@@ -19,7 +18,6 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.ColorUtils
 import androidx.core.view.ViewCompat
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -88,8 +86,8 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
 
     private val playerCard = SquircleCardView(context).apply {
         id = R.id.home_player_card
-        setSquircleRadiusDp(28f)
-        setSquircleFillColor(DesignTokens.card(context))
+        setSquircleRadiusDp(DesignTokens.RADIUS_XL)
+        setSquircleFillColor(DesignTokens.floating(context))
         // The player floats over the lyric page, so it keeps a soft shadow;
         // the SquircleDrawable outline makes the shadow follow the same curve.
         // Do not clip the card: its children stay inside the rounded bounds,
@@ -136,12 +134,13 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         gravity = Gravity.CENTER
         setPadding(dp(28), dp(16), dp(28), dp(16))
     }
-    private val empty = label("暂未播放", 22f).apply {
+    private val empty = label("暂未播放", 20f).apply {
         id = R.id.home_empty
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        applyTextStyle(AppTextStyle.title3, emphasized = true, color = DesignTokens.textPrimary(context))
         gravity = Gravity.CENTER
         ViewCompat.setAccessibilityLiveRegion(this, ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE)
     }
+    private val emptyArtwork = AppEmptyArtwork(context)
     private val retry = iconButton(R.drawable.ic_home_refresh, "重新获取歌词").apply {
         id = R.id.home_retry_lyrics
         setOnClickListener { actions?.retryLyrics() }
@@ -160,45 +159,49 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     private val emptyColumn = LinearLayout(context).apply {
         orientation = VERTICAL
         gravity = Gravity.CENTER
-        addView(emptyPanel, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        addView(emptyArtwork, LayoutParams(dp(112), dp(112)))
+        addView(emptyPanel, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(12)
+        })
         addView(emptyActions, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
             topMargin = dp(8)
             gravity = Gravity.CENTER_HORIZONTAL
         })
     }
-    private val interlude = label("···", 32f).apply {
+    private val interlude = label("···", 28f).apply {
         visibility = GONE
         contentDescription = "间奏"
         letterSpacing = .18f
     }
     private val topFade = View(context)
     private val bottomFade = View(context)
-    private val coverTile = MaterialCardView(context).apply {
-        radius = dp(18).toFloat()
-        cardElevation = 0f
-        strokeWidth = 0
+    private val coverTile = SquircleCardView(context).apply {
+        setSquircleRadiusDp(DesignTokens.RADIUS_MD)
+        setSquircleFillColor(DesignTokens.block(context))
         clipToOutline = true
     }
     private val cover = ShapeableImageView(context).apply {
         id = R.id.home_cover
         scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
-        shapeAppearanceModel = shapeAppearanceModel.toBuilder().setAllCornerSizes(dp(18).toFloat()).build()
+        shapeAppearanceModel = shapeAppearanceModel.toBuilder().setAllCornerSizes(dp(16).toFloat()).build()
         strokeWidth = 0f
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
     }
     private val song = label("暂未播放", 20f).apply {
         id = R.id.home_song
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        applyTextStyle(AppTextStyle.title3, emphasized = true)
         maxLines = 2
         ellipsize = TextUtils.TruncateAt.END
     }
     private val artist = label("", 13f).apply {
         id = R.id.home_artist
+        applyTextStyle(AppTextStyle.footnote)
         maxLines = 1
         ellipsize = TextUtils.TruncateAt.END
     }
     private val translationStatus = label("", 12f).apply {
         tag = "home_translation_status"
+        applyTextStyle(AppTextStyle.caption1)
         visibility = GONE
         minHeight = dp(48)
         maxLines = 2
@@ -209,6 +212,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         ViewCompat.setAccessibilityLiveRegion(this, ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE)
     }
     private val translationHint = label("去设置 ›", 12f).apply {
+        applyTextStyle(AppTextStyle.caption1, emphasized = true)
         setTextColor(AccentPrefs.textAccent(context, R.color.text_secondary))
         setOnClickListener { onTranslationSettings?.invoke() }
     }
@@ -242,18 +246,28 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         haloRadius = dp(20)
         contentDescription = "播放进度"
     }
-    private val timeCurrent = label("0:00", 12f).apply { id = R.id.home_time_current }
-    private val timeDuration = label("0:00", 12f).apply { id = R.id.home_time_duration }
+    private val timeCurrent = label("0:00", 12f).apply {
+        id = R.id.home_time_current
+        applyTextStyle(AppTextStyle.caption1)
+        fontFeatureSettings = "tnum"
+    }
+    private val timeDuration = label("0:00", 12f).apply {
+        id = R.id.home_time_duration
+        applyTextStyle(AppTextStyle.caption1)
+        fontFeatureSettings = "tnum"
+    }
     private val previous = iconButton(R.drawable.ic_home_previous, "上一首").apply {
         id = R.id.home_previous
         iconSize = dp(24)
         cornerRadius = dp(24)
+        applySuperellipseShape()
         setOnClickListener { actions?.skipPrev() }
     }
     private val play = iconButton(R.drawable.ic_home_play, "播放").apply {
         id = R.id.home_play
         iconSize = dp(28)
         cornerRadius = dp(32)
+        applySuperellipseShape()
         strokeWidth = 0
         setOnClickListener { actions?.togglePlay() }
     }
@@ -261,6 +275,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         id = R.id.home_next
         iconSize = dp(24)
         cornerRadius = dp(24)
+        applySuperellipseShape()
         setOnClickListener { actions?.skipNext() }
     }
     private val frame = object : Runnable {
@@ -360,7 +375,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         }
         val titleLines = if (compact) 1 else 2
         if (song.maxLines != titleLines) song.maxLines = titleLines
-        song.textSize = if (smallCover) 18f else 20f
+        song.applyTextStyle(if (smallCover) AppTextStyle.headline else AppTextStyle.title3, emphasized = true)
         (coverTile.layoutParams as LayoutParams).apply { width = dp(if (smallCover) 48 else 60); height = width }
         if (snapshot.cover == null) {
             val padding = dp(if (smallCover) 12 else 17)
@@ -490,8 +505,9 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     fun setOverlayState(running: Boolean) {
         overlayRunning = running
         overlay.isSelected = running
+        val scheme = DesignTokens.scheme(context)
         overlay.backgroundTintList = ColorStateList.valueOf(
-            if (running) ColorUtils.setAlphaComponent(color(R.color.text_primary), 31) else Color.TRANSPARENT
+            if (running) AppColor.alpha(scheme.primary, 0.12f) else Color.TRANSPARENT
         )
         overlay.contentDescription = if (running) "关闭桌面歌词" else "显示桌面歌词"
         ViewCompat.setStateDescription(overlay, if (running) "已开启" else "已关闭")
@@ -526,48 +542,65 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     }
 
     fun applyTheme() {
-        val primary = color(R.color.text_primary)
-        val secondary = color(R.color.text_secondary)
-        setBackgroundColor(color(R.color.app_bg))
-        playerCard.setSquircleFillColor(color(R.color.app_surface))
-        song.setTextColor(primary)
-        artist.setTextColor(secondary)
-        translationStatus.setTextColor(secondary)
-        empty.setTextColor(primary)
-        interlude.setTextColor(primary)
-        timeCurrent.setTextColor(secondary)
-        timeDuration.setTextColor(secondary)
-        coverTile.setCardBackgroundColor(color(R.color.app_surface_container))
+        val scheme = DesignTokens.scheme(context)
+        setBackgroundColor(scheme.page)
+        playerCard.setSquircleFillColor(scheme.floating)
+        emptyArtwork.applyScheme(scheme)
+        song.setTextColor(scheme.onSurface)
+        artist.setTextColor(scheme.onSurfaceVariant)
+        translationStatus.setTextColor(scheme.onSurfaceVariant)
+        empty.setTextColor(scheme.onSurface)
+        interlude.setTextColor(scheme.onSurface)
+        timeCurrent.setTextColor(scheme.onSurfaceVariant)
+        timeDuration.setTextColor(scheme.onSurfaceVariant)
+        coverTile.setSquircleFillColor(scheme.block)
         cover.setBackgroundColor(Color.TRANSPARENT)
-        if (snapshot.cover == null) cover.imageTintList = ColorStateList.valueOf(secondary)
-        val iconColors = ColorStateList(arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf()),
-            intArrayOf(ColorUtils.setAlphaComponent(primary, 72), primary))
+        if (snapshot.cover == null) cover.imageTintList = ColorStateList.valueOf(scheme.onSurfaceVariant)
+        val iconStates = arrayOf(
+            intArrayOf(-android.R.attr.state_enabled),
+            intArrayOf(android.R.attr.state_selected),
+            intArrayOf()
+        )
+        val iconColors = ColorStateList(
+            iconStates,
+            intArrayOf(
+                AppColor.alpha(scheme.onSurfaceVariant, 0.38f),
+                scheme.primary,
+                scheme.onSurface
+            )
+        )
         listOf(overlay, more, previous, play, next, retry, customLrc).forEach {
             it.iconTint = iconColors
-            it.rippleColor = ColorStateList.valueOf(ColorUtils.setAlphaComponent(primary, 31))
+            it.rippleColor = ColorStateList.valueOf(AppColor.alpha(scheme.primary, 0.12f))
         }
         listOf(previous, next).forEach {
-            it.backgroundTintList = ColorStateList.valueOf(color(R.color.app_surface_container))
+            it.backgroundTintList = ColorStateList.valueOf(scheme.block)
         }
-        val states = arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf())
-        play.backgroundTintList = ColorStateList(states, intArrayOf(color(R.color.app_surface_container), AccentPrefs.accent(context)))
-        play.iconTint = ColorStateList(states, intArrayOf(color(R.color.text_tertiary), AccentPrefs.onAccent(context)))
-        play.rippleColor = ColorStateList.valueOf(ColorUtils.setAlphaComponent(AccentPrefs.onAccent(context), 48))
-        val progressColors = ColorStateList(states, intArrayOf(color(R.color.text_tertiary), AccentPrefs.accent(context)))
-        progress.thumbTintList = ColorStateList.valueOf(color(R.color.app_surface))
-        progress.thumbStrokeColor = progressColors
-        progress.trackActiveTintList = progressColors
-        progress.trackInactiveTintList = ColorStateList.valueOf(ColorUtils.setAlphaComponent(primary, 24))
-        progress.haloTintList = ColorStateList.valueOf(ColorUtils.setAlphaComponent(primary, 24))
-        topFade.background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(color(R.color.app_bg), ColorUtils.setAlphaComponent(color(R.color.app_bg), 0)))
-        bottomFade.background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(ColorUtils.setAlphaComponent(color(R.color.app_bg), 0), color(R.color.app_bg)))
+        val transportStates = arrayOf(
+            intArrayOf(-android.R.attr.state_enabled),
+            intArrayOf()
+        )
+        play.backgroundTintList = ColorStateList(transportStates, intArrayOf(scheme.track, scheme.primary))
+        play.iconTint = ColorStateList(transportStates, intArrayOf(scheme.outline, scheme.onPrimary))
+        play.rippleColor = ColorStateList.valueOf(AppColor.alpha(scheme.onPrimary, 0.16f))
+        progress.thumbTintList = ColorStateList.valueOf(scheme.card)
+        progress.thumbStrokeColor = ColorStateList.valueOf(scheme.primary)
+        progress.trackActiveTintList = ColorStateList.valueOf(scheme.primary)
+        progress.trackInactiveTintList = ColorStateList.valueOf(scheme.track)
+        progress.haloTintList = ColorStateList.valueOf(AppColor.alpha(scheme.primary, 0.12f))
+        topFade.background = GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(scheme.page, AppColor.alpha(scheme.page, 0f))
+        )
+        bottomFade.background = GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(AppColor.alpha(scheme.page, 0f), scheme.page)
+        )
         setOverlayState(overlayRunning)
         translationHint.setTextColor(AccentPrefs.textAccent(context, R.color.text_secondary))
         coloredIndex = -1
         lyricRows.forEachIndexed { index, row ->
-            row.setTextColor(if (index == activeIndex) AccentPrefs.lyricAccent(context) else color(R.color.text_primary))
+            row.setTextColor(if (index == activeIndex) AccentPrefs.lyricAccent(context) else scheme.onSurface)
         }
         if (lyricRows.getOrNull(activeIndex) != null) coloredIndex = activeIndex
     }
@@ -595,6 +628,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         }
         val visible = document.lines.isEmpty() && empty.text.isNotEmpty()
         emptyPanel.visibility = if (visible) VISIBLE else GONE
+        emptyArtwork.visibility = if (visible) VISIBLE else GONE
         emptyActions.visibility = if (visible && lyricStatus == "empty") VISIBLE else GONE
         emptyColumn.visibility = if (visible) VISIBLE else GONE
     }
@@ -610,16 +644,18 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         val position = clock.positionMs() + lyricOffsetMs
         document.lines.forEach { line ->
             val row = LyricLineView(context).apply {
-                textSize = if (resources.configuration.screenWidthDp < 360) 26f else 30f
-                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                applyTextStyle(
+                    if (resources.configuration.screenWidthDp < 360) AppTextStyle.title2
+                    else AppTextStyle.title1,
+                    emphasized = true
+                )
                 isSingleLine = false
                 setHorizontallyScrolling(false)
                 maxLines = Int.MAX_VALUE
                 ellipsize = null
                 gravity = Gravity.TOP or horizontalGravity()
-                setTextColor(color(R.color.text_primary))
+                setTextColor(DesignTokens.textPrimary(context))
                 setPaddingRelative(0, dp(12), 0, dp(12))
-                setLineSpacing(0f, 1.2f)
                 bind(line, translationMode)
                 setPlaybackPosition(position)
                 if (document.timed) {
@@ -646,7 +682,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
             val previousIndex = activeIndex
             activeIndex = index
             if (coloredIndex != index) {
-                lyricRows.getOrNull(coloredIndex)?.setTextColor(color(R.color.text_primary))
+                lyricRows.getOrNull(coloredIndex)?.setTextColor(DesignTokens.textPrimary(context))
                 lyricRows.getOrNull(index)?.setTextColor(AccentPrefs.lyricAccent(context))
                 coloredIndex = index
             }
@@ -727,24 +763,28 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     private fun showMore() {
         menu?.dismiss()
         val dialog = BottomSheetDialog(context)
+        val scheme = DesignTokens.scheme(dialog.context)
         val content = LinearLayout(dialog.context).apply {
             id = R.id.home_more_sheet
             orientation = VERTICAL
             setPadding(dp(20), 0, dp(20), dp(20))
         }
         content.addView(BottomSheetDragHandleView(dialog.context), LayoutParams(LayoutParams.MATCH_PARENT, dp(48)))
-        content.addView(label("更多", 24f).apply {
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            setTextColor(color(R.color.text_primary))
-        })
-        content.addView(label(snapshot.track.ifBlank { "歌词与显示设置" }, 13f).apply {
+        content.addView(MaterialTextView(dialog.context).apply {
+            text = "更多"
+            applyTextStyle(AppTextStyle.headline, emphasized = true, color = scheme.onSurface)
+            gravity = Gravity.CENTER
+        }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        content.addView(MaterialTextView(dialog.context).apply {
+            text = snapshot.track.ifBlank { "歌词与显示设置" }
+            applyTextStyle(AppTextStyle.footnote, color = scheme.onSurfaceVariant)
+            gravity = Gravity.CENTER
             maxLines = 2
             ellipsize = TextUtils.TruncateAt.END
-            setTextColor(color(R.color.text_secondary))
         }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6); bottomMargin = dp(16) })
         val group = SquircleCardView(dialog.context).apply {
-            setSquircleRadiusDp(20f)
-            setSquircleFillColor(color(R.color.app_surface_container))
+            setSquircleRadiusDp(DesignTokens.RADIUS_LG)
+            setSquircleFillColor(scheme.block)
         }
         val rows = LinearLayout(dialog.context).apply { orientation = VERTICAL }
         group.addView(rows, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
@@ -752,7 +792,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         fun action(title: String, icon: Int, viewId: Int = View.NO_ID, callback: () -> Unit) {
             if (!firstRow) {
                 rows.addView(MaterialDivider(dialog.context).apply {
-                    dividerColor = color(R.color.app_line_soft)
+                    dividerColor = scheme.hairline
                 }, LayoutParams(LayoutParams.MATCH_PARENT, dp(1)).apply { marginStart = dp(16) })
             }
             firstRow = false
@@ -760,11 +800,11 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
                 id = viewId
                 orientation = HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(16), 0, dp(14), 0)
+                setPadding(dp(16), 0, dp(16), 0)
                 isClickable = true
                 isFocusable = true
                 foreground = RippleDrawable(
-                    ColorStateList.valueOf(ColorUtils.setAlphaComponent(color(R.color.text_primary), 24)),
+                    ColorStateList.valueOf(AppColor.alpha(scheme.onSurface, 0.10f)),
                     null,
                     null
                 )
@@ -772,18 +812,16 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
             }
             row.addView(ImageView(dialog.context).apply {
                 setImageResource(icon)
-                imageTintList = ColorStateList.valueOf(color(R.color.text_secondary))
+                imageTintList = ColorStateList.valueOf(scheme.onSurfaceVariant)
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             }, LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(14) })
             row.addView(MaterialTextView(dialog.context).apply {
                 text = title
-                textSize = 15f
-                includeFontPadding = false
-                setTextColor(color(R.color.text_primary))
+                applyTextStyle(AppTextStyle.body, color = scheme.onSurface)
             }, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
             row.addView(ImageView(dialog.context).apply {
                 setImageResource(R.drawable.ic_chevron_forward)
-                imageTintList = ColorStateList.valueOf(color(R.color.text_tertiary))
+                imageTintList = ColorStateList.valueOf(scheme.outline)
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             }, LayoutParams(dp(18), dp(18)))
             rows.addView(row, LayoutParams(LayoutParams.MATCH_PARENT, dp(56)))
@@ -800,12 +838,12 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         })
         content.addView(MaterialButton(dialog.context).apply {
             text = "取消"
-            textSize = 15f
+            applyTextStyle(AppTextStyle.subheadline, color = scheme.onSurfaceVariant)
             isAllCaps = false
             backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
             strokeWidth = 0
             cornerRadius = dp(24)
-            setTextColor(color(R.color.text_secondary))
+            applySuperellipseShape()
             setOnClickListener { dialog.dismiss() }
         }, LayoutParams(LayoutParams.MATCH_PARENT, dp(48)))
         dialog.setContentView(androidx.core.widget.NestedScrollView(dialog.context).apply {
@@ -820,8 +858,8 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         val sheet = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
         dialog.window?.setDimAmount(0.32f)
         sheet?.background = SquircleDrawable(
-            color(R.color.app_surface),
-            dp(28).toFloat(),
+            scheme.card,
+            DesignTokens.dp(context, DesignTokens.RADIUS_XXL),
             corners = SquircleDrawable.CORNER_TOP
         )
         sheet?.clipToOutline = true
@@ -836,6 +874,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         iconPadding = 0
         iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
         gravity = Gravity.CENTER
+        isAllCaps = false
         minWidth = 0
         minHeight = 0
         minimumWidth = 0
@@ -844,7 +883,8 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         insetBottom = 0
         setPaddingRelative(0, 0, 0, 0)
         strokeWidth = 0
-        cornerRadius = dp(12)
+        cornerRadius = dp(24)
+        applySuperellipseShape()
         backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
         stateListAnimator = null
         elevation = 0f
@@ -854,8 +894,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
 
     private fun label(value: String, size: Float) = MaterialTextView(context).apply {
         text = value
-        textSize = size
-        includeFontPadding = false
+        applyTextStyle(appTextToken(size))
     }
 
     private fun horizontalGravity(): Int = when (alignment) {
@@ -865,6 +904,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     }
     private fun color(id: Int) = ContextCompat.getColor(context, id)
     private fun dp(value: Int) = (value * resources.displayMetrics.density + .5f).toInt()
+    private fun dp(value: Float) = (value * resources.displayMetrics.density + .5f).toInt()
     private fun formatTime(value: Long): String {
         val seconds = value.coerceAtLeast(0L) / 1000L
         return "${seconds / 60L}:${(seconds % 60L).toString().padStart(2, '0')}"

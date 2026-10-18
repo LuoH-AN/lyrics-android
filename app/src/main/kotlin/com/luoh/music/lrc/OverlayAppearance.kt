@@ -3,7 +3,6 @@ package com.luoh.music.lrc
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.os.Build
 
 /** One appearance definition for the desktop window and its settings preview. */
@@ -48,9 +47,9 @@ object OverlayAppearance {
         else -> Color.TRANSPARENT
     }
 
-    fun background(context: Context, mode: String?) = GradientDrawable().apply {
-        shape = GradientDrawable.RECTANGLE
-        cornerRadius = 22f * context.resources.displayMetrics.density
-        setColor(backgroundColor(mode))
-    }
+    fun background(context: Context, mode: String?): SquircleDrawable =
+        SquircleDrawable(
+            backgroundColor(mode),
+            DesignTokens.dp(context, DesignTokens.RADIUS_XL)
+        )
 }

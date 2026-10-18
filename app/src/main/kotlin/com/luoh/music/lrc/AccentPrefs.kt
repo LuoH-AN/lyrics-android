@@ -33,28 +33,26 @@ object AccentPrefs {
         prefs(context).edit().remove(KEY).apply()
     }
 
-    /** Main accent: custom color, or the original black/white accent. */
-    fun accent(context: Context): Int = customColor(context)
-        ?: ContextCompat.getColor(context, R.color.accent)
+    /** Main accent: the seed resolved into the scheme's primary tone. */
+    fun accent(context: Context): Int = AppTheme.scheme(context).primary
 
     /** Text/icon color drawn on top of [accent]. */
-    fun onAccent(context: Context): Int = customColor(context)
-        ?.let(::contrastOn)
-        ?: ContextCompat.getColor(context, R.color.text_on_accent)
+    fun onAccent(context: Context): Int = AppTheme.scheme(context).onPrimary
 
     /** Accent used by the home current lyric line; falls back when a custom color would be unreadable. */
     fun lyricAccent(context: Context): Int {
-        val custom = customColor(context) ?: return ContextCompat.getColor(context, R.color.accent)
-        val background = ContextCompat.getColor(context, R.color.app_bg)
+        val custom = customColor(context)
+            ?: return AppTheme.scheme(context).primary
+        val background = DesignTokens.page(context)
         return if (ColorUtils.calculateContrast(custom, background) >= LARGE_TEXT_CONTRAST_THRESHOLD) custom
-        else ContextCompat.getColor(context, R.color.text_primary)
+        else DesignTokens.textPrimary(context)
     }
 
     /** Accent used by small text (12sp); returns [defaultRes] when no readable custom color is set. */
     fun textAccent(context: Context, defaultRes: Int): Int {
         val custom = customColor(context)
             ?: return ContextCompat.getColor(context, defaultRes)
-        val background = ContextCompat.getColor(context, R.color.app_surface)
+        val background = DesignTokens.card(context)
         return if (ColorUtils.calculateContrast(custom, background) >= WHITE_CONTRAST_THRESHOLD) custom
         else ContextCompat.getColor(context, defaultRes)
     }
@@ -80,17 +78,13 @@ object AccentPrefs {
         )
         button.backgroundTintList = ColorStateList(states, intArrayOf(
             accent(context),
-            ContextCompat.getColor(context, R.color.app_surface_container),
+            DesignTokens.block(context),
             ContextCompat.getColor(context, R.color.app_line_soft)
         ))
         button.setTextColor(ColorStateList(states, intArrayOf(
             onAccent(context),
-            ContextCompat.getColor(context, R.color.text_primary),
-            ContextCompat.getColor(context, R.color.text_tertiary)
+            DesignTokens.textPrimary(context),
+            DesignTokens.textTertiary(context)
         )))
     }
-
-    private fun contrastOn(color: Int): Int =
-        if (ColorUtils.calculateContrast(Color.WHITE, color) >= WHITE_CONTRAST_THRESHOLD) Color.WHITE
-        else Color.BLACK
 }

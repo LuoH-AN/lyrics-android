@@ -22,72 +22,74 @@
             android:layout_height="wrap_content"
             android:gravity="center"
             android:orientation="vertical"
-            android:paddingHorizontal="34dp"
+            android:paddingHorizontal="32dp"
             android:paddingVertical="24dp">
+
+            <com.luoh.music.lrc.SquircleCardView
+                android:layout_width="76dp"
+                android:layout_height="76dp"
+                app:squircleRadius="24dp"
+                app:squircleFill="@color/primary_container">
+                <ImageView
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_home_lyrics"
+                    app:tint="@color/on_primary_container" />
+            </com.luoh.music.lrc.SquircleCardView>
 
             <com.google.android.material.textview.MaterialTextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-medium"
+                android:layout_marginTop="20dp"
                 android:text="桌面歌词"
-                android:textColor="@color/text_primary"
-                android:textSize="26sp" />
+                android:textAppearance="@style/Text.Title1.Emphasized"
+                android:textColor="@color/text_primary" />
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/gate_status"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="8dp"
                 android:gravity="center"
-                android:lineSpacingExtra="3dp"
                 android:text="需要通知使用权与悬浮窗权限"
-                android:textColor="@color/text_secondary"
-                android:textSize="14sp" />
+                android:textAppearance="@style/Text.Subheadline"
+                android:textColor="@color/text_secondary" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/gate_listener"
-                style="@style/Widget.Material3.Button.OutlinedButton"
+                style="@style/MaterialAction"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="52dp"
                 android:layout_marginTop="24dp"
-                android:minHeight="52dp"
-                android:text="① 授予通知使用权"
-                android:textColor="@color/text_primary"
-                app:strokeColor="@color/app_line"
-                app:cornerRadius="24dp" />
+                android:text="① 授予通知使用权" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/gate_overlay_perm"
-                style="@style/Widget.Material3.Button.OutlinedButton"
+                style="@style/MaterialAction"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="52dp"
                 android:layout_marginTop="8dp"
-                android:minHeight="52dp"
-                android:text="② 允许悬浮窗"
-                android:textColor="@color/text_primary"
-                app:strokeColor="@color/app_line"
-                app:cornerRadius="24dp" />
+                android:text="② 允许悬浮窗" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/gate_start"
-                style="@style/Widget.Material3.Button"
+                style="@style/MaterialPrimaryAction"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="56dp"
                 android:layout_marginTop="12dp"
-                android:minHeight="56dp"
-                android:text="开启桌面歌词"
-                android:textColor="@color/text_on_accent"
-                app:backgroundTint="@color/accent"
-                app:cornerRadius="24dp" />
+                android:text="开启桌面歌词" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/gate_settings_link"
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="8dp"
                 android:minHeight="48dp"
                 android:text="设置"
+                android:textAppearance="@style/Text.Subheadline"
                 android:textColor="@color/text_secondary" />
         </LinearLayout>
     </ScrollView>

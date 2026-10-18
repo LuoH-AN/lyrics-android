@@ -1,22 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Dark counterparts retain the same surface hierarchy. -->
-    <color name="app_bg">#0C0C0F</color>
-    <color name="app_surface">#1A1A1F</color>
-    <color name="app_surface_container">#29292F</color>
-    <color name="app_surface_inset">#3A3A42</color>
-    <color name="app_line">#34343C</color>
-    <color name="app_line_soft">#24FAFAFC</color>
-    <color name="text_primary">#FAFAFC</color>
-    <color name="text_secondary">#AEAEB9</color>
-    <color name="text_tertiary">#7F7F8B</color>
+    <!-- Dark counterparts keep the same one-step surface hierarchy. -->
+    <color name="app_bg">#0B0B0E</color>
+    <color name="app_surface">#17171C</color>
+    <color name="app_surface_container">#232329</color>
+    <color name="app_surface_inset">#303038</color>
+    <color name="app_line">#3A3A42</color>
+    <color name="app_line_soft">#24F5F5F7</color>
+    <color name="text_primary">#F5F5F7</color>
+    <color name="text_secondary">#A9A9B4</color>
+    <color name="text_tertiary">#7C7C87</color>
     <color name="text_on_accent">#18181B</color>
     <color name="danger">#FF6B6B</color>
-    <color name="accent">#FAFAFC</color>
+    <color name="accent">#F5F5F7</color>
     <color name="accent_pressed">#DDDDE4</color>
-    <color name="control_track">#3A3A43</color>
-    <color name="control_active">#FAFAFC</color>
+    <color name="control_track">#303038</color>
+    <color name="control_active">#F5F5F7</color>
     <color name="overlay_preview_scene">#62626C</color>
-    <color name="nav_bar">#0C0C0F</color>
-    <color name="status_bar">#0C0C0F</color>
+    <color name="nav_bar">#0B0B0E</color>
+    <color name="status_bar">#0B0B0E</color>
+
+    <color name="primary_container">#3A3A42</color>
+    <color name="on_primary_container">#F5F5F7</color>
+    <color name="success">#30D158</color>
+    <color name="success_container">#133D24</color>
+    <color name="on_success_container">#C8F5D5</color>
+    <color name="warning">#FF9F0A</color>
+    <color name="warning_container">#4A2B00</color>
+    <color name="on_warning_container">#FFE0B5</color>
+    <color name="destructive">#FF4245</color>
+    <color name="error_container">#4A1111</color>
+    <color name="on_error_container">#FFDAD6</color>
+    <color name="chrome">#17171C</color>
+    <color name="scrim">#52000000</color>
 </resources>

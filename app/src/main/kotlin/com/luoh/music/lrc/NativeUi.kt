@@ -3,10 +3,10 @@ package com.luoh.music.lrc
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
-import android.graphics.Typeface
 import android.graphics.drawable.RippleDrawable
 import android.text.InputType
 import android.text.TextUtils
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
@@ -15,8 +15,6 @@ import android.widget.LinearLayout
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.view.ContextThemeWrapper
-import androidx.core.content.ContextCompat
-import androidx.core.graphics.ColorUtils
 import androidx.core.widget.NestedScrollView
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
@@ -26,13 +24,39 @@ import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.google.android.material.textview.MaterialTextView
 
-/** Shared native Material components; appearance comes from the app's monochrome theme. */
+/**
+ * Shared native components. Appearance comes from the token layer only:
+ * surfaces step one level at a time, corners are superellipses, and type comes
+ * from the Apple scale.
+ */
 object NativeUi {
-    fun dp(context: Context, value: Int): Int = (value * context.resources.displayMetrics.density + .5f).toInt()
+    fun dp(context: Context, value: Int): Int = DesignTokens.dp(context, value)
+
+    fun dp(context: Context, value: Float): Float = DesignTokens.dp(context, value)
 
     fun button(context: Context, text: String, primary: Boolean = false, action: () -> Unit): MaterialButton =
         MaterialButton(ContextThemeWrapper(context, if (primary) R.style.NativePrimaryButtonTheme else R.style.NativeButtonTheme)).apply {
             this.text = text
+            isAllCaps = false
+            textSize = AppTextStyle.subheadline.sizeSp
+            setTextAppearance(R.style.Text_Subheadline_Emphasized)
+            minWidth = 0
+            minimumWidth = 0
+            minHeight = 0
+            minimumHeight = 0
+            insetTop = 0
+            insetBottom = 0
+            stateListAnimator = null
+            elevation = 0f
+            cornerRadius = dp(context, DesignTokens.RADIUS_XL).toInt()
+            applySuperellipseShape()
+            strokeWidth = 0
+            setPadding(dp(context, 16), dp(context, 10), dp(context, 16), dp(context, 10))
+            backgroundTintList = filledButtonTint(context, primary)
+            setTextColor(filledButtonText(context, primary))
+            rippleColor = ColorStateList.valueOf(
+                AppColor.alpha(if (primary) DesignTokens.onAccent(context) else DesignTokens.textPrimary(context), 0.16f)
+            )
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(context, 8) }
             setOnClickListener { action() }
             Springs.attachPress(this)
@@ -45,51 +69,90 @@ object NativeUi {
             iconSize = dp(context, 22)
             iconPadding = 0
             iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
+            gravity = Gravity.CENTER
+            text = ""
             isCheckable = true
             setToggleCheckedStateOnClick(false)
-            val color = ContextCompat.getColor(context, R.color.text_primary)
-            iconTint = ColorStateList.valueOf(color)
-            cornerRadius = dp(context, 24)
-            backgroundTintList = ColorStateList(
-                arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-                intArrayOf(ColorUtils.setAlphaComponent(color, 24), Color.TRANSPARENT)
+            minWidth = 0
+            minimumWidth = 0
+            minHeight = 0
+            minimumHeight = 0
+            insetTop = 0
+            insetBottom = 0
+            setPadding(0, 0, 0, 0)
+            strokeWidth = 0
+            stateListAnimator = null
+            elevation = 0f
+            cornerRadius = dp(context, DesignTokens.RADIUS_XL).toInt()
+            applySuperellipseShape()
+            val scheme = DesignTokens.scheme(context)
+            val states = arrayOf(
+                intArrayOf(-android.R.attr.state_enabled),
+                intArrayOf(android.R.attr.state_checked),
+                intArrayOf()
             )
+            backgroundTintList = ColorStateList(
+                states,
+                intArrayOf(Color.TRANSPARENT, AppColor.alpha(scheme.primary, 0.12f), Color.TRANSPARENT)
+            )
+            iconTint = ColorStateList(
+                states,
+                intArrayOf(
+                    AppColor.alpha(scheme.onSurfaceVariant, 0.38f),
+                    scheme.primary,
+                    scheme.onSurface
+                )
+            )
+            rippleColor = ColorStateList.valueOf(AppColor.alpha(scheme.primary, 0.12f))
             layoutParams = LinearLayout.LayoutParams(dp(context, 48), dp(context, 48))
             setOnClickListener { action() }
             Springs.attachPress(this)
         }
 
-    fun text(context: Context, text: String, size: Float = 14f): MaterialTextView = MaterialTextView(context).apply {
-        this.text = text
-        textSize = size
-        includeFontPadding = false
-        if (size >= 17f) {
-            // Card headings use the same title color/weight as the settings page.
-            setTextColor(ContextCompat.getColor(context, R.color.text_primary))
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        } else {
-            setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
+    fun text(context: Context, text: String, size: Float = 14f): MaterialTextView =
+        MaterialTextView(context).apply {
+            this.text = text
+            val token = appTextToken(size)
+            applyTextStyle(
+                token,
+                emphasized = size >= AppTextStyle.headline.sizeSp,
+                color = if (size >= AppTextStyle.callout.sizeSp) DesignTokens.textPrimary(context)
+                else DesignTokens.textSecondary(context)
+            )
         }
-    }
 
-    fun field(context: Context, hint: String, value: String = "", multiline: Boolean = false): TextInputLayout =
-        TextInputLayout(context).apply {
+    fun field(context: Context, hint: String, value: String = "", multiline: Boolean = false): TextInputLayout {
+        val scheme = DesignTokens.scheme(context)
+        return TextInputLayout(context).apply {
             this.hint = hint
+            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_FILLED
+            setBoxBackgroundColor(scheme.block)
+            setBoxStrokeWidth(0)
+            setBoxStrokeWidthFocused(0)
+            setHintTextColor(ColorStateList.valueOf(scheme.onSurfaceVariant))
+            val radius = dp(context, DesignTokens.RADIUS_MD).toInt()
+            setBoxCornerRadii(radius.toFloat(), radius.toFloat(), radius.toFloat(), radius.toFloat())
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(context, 8) }
             addView(TextInputEditText(context).apply {
-                textSize = if (multiline) 13f else 14f
+                applyTextStyle(if (multiline) AppTextStyle.footnote else AppTextStyle.subheadline)
+                setTextColor(scheme.onSurface)
+                setHintTextColor(scheme.onSurfaceVariant)
                 setText(value)
                 isSingleLine = !multiline
                 if (multiline) {
                     gravity = Gravity.TOP or Gravity.START
-                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                        InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
                     minLines = 12
                     setHorizontallyScrolling(false)
                 }
             }, LinearLayout.LayoutParams(-1, -2))
         }
+    }
 
     fun card(context: Context): SquircleCardView = SquircleCardView(context).apply {
+        setSquircleRadiusDp(DesignTokens.RADIUS_XL)
+        setSquircleFillColor(DesignTokens.card(context))
         layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(context, 12) }
     }
 
@@ -105,14 +168,12 @@ object NativeUi {
 
     fun sectionLabel(context: Context, text: String): MaterialTextView = MaterialTextView(context).apply {
         this.text = text
-        textSize = 13f
-        includeFontPadding = false
-        setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
-        setPadding(dp(context, 4), dp(context, 20), 0, dp(context, 8))
+        applyTextStyle(AppTextStyle.footnote, emphasized = true, color = DesignTokens.textSecondary(context))
+        setPadding(dp(context, 4), dp(context, 24), 0, dp(context, 8))
     }
 
     fun divider(context: Context, indentDp: Int = 16): MaterialDivider = MaterialDivider(context).apply {
-        dividerColor = ContextCompat.getColor(context, R.color.app_line_soft)
+        dividerColor = DesignTokens.hairline(context)
         layoutParams = LinearLayout.LayoutParams(-1, dp(context, 1)).apply {
             marginStart = dp(context, indentDp)
         }
@@ -122,7 +183,7 @@ object NativeUi {
     fun dangerButton(context: Context, text: String, action: () -> Unit): MaterialButton =
         MaterialButton(ContextThemeWrapper(context, R.style.NativeButtonTheme)).apply {
             this.text = text
-            textSize = 13f
+            applyTextStyle(AppTextStyle.footnote, emphasized = true, color = DesignTokens.danger(context))
             isAllCaps = false
             minWidth = 0
             minimumWidth = 0
@@ -131,10 +192,11 @@ object NativeUi {
             insetTop = 0
             insetBottom = 0
             setPadding(dp(context, 8), 0, dp(context, 8), 0)
-            setTextColor(ContextCompat.getColor(context, R.color.danger))
             backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
             strokeWidth = 0
-            cornerRadius = dp(context, 20)
+            cornerRadius = dp(context, DesignTokens.RADIUS_LG).toInt()
+            applySuperellipseShape()
+            rippleColor = ColorStateList.valueOf(AppColor.alpha(DesignTokens.danger(context), 0.12f))
             layoutParams = LinearLayout.LayoutParams(-2, dp(context, 40)).apply {
                 marginStart = dp(context, 6)
             }
@@ -143,8 +205,8 @@ object NativeUi {
         }
 
     /**
-     * FlClash-style grouped row: a leading glyph, a title/subtitle column,
-     * an optional value, an optional trailing view and a chevron.
+     * A grouped row: leading glyph, title/subtitle column, optional value,
+     * optional trailing view and a chevron.
      */
     fun row(
         context: Context,
@@ -158,19 +220,19 @@ object NativeUi {
         danger: Boolean = false,
         onClick: (() -> Unit)? = null
     ): LinearLayout {
-        val titleColor = ContextCompat.getColor(context, if (danger) R.color.danger else R.color.text_primary)
+        val scheme = DesignTokens.scheme(context)
+        val foreground = if (danger) scheme.error else scheme.onSurface
+        val iconColor = if (danger) scheme.error else scheme.onSurfaceVariant
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(context, 16), 0, dp(context, 14), 0)
+            setPadding(dp(context, 16), 0, dp(context, 16), 0)
             layoutParams = LinearLayout.LayoutParams(-1, dp(context, if (subtitle != null) 64 else 56))
         }
         if (iconRes != null) {
             row.addView(ImageView(context).apply {
                 setImageResource(iconRes)
-                imageTintList = ColorStateList.valueOf(
-                    ContextCompat.getColor(context, if (danger) R.color.danger else R.color.text_secondary)
-                )
+                imageTintList = ColorStateList.valueOf(iconColor)
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             }, LinearLayout.LayoutParams(dp(context, 22), dp(context, 22)).apply {
                 marginEnd = dp(context, 14)
@@ -179,30 +241,24 @@ object NativeUi {
         val textColumn = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         textColumn.addView(MaterialTextView(context).apply {
             text = title
-            textSize = 16f
-            includeFontPadding = false
+            applyTextStyle(AppTextStyle.body, color = foreground)
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
-            setTextColor(titleColor)
         }, LinearLayout.LayoutParams(-1, -2))
         if (subtitle != null) {
             textColumn.addView(MaterialTextView(context).apply {
                 this.text = subtitle
-                textSize = 13f
-                includeFontPadding = false
+                applyTextStyle(AppTextStyle.footnote, color = scheme.onSurfaceVariant)
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END
-                setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(context, 2) })
         }
         row.addView(textColumn, LinearLayout.LayoutParams(0, -2, 1f))
         if (value != null) {
             row.addView(MaterialTextView(context).apply {
                 text = value
-                textSize = 14f
-                includeFontPadding = false
+                applyTextStyle(AppTextStyle.subheadline, color = valueColor ?: scheme.onSurfaceVariant)
                 maxLines = 1
-                setTextColor(valueColor ?: ContextCompat.getColor(context, R.color.text_secondary))
             }, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(context, 8) })
         }
         if (trailing != null) {
@@ -211,7 +267,7 @@ object NativeUi {
         if (chevron) {
             row.addView(ImageView(context).apply {
                 setImageResource(R.drawable.ic_chevron_forward)
-                imageTintList = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.text_tertiary))
+                imageTintList = ColorStateList.valueOf(scheme.outline)
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             }, LinearLayout.LayoutParams(dp(context, 18), dp(context, 18)).apply {
                 marginStart = dp(context, 8)
@@ -221,9 +277,7 @@ object NativeUi {
             row.isClickable = true
             row.isFocusable = true
             row.foreground = RippleDrawable(
-                ColorStateList.valueOf(
-                    ColorUtils.setAlphaComponent(ContextCompat.getColor(context, R.color.text_primary), 24)
-                ),
+                ColorStateList.valueOf(AppColor.alpha(scheme.onSurface, 0.10f)),
                 null,
                 null
             )
@@ -238,13 +292,18 @@ object NativeUi {
         layoutParams = LinearLayout.LayoutParams(-1, -2)
     }
 
-    fun toolbar(activity: AppCompatActivity, title: String, onBack: () -> Unit): MaterialToolbar = MaterialToolbar(activity).apply {
-        this.title = title
-        setNavigationIcon(R.drawable.ic_native_back)
-        navigationContentDescription = "返回"
-        setNavigationOnClickListener { onBack() }
-        layoutParams = LinearLayout.LayoutParams(-1, dp(activity, 64))
-    }
+    fun toolbar(activity: AppCompatActivity, title: String, onBack: () -> Unit): MaterialToolbar =
+        MaterialToolbar(activity).apply {
+            this.title = title
+            setNavigationIcon(R.drawable.ic_native_back)
+            navigationContentDescription = "返回"
+            navigationIcon?.mutate()?.setTint(DesignTokens.textPrimary(activity))
+            setTitleTextColor(DesignTokens.textPrimary(activity))
+            setContentInsetsRelative(dp(activity, 16), dp(activity, 16))
+            setNavigationOnClickListener { onBack() }
+            setBackgroundColor(DesignTokens.page(activity))
+            layoutParams = LinearLayout.LayoutParams(-1, dp(activity, DesignTokens.PAGE_TOOLBAR_HEIGHT.toInt()))
+        }
 
     fun confirm(context: Context, title: String, message: String, positive: String, onConfirm: () -> Unit): AlertDialog {
         val dialog = MaterialAlertDialogBuilder(context)
@@ -255,24 +314,88 @@ object NativeUi {
             .create()
         // The alert grows in on a spring instead of the window's fixed curve.
         dialog.window?.setWindowAnimations(0)
-        dialog.setOnShowListener { Springs.animateDialogIn(dialog) }
+        dialog.window?.setDimAmount(if (DesignTokens.scheme(context).dark) 0.48f else 0.20f)
+        dialog.setOnShowListener {
+            Springs.animateDialogIn(dialog)
+            dialog.window?.setLayout(dp(context, 348), android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
+            styleDialog(dialog)
+        }
         dialog.show()
         return dialog
+    }
+
+    /** Recolours an already shown Material alert with the live seed. */
+    fun styleDialog(dialog: AlertDialog) {
+        val scheme = DesignTokens.scheme(dialog.context)
+        dialog.window?.setDimAmount(if (scheme.dark) 0.48f else 0.20f)
+        val positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+        val destructive = positive?.text?.let {
+            it.contains("删除") || it.contains("清除") || it.contains("重置")
+        } == true
+        positive?.setTextColor(if (destructive) scheme.destructive else scheme.primary)
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(scheme.onSurface)
+        dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.setTextColor(scheme.onSurface)
     }
 
     fun screen(activity: AppCompatActivity, title: String, onBack: () -> Unit = { activity.finish() }): LinearLayout {
         val root = column(activity, 0).apply {
             layoutParams = LinearLayout.LayoutParams(-1, -1)
-            setBackgroundColor(ContextCompat.getColor(activity, R.color.app_bg))
+            setBackgroundColor(DesignTokens.page(activity))
         }
         root.addView(toolbar(activity, title, onBack))
-        val content = column(activity, 16)
+        val content = column(activity, 16).apply {
+            setPadding(dp(activity, 16), dp(activity, 8), dp(activity, 16), dp(activity, 28))
+        }
         root.addView(NestedScrollView(activity).apply {
             isFillViewport = true
             overScrollMode = View.OVER_SCROLL_NEVER
+            clipToPadding = false
             addView(content)
         }, LinearLayout.LayoutParams(-1, 0, 1f))
         activity.setContentView(root)
+        AppTheme.apply(activity)
         return content
     }
+
+    /** Applies a superellipse fill, optionally with a state list. */
+    fun squircle(
+        context: Context,
+        radiusDp: Float,
+        fill: Int,
+        corners: Int = SquircleDrawable.CORNER_ALL
+    ): SquircleDrawable = SquircleDrawable(fill, dp(context, radiusDp), corners = corners)
+
+    private fun filledButtonTint(context: Context, primary: Boolean): ColorStateList {
+        val scheme = DesignTokens.scheme(context)
+        val states = arrayOf(
+            intArrayOf(-android.R.attr.state_enabled),
+            intArrayOf(android.R.attr.state_checked),
+            intArrayOf()
+        )
+        val enabled = if (primary) scheme.primary else scheme.block
+        val checked = scheme.primary
+        return ColorStateList(states, intArrayOf(scheme.inset, checked, enabled))
+    }
+
+    private fun filledButtonText(context: Context, primary: Boolean): ColorStateList {
+        val scheme = DesignTokens.scheme(context)
+        val states = arrayOf(
+            intArrayOf(-android.R.attr.state_enabled),
+            intArrayOf(android.R.attr.state_checked),
+            intArrayOf()
+        )
+        val normal = if (primary) scheme.onPrimary else scheme.onSurface
+        return ColorStateList(states, intArrayOf(
+            AppColor.alpha(scheme.onSurfaceVariant, 0.6f),
+            scheme.onPrimary,
+            normal
+        ))
+    }
+
+    /** Kept for call sites that build a text view with a raw sp size. */
+    fun sp(size: Float): Float = TypedValue.applyDimension(
+        TypedValue.COMPLEX_UNIT_SP,
+        size,
+        android.content.res.Resources.getSystem().displayMetrics
+    )
 }

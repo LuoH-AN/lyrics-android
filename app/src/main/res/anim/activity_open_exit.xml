@@ -2,12 +2,7 @@
 <set xmlns:android="http://schemas.android.com/apk/res/android">
     <translate
         android:fromXDelta="0"
-        android:toXDelta="-3%p"
-        android:duration="260"
-        android:interpolator="@interpolator/spring_settle" />
-    <alpha
-        android:fromAlpha="1"
-        android:toAlpha="0"
-        android:duration="150"
-        android:interpolator="@android:interpolator/fast_out_slow_in" />
+        android:toXDelta="-8%p"
+        android:duration="450"
+        android:interpolator="@interpolator/emphasized" />
 </set>

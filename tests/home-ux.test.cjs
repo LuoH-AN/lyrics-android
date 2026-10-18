@@ -48,7 +48,7 @@ assert.ok(home.indexOf('utilities.addView(overlay') < home.indexOf('utilities.ad
 const overlaySetup = home.slice(home.indexOf('private val overlay'), home.indexOf('private val more'));
 assert.match(overlaySetup, /actions\?\.toggleOverlay\(\)/);
 assert.doesNotMatch(overlaySetup, /isChecked|isSelected|setOverlayState/, 'click must wait for the actual service state');
-assert.match(home, /if \(running\) ColorUtils\.setAlphaComponent\(color\(R\.color\.text_primary\), 31\) else Color\.TRANSPARENT/);
+assert.match(home, /if \(running\) AppColor\.alpha\(scheme\.primary, 0\.12f\) else Color\.TRANSPARENT/);
 assert.match(home, /iconSize = dp\(22\)/);
 assert.match(home, /strokeWidth = 0/);
 assert.ok(!fs.existsSync('app/src/main/assets/home_lyrics.html'), 'obsolete visible WebView page must be removed');

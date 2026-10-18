@@ -11,10 +11,11 @@
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_secondary</item>
         <item name="android:colorAccent">@color/accent</item>
+
         <item name="colorPrimary">@color/accent</item>
         <item name="colorOnPrimary">@color/text_on_accent</item>
-        <item name="colorPrimaryContainer">@color/app_surface_container</item>
-        <item name="colorOnPrimaryContainer">@color/text_primary</item>
+        <item name="colorPrimaryContainer">@color/primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/on_primary_container</item>
         <item name="colorSecondary">@color/accent</item>
         <item name="colorOnSecondary">@color/text_on_accent</item>
         <item name="colorSecondaryContainer">@color/app_surface_container</item>
@@ -35,9 +36,18 @@
         <item name="colorOnSurfaceInverse">@color/text_on_accent</item>
         <item name="colorOutline">@color/app_line</item>
         <item name="colorOutlineVariant">@color/app_line_soft</item>
+        <item name="colorError">@color/danger</item>
+        <item name="colorErrorContainer">@color/error_container</item>
+        <item name="colorOnError">@color/text_on_accent</item>
+        <item name="colorOnErrorContainer">@color/on_error_container</item>
         <item name="colorControlActivated">@color/control_active</item>
         <item name="colorControlHighlight">@color/native_ripple</item>
         <item name="elevationOverlayEnabled">false</item>
+
+        <item name="shapeAppearanceSmallComponent">@style/AppShapeSmall</item>
+        <item name="shapeAppearanceMediumComponent">@style/AppShapeMedium</item>
+        <item name="shapeAppearanceLargeComponent">@style/AppShapeLarge</item>
+
         <item name="materialButtonStyle">@style/MaterialAction</item>
         <item name="materialCardViewStyle">@style/MaterialCard</item>
         <item name="textInputStyle">@style/MaterialField</item>
@@ -56,6 +66,8 @@
         <item name="buttonBarNegativeButtonStyle">@style/MaterialDialogAction</item>
         <item name="buttonBarNeutralButtonStyle">@style/MaterialDialogAction</item>
         <item name="shapeAppearanceMediumComponent">@style/NativeShapeAlert</item>
+        <item name="materialAlertDialogTitleTextStyle">@style/AlertTitle</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/AlertBody</item>
         <item name="android:windowAnimationStyle">@style/AppDialogAnimation</item>
     </style>
 

@@ -11,7 +11,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.animation.PathInterpolator
 import android.widget.FrameLayout
-import androidx.core.content.ContextCompat
 import androidx.dynamicanimation.animation.DynamicAnimation
 import androidx.dynamicanimation.animation.SpringAnimation
 import com.google.android.material.button.MaterialButton
@@ -31,7 +30,7 @@ class SegmentedControl @JvmOverloads constructor(
 ) : FrameLayout(context, attrs, defStyleAttr) {
 
     companion object {
-        private const val DURATION_TEXT = 180L
+        private const val DURATION_TEXT = DesignTokens.Motion.SEGMENT_TEXT_MS
         private const val HEIGHT_DP = 44f
         private const val INSET_DP = 4f
         private val EASE_OUT_CUBIC = PathInterpolator(0.215f, 0.61f, 0.355f, 1f)
@@ -42,7 +41,7 @@ class SegmentedControl @JvmOverloads constructor(
     private val indicator = View(context)
     private val indicatorDrawable = SquircleDrawable(
         DesignTokens.accent(context),
-        DesignTokens.dp(context, DesignTokens.RADIUS_PILL)
+        DesignTokens.dp(context, DesignTokens.RADIUS_FULL)
     )
     private val inset = DesignTokens.dp(context, INSET_DP)
     private var accentColor = DesignTokens.accent(context)
@@ -56,7 +55,7 @@ class SegmentedControl @JvmOverloads constructor(
     init {
         background = SquircleDrawable(
             DesignTokens.block(context),
-            DesignTokens.dp(context, DesignTokens.RADIUS_PILL)
+            DesignTokens.dp(context, DesignTokens.RADIUS_FULL)
         )
         indicator.background = indicatorDrawable
         indicator.isClickable = false
@@ -100,18 +99,19 @@ class SegmentedControl @JvmOverloads constructor(
         button.stateListAnimator = null
         button.elevation = 0f
         button.gravity = Gravity.CENTER
-        button.textSize = 13f
+        button.applyTextStyle(AppTextStyle.footnote)
         button.setPadding(0, 0, 0, 0)
-        button.cornerRadius = DesignTokens.dp(context, DesignTokens.RADIUS_PILL).toInt()
+        button.cornerRadius = DesignTokens.dp(context, DesignTokens.RADIUS_FULL).toInt()
+        button.applySuperellipseShape()
         button.strokeWidth = 0
         button.backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
         button.setRippleColor(
-            ColorStateList.valueOf(withAlpha(DesignTokens.accent(context), 28))
+            ColorStateList.valueOf(AppColor.alpha(DesignTokens.accent(context), 0.12f))
         )
         button.isCheckable = true
         button.setToggleCheckedStateOnClick(false)
         button.isChecked = false
-        button.setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
+        button.setTextColor(DesignTokens.textSecondary(context))
     }
 
     /** Keeps the pill under the segment whose button carries [id]. */
@@ -125,7 +125,7 @@ class SegmentedControl @JvmOverloads constructor(
         val changed = index != selectedIndex
         selectedIndex = index
         val onAccent = DesignTokens.onAccent(context)
-        val unselected = ContextCompat.getColor(context, R.color.text_secondary)
+        val unselected = DesignTokens.textSecondary(context)
         buttons.forEachIndexed { buttonIndex, button ->
             button.isChecked = buttonIndex == index
             button.isSelected = buttonIndex == index
@@ -154,7 +154,7 @@ class SegmentedControl @JvmOverloads constructor(
         } else {
             indicatorDrawable.setFillColor(color)
         }
-        val ripple = ColorStateList.valueOf(withAlpha(color, 28))
+        val ripple = ColorStateList.valueOf(AppColor.alpha(color, 0.12f))
         buttons.forEachIndexed { index, button ->
             button.setRippleColor(ripple)
             if (index == selectedIndex) button.setTextColor(DesignTokens.onAccent(context))
@@ -196,7 +196,13 @@ class SegmentedControl @JvmOverloads constructor(
     }
 
     private fun indicatorSpring(): SpringAnimation =
-        indicatorSpring ?: Springs.spring(indicator, DynamicAnimation.TRANSLATION_X).apply {
+        indicatorSpring ?: Springs.spring(
+            indicator,
+            DynamicAnimation.TRANSLATION_X,
+            Springs.TRAVEL_STIFFNESS,
+            Springs.TRAVEL_DAMPING_RATIO
+        ).apply {
+            setMinimumVisibleChange(1f)
             addEndListener { _, _, _, _ -> indicatorAnimating = false }
         }.also { indicatorSpring = it }
 
@@ -269,7 +275,4 @@ class SegmentedControl @JvmOverloads constructor(
         indicatorSpring?.cancel()
         super.onDetachedFromWindow()
     }
-
-    private fun withAlpha(color: Int, alpha: Int): Int =
-        Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
 }

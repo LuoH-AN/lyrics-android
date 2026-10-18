@@ -150,6 +150,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun bindContent() {
         setContentView(R.layout.activity_settings)
+        AppTheme.apply(this)
 
         findViewById<MaterialToolbar>(R.id.settings_toolbar).setNavigationOnClickListener { finish() }
 
@@ -382,6 +383,7 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        AppTheme.apply(this)
         refreshAll()
         motionPreview.start()
         overlayPrefs.registerOnSharedPreferenceChangeListener(offsetPreferenceListener)
@@ -459,6 +461,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun refreshAccentUi() {
+        AppTheme.apply(this)
         updateAccentUi()
         updateLyricColorUi()
         applySegmentAccents()
@@ -537,8 +540,11 @@ class SettingsActivity : AppCompatActivity() {
     private fun updatePermissionStates() {
         val listenerOk = hasNotificationListenerAccess()
         val overlayOk = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
+        val scheme = DesignTokens.scheme(this)
         listenerState.text = if (listenerOk) "已授权" else "去开启"
         overlayState.text = if (overlayOk) "已授权" else "去开启"
+        listenerState.setTextColor(if (listenerOk) scheme.success else scheme.warning)
+        overlayState.setTextColor(if (overlayOk) scheme.success else scheme.warning)
         updatingOverlayToggle = true
         overlayToggle.isChecked = LyricsOverlayService.isRunning
         updatingOverlayToggle = false
@@ -837,12 +843,13 @@ class SettingsActivity : AppCompatActivity() {
             result.onSuccess { release ->
                 val newer = UpdateChecker.isNewer(release.version, currentVersionName)
                 if (newer) {
-                    MaterialAlertDialogBuilder(this@SettingsActivity)
+                    val dialog = MaterialAlertDialogBuilder(this@SettingsActivity)
                         .setTitle("发现新版本 ${release.version}")
                         .setMessage(release.summary)
                         .setNegativeButton("稍后", null)
                         .setPositiveButton("前往下载") { _, _ -> openUrl(release.pageUrl) }
                         .show()
+                    NativeUi.styleDialog(dialog)
                 } else {
                     Toast.makeText(this@SettingsActivity, "当前已是最新版", Toast.LENGTH_SHORT).show()
                 }

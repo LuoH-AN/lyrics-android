@@ -1,12 +1,10 @@
 package com.luoh.music.lrc
 
 import android.content.Context
-import android.graphics.Typeface
 import android.util.AttributeSet
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import androidx.core.content.ContextCompat
 import kotlin.math.roundToInt
 
 /**
@@ -48,11 +46,8 @@ class HomeMotionPreview @JvmOverloads constructor(
         scroll.addView(track, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         SAMPLE.forEach { text ->
             val row = LyricLineView(context).apply {
-                textSize = 16f
-                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-                setTextColor(ContextCompat.getColor(context, R.color.text_primary))
+                applyTextStyle(AppTextStyle.callout, emphasized = true, color = DesignTokens.textPrimary(context))
                 setPaddingRelative(0, dp(6), 0, dp(6))
-                setLineSpacing(0f, 1.2f)
                 bind(LyricLine(0L, text), "original")
             }
             rows += row

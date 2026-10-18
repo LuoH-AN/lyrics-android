@@ -1,13 +1,91 @@
 <resources>
+    <!-- ============ Shape scale (superellipse geometry is drawn in code) ============ -->
+    <style name="AppShapeSmall" parent=""><item name="cornerFamily">rounded</item><item name="cornerSize">8dp</item></style>
+    <style name="AppShapeMedium" parent=""><item name="cornerFamily">rounded</item><item name="cornerSize">16dp</item></style>
+    <style name="AppShapeLarge" parent=""><item name="cornerFamily">rounded</item><item name="cornerSize">20dp</item></style>
     <style name="NativeShapeCard" parent=""><item name="cornerFamily">rounded</item><item name="cornerSize">24dp</item></style>
     <style name="NativeShapeAlert" parent=""><item name="cornerFamily">rounded</item><item name="cornerSize">34dp</item></style>
     <style name="NativeShapeSwatch" parent=""><item name="cornerFamily">rounded</item><item name="cornerSize">14dp</item></style>
     <style name="NativeShapeCircle" parent=""><item name="cornerFamily">rounded</item><item name="cornerSize">50%</item></style>
-    <style name="ToolbarTitle" parent="TextAppearance.Material3.TitleLarge">
-        <item name="android:textSize">24sp</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:textColor">@color/text_primary</item>
+
+    <!-- ============ Apple Dynamic Type scale at default size ============ -->
+    <style name="Text.Display" parent="">
+        <item name="android:textSize">40sp</item><item name="android:fontFamily">sans-serif</item>
+        <item name="android:includeFontPadding">false</item><item name="android:letterSpacing">0</item>
+        <item name="android:lineSpacingExtra">4sp</item>
     </style>
+    <style name="Text.Display.Emphasized" parent="Text.Display"><item name="android:textStyle">bold</item></style>
+    <style name="Text.LargeTitle" parent="">
+        <item name="android:textSize">34sp</item><item name="android:fontFamily">sans-serif</item>
+        <item name="android:includeFontPadding">false</item><item name="android:letterSpacing">0</item>
+        <item name="android:lineSpacingExtra">7sp</item>
+    </style>
+    <style name="Text.LargeTitle.Emphasized" parent="Text.LargeTitle"><item name="android:textStyle">bold</item></style>
+    <style name="Text.Title1" parent="">
+        <item name="android:textSize">28sp</item><item name="android:fontFamily">sans-serif</item>
+        <item name="android:includeFontPadding">false</item><item name="android:letterSpacing">0</item>
+        <item name="android:lineSpacingExtra">6sp</item>
+    </style>
+    <style name="Text.Title1.Emphasized" parent="Text.Title1"><item name="android:textStyle">bold</item></style>
+    <style name="Text.PageTitle" parent="">
+        <item name="android:textSize">24sp</item><item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:includeFontPadding">false</item><item name="android:letterSpacing">0</item>
+        <item name="android:lineSpacingExtra">6sp</item>
+    </style>
+    <style name="Text.Title2" parent="">
+        <item name="android:textSize">22sp</item><item name="android:fontFamily">sans-serif</item>
+        <item name="android:includeFontPadding">false</item><item name="android:letterSpacing">0</item>
+        <item name="android:lineSpacingExtra">6sp</item>
+    </style>
+    <style name="Text.Title2.Emphasized" parent="Text.Title2"><item name="android:textStyle">bold</item></style>
+    <style name="Text.Title3" parent="">
+        <item name="android:textSize">20sp</item><item name="android:fontFamily">sans-serif</item>
+        <item name="android:includeFontPadding">false</item><item name="android:letterSpacing">0</item>
+        <item name="android:lineSpacingExtra">5sp</item>
+    </style>
+    <style name="Text.Title3.Emphasized" parent="Text.Title3"><item name="android:fontFamily">sans-serif-medium</item></style>
+    <style name="Text.Headline" parent="">
+        <item name="android:textSize">17sp</item><item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:includeFontPadding">false</item><item name="android:letterSpacing">0</item>
+        <item name="android:lineSpacingExtra">5sp</item>
+    </style>
+    <style name="Text.Body" parent="">
+        <item name="android:textSize">17sp</item><item name="android:fontFamily">sans-serif</item>
+        <item name="android:includeFontPadding">false</item><item name="android:letterSpacing">0</item>
+        <item name="android:lineSpacingExtra">5sp</item>
+    </style>
+    <style name="Text.Body.Emphasized" parent="Text.Body"><item name="android:fontFamily">sans-serif-medium</item></style>
+    <style name="Text.Callout" parent="">
+        <item name="android:textSize">16sp</item><item name="android:fontFamily">sans-serif</item>
+        <item name="android:includeFontPadding">false</item><item name="android:letterSpacing">0</item>
+        <item name="android:lineSpacingExtra">5sp</item>
+    </style>
+    <style name="Text.Callout.Emphasized" parent="Text.Callout"><item name="android:fontFamily">sans-serif-medium</item></style>
+    <style name="Text.Subheadline" parent="">
+        <item name="android:textSize">15sp</item><item name="android:fontFamily">sans-serif</item>
+        <item name="android:includeFontPadding">false</item><item name="android:letterSpacing">0</item>
+        <item name="android:lineSpacingExtra">5sp</item>
+    </style>
+    <style name="Text.Subheadline.Emphasized" parent="Text.Subheadline"><item name="android:fontFamily">sans-serif-medium</item></style>
+    <style name="Text.Footnote" parent="">
+        <item name="android:textSize">13sp</item><item name="android:fontFamily">sans-serif</item>
+        <item name="android:includeFontPadding">false</item><item name="android:letterSpacing">0</item>
+        <item name="android:lineSpacingExtra">5sp</item>
+    </style>
+    <style name="Text.Footnote.Emphasized" parent="Text.Footnote"><item name="android:fontFamily">sans-serif-medium</item></style>
+    <style name="Text.Caption1" parent="">
+        <item name="android:textSize">12sp</item><item name="android:fontFamily">sans-serif</item>
+        <item name="android:includeFontPadding">false</item><item name="android:letterSpacing">0</item>
+        <item name="android:lineSpacingExtra">4sp</item>
+    </style>
+    <style name="Text.Caption1.Emphasized" parent="Text.Caption1"><item name="android:fontFamily">sans-serif-medium</item></style>
+    <style name="Text.Caption2" parent="">
+        <item name="android:textSize">11sp</item><item name="android:fontFamily">sans-serif</item>
+        <item name="android:includeFontPadding">false</item><item name="android:letterSpacing">0</item>
+        <item name="android:lineSpacingExtra">2sp</item>
+    </style>
+
+    <!-- ============ Window motion ============ -->
     <style name="AppWindowAnimation">
         <item name="android:activityOpenEnterAnimation">@anim/activity_open_enter</item>
         <item name="android:activityOpenExitAnimation">@anim/activity_open_exit</item>
@@ -19,9 +97,23 @@
         <item name="android:windowExitAnimation">@anim/dialog_exit</item>
     </style>
 
+    <!-- ============ Toolbar ============ -->
+    <style name="ToolbarTitle" parent="Text.PageTitle">
+        <item name="android:textColor">@color/text_primary</item>
+    </style>
+    <style name="MaterialToolbarStyle" parent="Widget.Material3.Toolbar">
+        <item name="android:background">@color/app_bg</item>
+        <item name="android:elevation">0dp</item>
+        <item name="titleTextAppearance">@style/ToolbarTitle</item>
+        <item name="titleTextColor">@color/text_primary</item>
+        <item name="navigationIconTint">@color/text_primary</item>
+        <item name="contentInsetStartWithNavigation">16dp</item>
+        <item name="contentInsetEnd">16dp</item>
+    </style>
+
+    <!-- ============ Buttons: capsule fills, no outlines ============ -->
     <style name="MaterialAction" parent="Widget.Material3.Button.TonalButton">
-        <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:textSize">14sp</item>
+        <item name="android:textAppearance">@style/Text.Subheadline.Emphasized</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:textColor">@color/settings_action_text</item>
         <item name="backgroundTint">@color/native_button_background</item>
@@ -34,9 +126,9 @@
         <item name="android:minWidth">0dp</item>
         <item name="android:minHeight">48dp</item>
         <item name="android:gravity">center</item>
-        <item name="android:paddingHorizontal">12dp</item>
-        <item name="android:paddingStart">12dp</item>
-        <item name="android:paddingEnd">12dp</item>
+        <item name="android:paddingHorizontal">16dp</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
         <item name="android:paddingVertical">10dp</item>
         <item name="android:insetLeft">0dp</item>
         <item name="android:insetRight">0dp</item>
@@ -57,47 +149,26 @@
         <item name="iconTint">@color/settings_action_text</item>
     </style>
     <style name="MaterialDialogAction" parent="Widget.Material3.Button.TextButton">
+        <item name="android:textAppearance">@style/Text.Subheadline.Emphasized</item>
         <item name="android:textColor">@color/text_primary</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:minHeight">48dp</item>
         <item name="cornerRadius">24dp</item>
     </style>
+    <style name="AlertTitle" parent="Text.Headline">
+        <item name="android:textColor">@color/text_primary</item>
+    </style>
+    <style name="AlertBody" parent="Text.Subheadline">
+        <item name="android:textColor">@color/text_secondary</item>
+    </style>
     <style name="SettingsAction" parent="MaterialAction" />
     <style name="SettingsDialogAction" parent="MaterialDialogAction" />
+
+    <!-- ============ Cards and surfaces ============ -->
     <style name="MaterialCard" parent="Widget.Material3.CardView.Filled">
         <item name="cardCornerRadius">24dp</item><item name="cardElevation">0dp</item><item name="cardMaxElevation">0dp</item>
         <item name="cardUseCompatPadding">false</item><item name="cardPreventCornerOverlap">false</item>
         <item name="cardBackgroundColor">@color/app_surface</item><item name="strokeColor">@color/app_line</item><item name="strokeWidth">0dp</item>
-    </style>
-    <style name="MaterialField" parent="Widget.Material3.TextInputLayout.OutlinedBox">
-        <item name="boxCornerRadiusTopStart">16dp</item><item name="boxCornerRadiusTopEnd">16dp</item>
-        <item name="boxCornerRadiusBottomStart">16dp</item><item name="boxCornerRadiusBottomEnd">16dp</item>
-        <item name="boxBackgroundColor">@android:color/transparent</item><item name="boxStrokeColor">@color/native_field_stroke</item>
-        <item name="hintTextColor">@color/text_secondary</item>
-    </style>
-    <style name="MaterialToolbarStyle" parent="Widget.Material3.Toolbar">
-        <item name="android:background">@color/app_bg</item><item name="android:elevation">0dp</item>
-        <item name="titleTextAppearance">@style/ToolbarTitle</item>
-        <item name="titleTextColor">@color/text_primary</item><item name="navigationIconTint">@color/text_primary</item>
-    </style>
-    <style name="SettingsSwitch" parent="Widget.Material3.CompoundButton.MaterialSwitch">
-        <item name="android:layout_width">wrap_content</item><item name="android:layout_height">48dp</item>
-        <item name="android:minHeight">48dp</item><item name="thumbIcon">@null</item>
-        <item name="thumbTint">@color/native_switch_thumb</item>
-        <item name="trackTint">@color/native_switch_track</item>
-    </style>
-    <style name="SettingsSlider" parent="Widget.Material3.Slider">
-        <item name="android:layout_width">match_parent</item><item name="android:layout_height">48dp</item>
-        <item name="trackColorActive">@color/control_active</item><item name="trackColorInactive">@color/control_track</item>
-        <item name="thumbColor">@color/control_active</item><item name="haloColor">@color/native_ripple</item>
-        <item name="trackHeight">6dp</item><item name="thumbRadius">9dp</item><item name="labelBehavior">gone</item>
-        <item name="tickVisible">false</item>
-    </style>
-    <style name="GroupLabel">
-        <item name="android:layout_width">wrap_content</item><item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_marginStart">4dp</item><item name="android:layout_marginTop">22dp</item><item name="android:layout_marginBottom">10dp</item>
-        <item name="android:fontFamily">sans-serif-medium</item><item name="android:letterSpacing">0.03</item>
-        <item name="android:textColor">@color/text_secondary</item><item name="android:textSize">13sp</item>
     </style>
     <style name="GroupCard">
         <item name="android:layout_width">match_parent</item>
@@ -107,8 +178,16 @@
     </style>
     <style name="SettingsRowCard" parent="MaterialCard">
         <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
-        <item name="cardCornerRadius">0dp</item><item name="strokeWidth">0dp</item><item name="cardBackgroundColor">@android:color/transparent</item>
+        <item name="cardCornerRadius">0dp</item><item name="strokeWidth">0dp</item>
+        <item name="cardBackgroundColor">@android:color/transparent</item>
         <item name="android:clickable">true</item><item name="android:focusable">true</item><item name="rippleColor">@color/native_ripple</item>
+    </style>
+
+    <!-- ============ Grouped rows ============ -->
+    <style name="GroupLabel" parent="Text.Footnote.Emphasized">
+        <item name="android:layout_width">wrap_content</item><item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginStart">4dp</item><item name="android:layout_marginTop">22dp</item><item name="android:layout_marginBottom">8dp</item>
+        <item name="android:textColor">@color/text_secondary</item>
     </style>
     <style name="Cell">
         <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
@@ -120,15 +199,53 @@
         <item name="android:paddingStart">16dp</item><item name="android:paddingEnd">16dp</item><item name="android:paddingTop">14dp</item><item name="android:paddingBottom">14dp</item>
     </style>
     <style name="CellDivider"><item name="android:layout_width">match_parent</item><item name="android:layout_height">1dp</item><item name="android:layout_marginStart">16dp</item><item name="dividerColor">@color/app_line_soft</item></style>
-    <style name="CellTitle"><item name="android:layout_width">0dp</item><item name="android:layout_height">wrap_content</item><item name="android:layout_weight">1</item><item name="android:drawablePadding">12dp</item><item name="android:drawableTint">@color/text_secondary</item><item name="android:textColor">@color/text_primary</item><item name="android:textSize">16sp</item></style>
-    <style name="CellColumnLabel"><item name="android:layout_width">wrap_content</item><item name="android:layout_height">wrap_content</item><item name="android:drawablePadding">10dp</item><item name="android:drawableTint">@color/text_secondary</item><item name="android:textColor">@color/text_primary</item><item name="android:textSize">16sp</item></style>
-    <style name="CellValue"><item name="android:layout_width">wrap_content</item><item name="android:layout_height">wrap_content</item><item name="android:textColor">@color/text_secondary</item><item name="android:textSize">14sp</item></style>
-    <style name="Chevron"><item name="android:layout_width">wrap_content</item><item name="android:layout_height">wrap_content</item><item name="android:layout_marginStart">8dp</item><item name="android:text">›</item><item name="android:textColor">@color/text_tertiary</item><item name="android:textSize">19sp</item></style>
+    <style name="CellTitle" parent="Text.Body">
+        <item name="android:layout_width">0dp</item><item name="android:layout_height">wrap_content</item><item name="android:layout_weight">1</item>
+        <item name="android:drawablePadding">12dp</item><item name="android:drawableTint">@color/text_secondary</item><item name="android:textColor">@color/text_primary</item>
+    </style>
+    <style name="CellColumnLabel" parent="Text.Body">
+        <item name="android:layout_width">wrap_content</item><item name="android:layout_height">wrap_content</item>
+        <item name="android:drawablePadding">10dp</item><item name="android:drawableTint">@color/text_secondary</item><item name="android:textColor">@color/text_primary</item>
+    </style>
+    <style name="CellValue" parent="Text.Subheadline">
+        <item name="android:layout_width">wrap_content</item><item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/text_secondary</item>
+    </style>
+    <style name="Chevron" parent="Text.Title3">
+        <item name="android:layout_width">wrap_content</item><item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginStart">8dp</item><item name="android:text">›</item>
+        <item name="android:textColor">@color/text_tertiary</item>
+    </style>
+
+    <!-- ============ Inputs ============ -->
+    <style name="MaterialField" parent="Widget.Material3.TextInputLayout.FilledBox">
+        <item name="boxCornerRadiusTopStart">16dp</item><item name="boxCornerRadiusTopEnd">16dp</item>
+        <item name="boxCornerRadiusBottomStart">16dp</item><item name="boxCornerRadiusBottomEnd">16dp</item>
+        <item name="boxBackgroundColor">@color/app_surface_container</item>
+        <item name="boxStrokeWidth">0dp</item><item name="boxStrokeWidthFocused">0dp</item>
+        <item name="hintTextColor">@color/text_secondary</item>
+    </style>
+    <style name="SettingsSwitch" parent="Widget.Material3.CompoundButton.MaterialSwitch">
+        <item name="android:layout_width">wrap_content</item><item name="android:layout_height">48dp</item>
+        <item name="android:minHeight">48dp</item><item name="thumbIcon">@null</item>
+        <item name="thumbTint">@color/native_switch_thumb</item>
+        <item name="trackTint">@color/native_switch_track</item>
+    </style>
+    <style name="SettingsSlider" parent="Widget.Material3.Slider">
+        <item name="android:layout_width">match_parent</item><item name="android:layout_height">48dp</item>
+        <item name="trackColorActive">@color/control_active</item><item name="trackColorInactive">@color/control_track</item>
+        <item name="thumbColor">@color/control_active</item><item name="haloColor">@color/native_ripple</item>
+        <item name="trackHeight">16dp</item><item name="thumbRadius">9dp</item>
+        <item name="thumbElevation">0dp</item><item name="haloRadius">20dp</item><item name="labelBehavior">gone</item>
+        <item name="tickVisible">false</item>
+    </style>
+
+    <!-- ============ Segmented control / steps / swatches ============ -->
     <style name="SegItem" parent="Widget.Material3.Button.TextButton">
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">match_parent</item>
         <item name="android:layout_weight">1</item>
-        <item name="android:textSize">13sp</item>
+        <item name="android:textAppearance">@style/Text.Footnote</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:paddingHorizontal">0dp</item>
         <item name="android:insetLeft">0dp</item><item name="android:insetRight">0dp</item>
@@ -147,5 +264,5 @@
     </style>
     <style name="PreviewLyric"><item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item><item name="android:paddingVertical">3dp</item><item name="android:fontFamily">sans-serif-medium</item><item name="android:maxLines">1</item><item name="android:ellipsize">end</item><item name="android:textColor">#FFFFFF</item></style>
     <style name="StepButton" parent="MaterialAction"><item name="android:layout_width">48dp</item><item name="android:layout_height">48dp</item><item name="android:paddingHorizontal">0dp</item><item name="android:paddingVertical">0dp</item><item name="android:paddingStart">0dp</item><item name="android:paddingEnd">0dp</item><item name="android:textSize">20sp</item></style>
-    <style name="StepValue"><item name="android:layout_width">48dp</item><item name="android:layout_height">wrap_content</item><item name="android:gravity">center</item><item name="android:textColor">@color/text_primary</item><item name="android:textSize">14sp</item></style>
+    <style name="StepValue" parent="Text.Subheadline"><item name="android:layout_width">48dp</item><item name="android:layout_height">wrap_content</item><item name="android:gravity">center</item><item name="android:textColor">@color/text_primary</item></style>
 </resources>

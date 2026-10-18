@@ -142,6 +142,7 @@ class MainActivity : AppCompatActivity() {
         ThemePrefs.apply(appPrefs.getString(ThemePrefs.KEY, ThemePrefs.FOLLOW))
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        AppTheme.apply(this)
 
         home = findViewById(R.id.lyric_home)
         home.actions = HomeActions()
@@ -182,6 +183,7 @@ class MainActivity : AppCompatActivity() {
         appliedNightMode = night
         super.onConfigurationChanged(newConfig)
         theme.applyStyle(R.style.Theme_DesktopLyrics, true)
+        AppTheme.apply(this)
         home.applyTheme()
         applyGateTheme(gate)
         ThemePrefs.updateSystemBars(this)
@@ -189,22 +191,38 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyGateTheme(view: View) {
+        val scheme = AppTheme.scheme(this)
         when (view) {
             is MaterialButton -> {
                 val primary = view.id == R.id.gate_start
-                view.setTextColor(if (primary) AccentPrefs.onAccent(this) else ContextCompat.getColor(this, when {
-                    view.id == R.id.gate_settings_link -> R.color.text_secondary
-                    else -> R.color.text_primary
-                }))
+                val tonal = view.id == R.id.gate_listener || view.id == R.id.gate_overlay_perm
+                view.setTextColor(
+                    when {
+                        primary -> scheme.onPrimary
+                        tonal -> scheme.onSurface
+                        else -> scheme.onSurfaceVariant
+                    }
+                )
                 view.backgroundTintList = ColorStateList.valueOf(
-                    if (primary) AccentPrefs.accent(this) else android.graphics.Color.TRANSPARENT)
-                view.strokeColor = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.app_line))
-                view.rippleColor = ContextCompat.getColorStateList(this, R.color.native_ripple)
+                    when {
+                        primary -> scheme.primary
+                        tonal -> scheme.block
+                        else -> android.graphics.Color.TRANSPARENT
+                    }
+                )
+                view.strokeWidth = 0
+                view.rippleColor = ColorStateList.valueOf(
+                    AppColor.alpha(scheme.primary, 0.12f)
+                )
             }
-            is MaterialTextView -> view.setTextColor(ContextCompat.getColor(this,
-                if (view.id == R.id.gate_status) R.color.text_secondary else R.color.text_primary))
+            is MaterialTextView -> view.setTextColor(
+                if (view.id == R.id.gate_status) scheme.onSurfaceVariant else scheme.onSurface
+            )
+            is android.widget.ImageView -> view.imageTintList =
+                ColorStateList.valueOf(scheme.onPrimaryContainer)
+            is SquircleCardView -> view.setSquircleFillColor(scheme.primaryContainer)
         }
-        if (view === gate) view.setBackgroundColor(ContextCompat.getColor(this, R.color.app_bg))
+        if (view === gate) view.setBackgroundColor(scheme.page)
         if (view is ViewGroup) for (index in 0 until view.childCount) applyGateTheme(view.getChildAt(index))
     }
 
@@ -225,6 +243,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         homeForeground = true
         ThemePrefs.apply(appPrefs.getString(ThemePrefs.KEY, ThemePrefs.FOLLOW))
+        AppTheme.apply(this)
         home.applyTheme()
         applyGateTheme(gate)
         home.setActive(true)
