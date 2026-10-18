@@ -187,28 +187,56 @@ class LyricSourceManagerActivity : AppCompatActivity() {
         actions.addView(actionRows)
         content.addView(actions)
         val history = entry.optJSONArray("history") ?: JSONArray().put(entry.optJSONObject("candidate"))
+        if (history.length() > 0) content.addView(NativeUi.sectionLabel(this, "候选版本"))
         for (i in 0 until history.length()) {
             val candidate = history.optJSONObject(i) ?: continue
             val current = !entry.optBoolean("needsReview") && candidate.optString("recordId") == entry.optJSONObject("candidate")?.optString("recordId")
-            content.addView(card {
-                addView(label((if(current) "✓ 当前选择 · " else "") + candidate.optString("title").ifBlank { entry.optString("title").ifBlank { "旧版候选" } }, 17f))
-                addView(label(candidate.optString("artist").ifBlank { entry.optString("artist") } + " · " + candidate.optString("source"), 13f))
-                val seconds = candidate.optLong("duration") / 1000
-                addView(label("${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')} · " +
-                    (if(candidate.optString("wordLyrics").isNotBlank()) "含逐字数据" else "普通歌词") +
-                    (if(candidate.optString("translatedLyrics").isNotBlank()) " · 含译文" else "") + "\n记录：" + candidate.optString("recordId"), 12f))
-                val preview = candidate.optString("lyrics").lineSequence().map { it.replace(Regex("^(\\[[^]]+])+"), "").trim() }
-                    .filter { it.isNotBlank() }.take(16).joinToString("\n")
-                addView(label(preview, 14f))
-                addView(button(if(current) "正在使用" else "选用这个版本") {
+            val seconds = candidate.optLong("duration") / 1000
+            val meta = buildString {
+                append("${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}")
+                append(" · ")
+                append(if (candidate.optString("wordLyrics").isNotBlank()) "含逐字数据" else "普通歌词")
+                if (candidate.optString("translatedLyrics").isNotBlank()) append(" · 含译文")
+            }
+            val card = NativeUi.card(this)
+            val rows = NativeUi.cardColumn(this)
+            rows.addView(NativeUi.row(
+                this,
+                title = (if (current) "✓ 当前选择 · " else "") +
+                    candidate.optString("title").ifBlank { entry.optString("title").ifBlank { "旧版候选" } },
+                iconRes = R.drawable.ic_home_library,
+                subtitle = listOf(
+                    candidate.optString("artist").ifBlank { entry.optString("artist") },
+                    candidate.optString("source"),
+                    meta
+                ).filter { it.isNotBlank() }.joinToString(" · "),
+                value = if (current) "使用中" else null
+            ))
+            rows.addView(NativeUi.divider(this))
+            rows.addView(NativeUi.row(
+                this,
+                title = if (current) "正在使用" else "选用这个版本",
+                iconRes = if (current) R.drawable.ic_setting_shield else R.drawable.ic_home_refresh,
+                chevron = !current && !busy,
+                onClick = if (current || busy) null else ({
                     // 手动选用 → 固定为手动记忆（清掉 auto/needsReview），悬浮窗与主页都以它为准。
                     // 注意 JSONObject.remove() 返回被删值而非 this，不能接在 put 链上。
                     update(key) {
                         it.remove("auto")
                         it.put("candidate", candidate).put("needsReview", false).put("at", System.currentTimeMillis())
                     }
-                }.apply { isEnabled = !current && !busy })
-            })
+                })
+            ))
+            val preview = candidate.optString("lyrics").lineSequence().map { it.replace(Regex("^(\\[[^]]+])+"), "").trim() }
+                .filter { it.isNotBlank() }.take(16).joinToString("\n")
+            if (preview.isNotBlank()) {
+                rows.addView(NativeUi.divider(this))
+                rows.addView(NativeUi.text(this, preview, 14f).apply {
+                    setPadding(NativeUi.dp(context, 16), NativeUi.dp(context, 10), NativeUi.dp(context, 16), NativeUi.dp(context, 14))
+                })
+            }
+            card.addView(rows)
+            content.addView(card)
         }
     }
     private fun confirmClearAll() {
@@ -263,8 +291,4 @@ class LyricSourceManagerActivity : AppCompatActivity() {
         setTextColor(if (size >= 17) col(R.color.text_primary) else col(R.color.text_secondary))
         setPadding(0, dp(6), 0, dp(8))
     }
-    private fun card(block: LinearLayout.() -> Unit) = NativeUi.card(this).apply {
-        addView(NativeUi.column(this@LyricSourceManagerActivity).apply(block))
-    }
-    private fun button(value: String, action: () -> Unit) = NativeUi.button(this, value, action = action)
 }
