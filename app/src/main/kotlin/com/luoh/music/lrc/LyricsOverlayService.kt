@@ -854,7 +854,7 @@ class LyricsOverlayService : Service() {
             setPadding(0, 0, 0, 0)
             background = SquircleDrawable(
                 Color.argb(150, 12, 12, 14),
-                DesignTokens.dp(this, DesignTokens.RADIUS_XL)
+                DesignTokens.dp(uiContext, DesignTokens.RADIUS_XL)
             )
         }
         chromeBar = chrome
