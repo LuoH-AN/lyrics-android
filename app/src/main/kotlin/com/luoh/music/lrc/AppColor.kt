@@ -59,8 +59,10 @@ object AppColor {
     }
 
     /** The readable foreground for a filled background. */
-    fun contrastOn(background: Int): Int =
-        if (ColorUtils.calculateContrast(Color.WHITE, background) >= 4.5) Color.WHITE else Color.BLACK
+    fun contrastOn(background: Int): Int {
+        val opaque = ColorUtils.setAlphaComponent(background, 255)
+        return if (ColorUtils.calculateContrast(Color.WHITE, opaque) >= 4.5) Color.WHITE else Color.BLACK
+    }
 
     fun isDark(color: Int): Boolean = ColorUtils.calculateLuminance(color) < 0.5
 

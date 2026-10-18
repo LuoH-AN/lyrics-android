@@ -54,8 +54,8 @@ class AppScheme(
         private const val PAPER_CHROMA = 1.5
         private const val CONTAINER_CHROMA = 48.0
 
-        private const val LIGHT_PRIMARY = 0x18181B
-        private const val DARK_PRIMARY = 0xF5F5F7
+        private const val LIGHT_PRIMARY = 0xFF18181B.toInt()
+        private const val DARK_PRIMARY = 0xFFF5F5F7.toInt()
 
         fun build(seed: Int?, dark: Boolean): AppScheme {
             val page = surface(seed, if (dark) 15.5 else 96.0, dark)
