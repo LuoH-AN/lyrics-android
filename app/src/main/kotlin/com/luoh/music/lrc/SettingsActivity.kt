@@ -848,8 +848,8 @@ class SettingsActivity : AppCompatActivity() {
                         .setMessage(release.summary)
                         .setNegativeButton("稍后", null)
                         .setPositiveButton("前往下载") { _, _ -> openUrl(release.pageUrl) }
-                        .show()
-                    NativeUi.styleDialog(dialog)
+                        .create()
+                    NativeUi.showDialog(dialog)
                 } else {
                     Toast.makeText(this@SettingsActivity, "当前已是最新版", Toast.LENGTH_SHORT).show()
                 }

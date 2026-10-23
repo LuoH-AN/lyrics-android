@@ -48,16 +48,6 @@ class LyricColorPickerDialog(
     val isShowing: Boolean get() = dialog.isShowing
 
     init {
-        dialog.window?.setWindowAnimations(0)
-        dialog.window?.setDimAmount(if (DesignTokens.scheme(context).dark) 0.48f else 0.20f)
-        dialog.setOnShowListener {
-            Springs.animateDialogIn(dialog)
-            dialog.window?.setLayout(NativeUi.dp(context, 348), android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
-            val scheme = DesignTokens.scheme(context)
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(scheme.primary)
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(scheme.onSurface)
-            dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.setTextColor(scheme.onSurface)
-        }
         val palette = content.findViewById<LinearLayout>(R.id.color_palette)
         COLORS.chunked(4).forEach { colors ->
             val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
@@ -94,7 +84,7 @@ class LyricColorPickerDialog(
     }
 
     fun show() {
-        dialog.show()
+        NativeUi.showDialog(dialog, widthDp = 348)
         applyButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE).apply {
             setOnClickListener {
                 val color = normalizeHex(draft) ?: return@setOnClickListener

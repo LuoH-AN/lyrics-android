@@ -282,6 +282,7 @@ object NativeUi {
                 null
             )
             row.setOnClickListener { onClick() }
+            Springs.attachPress(row, 0.99f)
         }
         return row
     }
@@ -303,6 +304,7 @@ object NativeUi {
             setNavigationOnClickListener { onBack() }
             setBackgroundColor(DesignTokens.page(activity))
             layoutParams = LinearLayout.LayoutParams(-1, dp(activity, DesignTokens.PAGE_TOOLBAR_HEIGHT.toInt()))
+            Springs.attachPressTree(this)
         }
 
     fun confirm(context: Context, title: String, message: String, positive: String, onConfirm: () -> Unit): AlertDialog {
@@ -312,15 +314,18 @@ object NativeUi {
             .setNegativeButton("取消", null)
             .setPositiveButton(positive) { _, _ -> onConfirm() }
             .create()
-        // The alert grows in on a spring instead of the window's fixed curve.
-        dialog.window?.setWindowAnimations(0)
-        dialog.window?.setDimAmount(if (DesignTokens.scheme(context).dark) 0.48f else 0.20f)
-        dialog.setOnShowListener {
-            Springs.animateDialogIn(dialog)
-            dialog.window?.setLayout(dp(context, 348), android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
-            styleDialog(dialog)
-        }
+        return showDialog(dialog, widthDp = 348)
+    }
+
+    /** Window fades cover buttons, Back and outside-tap dismissal equally. */
+    fun showDialog(dialog: AlertDialog, widthDp: Int? = null): AlertDialog {
+        dialog.window?.setWindowAnimations(R.style.AppDialogAnimation)
+        dialog.window?.setDimAmount(if (DesignTokens.scheme(dialog.context).dark) 0.48f else 0.20f)
         dialog.show()
+        if (widthDp != null) {
+            dialog.window?.setLayout(dp(dialog.context, widthDp), android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+        styleDialog(dialog)
         return dialog
     }
 
@@ -335,6 +340,7 @@ object NativeUi {
         positive?.setTextColor(if (destructive) scheme.destructive else scheme.primary)
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(scheme.onSurface)
         dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.setTextColor(scheme.onSurface)
+        dialog.window?.decorView?.let(Springs::attachPressTree)
     }
 
     fun screen(activity: AppCompatActivity, title: String, onBack: () -> Unit = { activity.finish() }): LinearLayout {

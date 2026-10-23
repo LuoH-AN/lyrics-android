@@ -1,9 +1,18 @@
 package com.luoh.music.lrc
 
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
+import android.animation.StateListAnimator
 import android.animation.ValueAnimator
-import android.app.Dialog
-import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
+import android.view.animation.PathInterpolator
+import android.widget.Button
+import android.widget.EditText
+import android.widget.ImageButton
+import android.widget.LinearLayout
+import android.widget.TextView
+import com.google.android.material.card.MaterialCardView
 import androidx.dynamicanimation.animation.DynamicAnimation
 import androidx.dynamicanimation.animation.FloatPropertyCompat
 import androidx.dynamicanimation.animation.SpringAnimation
@@ -34,8 +43,8 @@ object Springs {
     const val SHEET_STIFFNESS = 1000f / 3f
     const val SHEET_DAMPING_RATIO = 1f
 
-    private const val PRESSED_SCALE = 0.96f
-    private const val ALERT_ENTRY_SCALE = 1.2f
+    private const val PRESSED_SCALE = 0.97f
+    private val EASE_OUT = PathInterpolator(0.2f, 0f, 0f, 1f)
     private val pressed = WeakHashMap<View, Boolean>()
 
     fun force(stiffness: Float, dampingRatio: Float): SpringForce =
@@ -94,68 +103,50 @@ object Springs {
         }
     }
 
-    /** Press feedback for a button: 1 → [pressedScale] → 1, retargetable. */
+    /** Uses the platform's pressed state without intercepting touch gestures. */
     fun attachPress(view: View, pressedScale: Float = PRESSED_SCALE) {
         if (pressed[view] == true) return
         pressed[view] = true
-        val scale = Scale(view)
-        view.setOnTouchListener { _, event ->
-            if (!ValueAnimator.areAnimatorsEnabled()) return@setOnTouchListener false
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> scale.animateTo(pressedScale)
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> scale.animateTo(1f)
-            }
-            false
+        fun scaleTo(value: Float, milliseconds: Long) = AnimatorSet().apply {
+            playTogether(
+                ObjectAnimator.ofFloat(view, View.SCALE_X, value),
+                ObjectAnimator.ofFloat(view, View.SCALE_Y, value)
+            )
+            duration = Springs.duration(milliseconds)
+            interpolator = EASE_OUT
+        }
+        view.stateListAnimator = StateListAnimator().apply {
+            addState(
+                intArrayOf(android.R.attr.state_enabled, android.R.attr.state_pressed),
+                scaleTo(pressedScale, DesignTokens.Motion.PRESS_MS)
+            )
+            addState(intArrayOf(), scaleTo(1f, DesignTokens.Motion.RELEASE_MS))
         }
         view.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
             override fun onViewAttachedToWindow(v: View) = Unit
             override fun onViewDetachedFromWindow(v: View) {
-                scale.cancel()
-                v.removeOnAttachStateChangeListener(this)
-                pressed.remove(v)
+                v.isPressed = false
+                v.stateListAnimator?.jumpToCurrentState()
+                v.scaleX = 1f
+                v.scaleY = 1f
             }
         })
     }
 
-    /** A panel entering with a short upward spring, used by sheets. */
-    fun animateContentIn(view: View, offsetPx: Float) {
-        if (!ValueAnimator.areAnimatorsEnabled()) {
-            view.translationY = 0f
-            view.alpha = 1f
-            return
+    /** Avoids lyric rows, whose scale is owned by the playback motion controller. */
+    fun attachPressFeedback(view: View) {
+        when {
+            view is Button || view is ImageButton -> attachPress(view)
+            view.isClickable && (view is LinearLayout || view is MaterialCardView) -> attachPress(view, 0.99f)
+            view is TextView && view !is EditText && view !is LyricLineView && view.isClickable -> attachPress(view)
         }
-        view.translationY = offsetPx
-        view.alpha = 0f
-        spring(view, DynamicAnimation.TRANSLATION_Y).animateToFinalPosition(0f)
-        view.animate().alpha(1f).setDuration(180).start()
     }
 
-    /** The alert grows from 1.2× and fades in, matching the measured UIKit motion. */
-    fun animateDialogIn(dialog: Dialog) {
-        if (!ValueAnimator.areAnimatorsEnabled()) return
-        val decor = dialog.window?.decorView ?: return
-        decor.post {
-            if (!decor.isAttachedToWindow) return@post
-            decor.pivotX = decor.width / 2f
-            decor.pivotY = decor.height / 2f
-            decor.alpha = 0f
-            decor.scaleX = ALERT_ENTRY_SCALE
-            decor.scaleY = ALERT_ENTRY_SCALE
-            spring(
-                decor,
-                DynamicAnimation.SCALE_X,
-                PRESS_STIFFNESS,
-                0.72f,
-                DynamicAnimation.MIN_VISIBLE_CHANGE_SCALE
-            ).animateToFinalPosition(1f)
-            spring(
-                decor,
-                DynamicAnimation.SCALE_Y,
-                PRESS_STIFFNESS,
-                0.72f,
-                DynamicAnimation.MIN_VISIBLE_CHANGE_SCALE
-            ).animateToFinalPosition(1f)
-            decor.animate().alpha(1f).setDuration(DesignTokens.Motion.DIALOG_MS).start()
+    /** Covers XML buttons, toolbar icons and clickable grouped rows. */
+    fun attachPressTree(root: View) {
+        attachPressFeedback(root)
+        if (root is ViewGroup) {
+            for (index in 0 until root.childCount) attachPressTree(root.getChildAt(index))
         }
     }
 

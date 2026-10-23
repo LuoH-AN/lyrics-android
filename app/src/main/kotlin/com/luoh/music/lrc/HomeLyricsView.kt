@@ -84,16 +84,16 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     private var motionStyle = MotionStyle()
     private val lyricRows = mutableListOf<LyricLineView>()
 
-    private val playerCard = SquircleCardView(context).apply {
+    private val playerCard = MaterialCardView(context).apply {
         id = R.id.home_player_card
-        setSquircleRadiusDp(DesignTokens.RADIUS_XL)
-        setSquircleFillColor(DesignTokens.floating(context))
-        // The player floats over the lyric page, so it keeps a soft shadow;
-        // the SquircleDrawable outline makes the shadow follow the same curve.
-        // Do not clip the card: its children stay inside the rounded bounds,
-        // and an offscreen clip on a card that redraws with playback costs frames.
-        elevation = dp(6).toFloat()
-        clipToOutline = false
+        radius = DesignTokens.dp(context, DesignTokens.RADIUS_XXL)
+        setCardBackgroundColor(DesignTokens.floating(context))
+        cardElevation = 0f
+        maxCardElevation = 0f
+        strokeWidth = 0
+        useCompatPadding = false
+        preventCornerOverlap = false
+        stateListAnimator = null
     }
     private val bar = LinearLayout(context).apply { orientation = VERTICAL }
     private val transport = LinearLayout(context).apply { gravity = Gravity.CENTER }
@@ -259,14 +259,14 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     private val previous = iconButton(R.drawable.ic_home_previous, "上一首").apply {
         id = R.id.home_previous
         iconSize = dp(24)
-        cornerRadius = dp(24)
+        cornerRadius = dp(DesignTokens.RADIUS_MD)
         applySuperellipseShape()
         setOnClickListener { actions?.skipPrev() }
     }
     private val play = iconButton(R.drawable.ic_home_play, "播放").apply {
         id = R.id.home_play
         iconSize = dp(28)
-        cornerRadius = dp(32)
+        cornerRadius = dp(DesignTokens.RADIUS_MD)
         applySuperellipseShape()
         strokeWidth = 0
         setOnClickListener { actions?.togglePlay() }
@@ -274,7 +274,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     private val next = iconButton(R.drawable.ic_home_next, "下一首").apply {
         id = R.id.home_next
         iconSize = dp(24)
-        cornerRadius = dp(24)
+        cornerRadius = dp(DesignTokens.RADIUS_MD)
         applySuperellipseShape()
         setOnClickListener { actions?.skipNext() }
     }
@@ -322,9 +322,9 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         times.addView(timeCurrent, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
         times.addView(timeDuration, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
         bar.addView(times)
-        transport.addView(previous, LayoutParams(dp(48), dp(48)))
-        transport.addView(play, LayoutParams(dp(88), dp(64)).apply { marginStart = dp(20); marginEnd = dp(20) })
-        transport.addView(next, LayoutParams(dp(48), dp(48)))
+        transport.addView(previous, LayoutParams(dp(52), dp(68)))
+        transport.addView(play, LayoutParams(dp(52), dp(68)).apply { marginStart = dp(20); marginEnd = dp(20) })
+        transport.addView(next, LayoutParams(dp(52), dp(68)))
         bar.addView(transport, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) })
         playerCard.addView(bar, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         addView(playerCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
@@ -381,7 +381,10 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
             val padding = dp(if (smallCover) 12 else 17)
             cover.setPadding(padding, padding, padding, padding)
         }
-        (play.layoutParams as LayoutParams).height = dp(if (compact) 56 else 64)
+        val buttonHeight = dp(if (compact) 60 else 68)
+        listOf(previous, play, next).forEach {
+            (it.layoutParams as LayoutParams).height = buttonHeight
+        }
         (transport.layoutParams as LayoutParams).topMargin = dp(if (compact) 8 else 12)
         bar.setPadding(dp(16), dp(if (compact) 12 else 16), dp(16), dp(if (compact) 12 else 20))
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
@@ -544,7 +547,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     fun applyTheme() {
         val scheme = DesignTokens.scheme(context)
         setBackgroundColor(scheme.page)
-        playerCard.setSquircleFillColor(scheme.floating)
+        playerCard.setCardBackgroundColor(scheme.floating)
         emptyArtwork.applyScheme(scheme)
         song.setTextColor(scheme.onSurface)
         artist.setTextColor(scheme.onSurfaceVariant)
@@ -763,6 +766,8 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     private fun showMore() {
         menu?.dismiss()
         val dialog = BottomSheetDialog(context)
+        dialog.window?.setWindowAnimations(R.style.AppDialogAnimation)
+        dialog.dismissWithAnimation = false
         val scheme = DesignTokens.scheme(dialog.context)
         val content = LinearLayout(dialog.context).apply {
             id = R.id.home_more_sheet
@@ -809,6 +814,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
                     null
                 )
                 setOnClickListener { dialog.dismiss(); callback() }
+                Springs.attachPress(this, 0.99f)
             }
             row.addView(ImageView(dialog.context).apply {
                 setImageResource(icon)
@@ -854,6 +860,8 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         })
         dialog.setOnDismissListener { if (menu === dialog) menu = null }
         menu = dialog
+        dialog.behavior.skipCollapsed = true
+        dialog.behavior.state = BottomSheetBehavior.STATE_EXPANDED
         dialog.show()
         val sheet = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
         dialog.window?.setDimAmount(0.32f)
@@ -863,8 +871,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
             corners = SquircleDrawable.CORNER_TOP
         )
         sheet?.clipToOutline = true
-        dialog.behavior.state = BottomSheetBehavior.STATE_EXPANDED
-        Springs.animateContentIn(content, dp(20).toFloat())
+        Springs.attachPressTree(content)
     }
 
     private fun iconButton(iconRes: Int, description: String) = MaterialButton(context).apply {

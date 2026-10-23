@@ -292,8 +292,8 @@ class TranslationSettingsActivity : AppCompatActivity() {
                 startActivity(Intent(this, ApiProfileManagerActivity::class.java))
             }
             .setNegativeButton("取消", null)
-            .show()
-        NativeUi.styleDialog(dialog)
+            .create()
+        NativeUi.showDialog(dialog)
     }
     private fun switchApiProfile(selected: TranslationApiProfile) {
         if (selected.id == currentApiProfileId) return
@@ -369,8 +369,8 @@ class TranslationSettingsActivity : AppCompatActivity() {
             .setPositiveButton("仅 Wi-Fi 下载") { _, _ -> download(code, true) }
             .setNeutralButton("允许当前网络") { _, _ -> download(code, false) }
             .setNegativeButton("取消", null)
-            .show()
-        NativeUi.styleDialog(dialog)
+            .create()
+        NativeUi.showDialog(dialog)
     }
     private fun showDeleteDialog(code: String, removable: String) {
         val message = if (removable == "zh") {

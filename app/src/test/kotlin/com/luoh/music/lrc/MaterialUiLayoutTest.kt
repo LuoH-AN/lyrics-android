@@ -13,6 +13,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.slider.Slider
 import org.junit.Assert.*
@@ -141,8 +142,8 @@ class MaterialUiLayoutTest {
         ), true))
         home.setOverlayState(false)
         layout(home, widthDp, heightDp)
-        val panel = home.findViewById<SquircleCardView>(R.id.home_player_card)
-        assertTrue(panel.squircleRadiusPx() >= 24 * home.resources.displayMetrics.density)
+        val panel = home.findViewById<MaterialCardView>(R.id.home_player_card)
+        assertTrue(panel.radius >= 24 * home.resources.displayMetrics.density)
         assertTrue(panel.width < home.width)
         assertFalse("Home must not reserve space for a toolbar", descendants(home).any { it is MaterialToolbar })
         assertFalse("Playback status chip must be removed", descendants(home).any { it is com.google.android.material.chip.Chip })

@@ -80,6 +80,7 @@ object AppTheme {
         if (root is ViewGroup) {
             for (index in 0 until root.childCount) apply(root.getChildAt(index), scheme)
         }
+        Springs.attachPressFeedback(root)
     }
 
     private fun styleView(view: View, scheme: AppScheme) {

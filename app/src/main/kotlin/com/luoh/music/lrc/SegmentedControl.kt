@@ -112,6 +112,7 @@ class SegmentedControl @JvmOverloads constructor(
         button.setToggleCheckedStateOnClick(false)
         button.isChecked = false
         button.setTextColor(DesignTokens.textSecondary(context))
+        Springs.attachPress(button)
     }
 
     /** Keeps the pill under the segment whose button carries [id]. */

@@ -37,9 +37,11 @@ object DesignTokens {
 
     // ---- Motion -------------------------------------------------------------
     object Motion {
-        const val PAGE_TRANSITION_MS = 450L
+        const val PAGE_TRANSITION_MS = 180L
         const val DESKTOP_FADE_MS = 200L
-        const val DIALOG_MS = 404L
+        const val DIALOG_MS = 180L
+        const val PRESS_MS = 80L
+        const val RELEASE_MS = 120L
         const val SEGMENT_INDICATOR_MS = 250L
         const val SEGMENT_TEXT_MS = 200L
         const val GLYPH_FILL_MS = 350L

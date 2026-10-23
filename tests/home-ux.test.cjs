@@ -12,7 +12,7 @@ assert.match(layout, /<com\.luoh\.music\.lrc\.HomeLyricsView/);
 assert.match(layout, /com\.google\.android\.material\.button\.MaterialButton/);
 assert.match(home, /BottomSheetDialog\(context\)/);
 assert.match(home, /private val progress = Slider\(context\)/);
-assert.match(home, /private val playerCard = SquircleCardView\(context\)/);
+assert.match(home, /private val playerCard = MaterialCardView\(context\)/);
 assert.doesNotMatch(home, /MaterialToolbar|home_toolbar|playbackStatus|home_playback_status/);
 assert.doesNotMatch(home, /现在，专注听歌|等待播放|正在播放|已暂停/);
 assert.doesNotMatch(home, /emptyIcon|emptyDetail|home_empty_detail|先在音乐应用中播放一首歌|获取完成后会自动显示|找不到歌词|未在播放/);
