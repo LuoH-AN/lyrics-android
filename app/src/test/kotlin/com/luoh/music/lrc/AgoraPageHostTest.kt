@@ -12,6 +12,7 @@ import android.widget.Button
 import androidx.core.widget.NestedScrollView
 import org.junit.Assert.*
 import org.junit.Before
+import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -28,6 +29,10 @@ import java.time.Duration
 @LooperMode(LooperMode.Mode.PAUSED)
 @GraphicsMode(GraphicsMode.Mode.NATIVE) // Exercise actual RenderNode z-order and transformed hit testing.
 class AgoraPageHostTest {
+    @After fun releaseFrameProvider() {
+        val handler = Class.forName("androidx.dynamicanimation.animation.AnimationHandler")
+        org.robolectric.util.ReflectionHelpers.getStaticField<ThreadLocal<Any>>(handler, "sAnimatorHandler").remove()
+    }
     @Before fun deterministicFrames() {
         val app = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.app.Application>()
         // Android grants this merged-manifest signature permission; Robolectric requires an explicit grant.
@@ -74,6 +79,9 @@ class AgoraPageHostTest {
             assertEquals(1f, old.alpha, 0f)
             assertEquals(0f, old.translationX, 0f)
             val target = page { targetClicks++ }
+            val button = target.getChildAt(0) as Button
+            val events = mutableListOf<Int>()
+            button.setOnTouchListener { _, event -> events.add(event.actionMasked); false }
             host.show(target, true)
             layout(host)
             assertEquals(host.width * .75f, target.translationX, 1f)
@@ -86,7 +94,10 @@ class AgoraPageHostTest {
             click(host, host.width * .9f, host.height * .5f)
             click(host, host.width * .1f, host.height * .5f)
             shadowOf(Looper.getMainLooper()).idle() // View posts its PerformClick after ACTION_UP.
-            assertEquals("The incoming page accepts taps before its entrance finishes", 1, targetClicks)
+            assertEquals("The incoming page accepts taps before its entrance finishes; events=$events; " +
+                "clickable=${button.isClickable}, enabled=${button.isEnabled}, focusableInTouchMode=${button.isFocusableInTouchMode}, " +
+                "attached=${button.isAttachedToWindow}, matrix=${target.matrix.toShortString()}, " +
+                "children=${(0 until host.childCount).map { host.getChildAt(it).let { child -> "${child.javaClass.simpleName}:${child.z}" } }}", 1, targetClicks)
             assertEquals("Uncovered areas must never tap through to outgoing controls", 0, oldClicks)
             frames(8)
             assertTrue(target.alpha > 0f && target.alpha < 1f)
