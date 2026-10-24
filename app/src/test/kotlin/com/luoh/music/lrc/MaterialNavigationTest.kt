@@ -3,6 +3,9 @@ package com.luoh.music.lrc
 import android.content.Context
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AnimationUtils
+import android.view.animation.Interpolator
+import android.view.animation.PathInterpolator
 import androidx.test.core.app.ApplicationProvider
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.slider.Slider
@@ -14,6 +17,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import org.robolectric.shadow.api.Shadow
+import org.robolectric.util.ReflectionHelpers.ClassParameter
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28], qualifiers = "w320dp-h640dp")
@@ -45,7 +50,14 @@ class MaterialNavigationTest {
             R.anim.activity_close_enter, R.anim.activity_close_exit, R.anim.dialog_enter, R.anim.dialog_exit)) {
             assertNotNull(android.view.animation.AnimationUtils.loadAnimation(context, id))
         }
-        val spring = android.view.animation.AnimationUtils.loadInterpolator(context, R.interpolator.agora_spring)
+        // Robolectric 4.12 substitutes a LinearInterpolator for every resource. Invoke
+        // the framework loader directly so this verifies our actual XML spring path.
+        val spring = Shadow.directlyOn<Interpolator, AnimationUtils>(
+            AnimationUtils::class.java, "loadInterpolator",
+            ClassParameter.from(Context::class.java, context),
+            ClassParameter.from(Int::class.javaPrimitiveType!!, R.interpolator.agora_spring)
+        )
+        assertTrue(spring is PathInterpolator)
         assertEquals(0f, spring.getInterpolation(0f), 0f)
         assertEquals(1f, spring.getInterpolation(1f), 0f)
         assertTrue((1..99).any { spring.getInterpolation(it / 100f) > 1f })
