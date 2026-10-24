@@ -30,8 +30,15 @@ fun colorSchemeForPreset(
     style: SchemeStyle = SchemeStyle.TONAL_SPOT,
     isDark: Boolean = false
 ): ColorScheme {
-    val seedArgb = seedColors[preset]!!.toInt()
-    val hct = Hct.fromInt(seedArgb)
+    return colorSchemeForSeed(seedColors.getValue(preset).toInt(), isDark, style)
+}
+
+fun colorSchemeForSeed(
+    seed: Int,
+    isDark: Boolean = false,
+    style: SchemeStyle = SchemeStyle.TONAL_SPOT,
+): ColorScheme {
+    val hct = Hct.fromInt(seed)
     val scheme: DynamicScheme = when (style) {
         SchemeStyle.TONAL_SPOT -> SchemeTonalSpot(hct, isDark, 0.0)
         SchemeStyle.EXPRESSIVE -> SchemeExpressive(hct, isDark, 0.0)
@@ -40,9 +47,6 @@ fun colorSchemeForPreset(
     }
     return scheme.toColorScheme()
 }
-
-fun colorSchemeForSeed(seed: Int, isDark: Boolean = false): ColorScheme =
-    SchemeTonalSpot(Hct.fromInt(seed), isDark, 0.0).toColorScheme()
 
 private fun DynamicScheme.toColorScheme(): ColorScheme {
     val c = { argb: Int -> Color(argb) }

@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ColorLens
+import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.FormatAlignLeft
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Layers
@@ -42,6 +43,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.SettingsBrightness
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Style
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Timeline
@@ -71,9 +73,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -86,6 +90,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.luoh.music.lrc.ui.agora.ColorSchemePreset
+import com.luoh.music.lrc.ui.agora.SchemeStyle
+import com.luoh.music.lrc.ui.agora.ThemeMode
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -206,14 +213,16 @@ private fun SettingsSwitchItem(
     summary: String,
     icon: ImageVector,
     checked: Boolean,
+    enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit,
 ) {
     SettingsItem(
         headlineContent = { Text(title) },
         supportingContent = { Text(summary) },
         leadingContent = { SettingsLeadingIcon(icon) },
-        trailingContent = { Switch(checked = checked, onCheckedChange = null) },
-        modifier = Modifier.toggleable(checked, role = Role.Switch, onValueChange = onCheckedChange),
+        trailingContent = { Switch(checked = checked, onCheckedChange = null, enabled = enabled) },
+        modifier = Modifier.alpha(if (enabled) 1f else 0.38f)
+            .toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange),
     )
 }
 
@@ -223,6 +232,7 @@ private fun SettingsChoiceItem(
     selected: String,
     options: List<Pair<String, String>>,
     icon: ImageVector,
+    enabled: Boolean = true,
     onSelect: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -252,7 +262,7 @@ private fun SettingsChoiceItem(
                 }
             }
         },
-        modifier = Modifier.clickable { expanded = true },
+        modifier = Modifier.alpha(if (enabled) 1f else 0.38f).clickable(enabled = enabled) { expanded = true },
     )
 }
 
@@ -587,8 +597,27 @@ private fun LyricsContentSettings(context: Context, prefs: SharedPreferences, re
 
 @Composable
 private fun AppAppearanceSettings(context: Context, prefs: SharedPreferences, revision: Int) {
-    val theme = remember(revision) { prefs.getString(ThemePrefs.KEY, ThemePrefs.FOLLOW).orEmpty() }
+    val appearance = remember(prefs, revision) { ThemePrefs.read(prefs) }
+    val theme = when (appearance.mode) {
+        ThemeMode.LIGHT -> ThemePrefs.LIGHT
+        ThemeMode.DARK -> ThemePrefs.DARK
+        ThemeMode.FOLLOW_DEVICE -> ThemePrefs.FOLLOW
+    }
     val accent = remember(revision) { AccentPrefs.customColor(context)?.let(::settingsHexColor) }
+    val dynamicSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val dynamicActive = dynamicSupported && appearance.dynamicColor
+    val presets = listOf(
+        ColorSchemePreset.OCEAN to "海洋", ColorSchemePreset.MIDNIGHT to "午夜",
+        ColorSchemePreset.NORDIC to "北欧", ColorSchemePreset.FOREST to "森林",
+        ColorSchemePreset.SUNSET to "日落", ColorSchemePreset.ROSE to "玫瑰",
+        ColorSchemePreset.LAVENDER to "薰衣草", ColorSchemePreset.SLATE to "岩灰",
+    )
+    val styles = listOf(
+        SchemeStyle.NEUTRAL to "中性", SchemeStyle.TONAL_SPOT to "柔和",
+        SchemeStyle.EXPRESSIVE to "表现力", SchemeStyle.VIBRANT to "鲜艳",
+    )
+    val presetLabel = presets.first { it.first == appearance.preset }.second
+    val primary = MaterialTheme.colorScheme.primary
     var showColorPicker by rememberSaveable { mutableStateOf(false) }
     SettingsGroup(title = "主题与颜色", items = listOf(
         {
@@ -597,18 +626,48 @@ private fun AppAppearanceSettings(context: Context, prefs: SharedPreferences, re
             }
         },
         {
+            SettingsSwitchItem("AMOLED", "浅色主题使用纯白背景，深色主题使用纯黑背景",
+                Icons.Default.Contrast, appearance.amoled) {
+                prefs.edit().putBoolean(ThemePrefs.KEY_AMOLED, it).apply()
+            }
+        },
+        {
+            SettingsSwitchItem("动态颜色", "根据壁纸使用系统生成的颜色（Android 12+）",
+                Icons.Default.ColorLens, appearance.dynamicColor, enabled = dynamicSupported) {
+                prefs.edit().putBoolean(ThemePrefs.KEY_DYNAMIC_COLOR, it).apply()
+            }
+        },
+        {
+            SettingsChoiceItem("配色方案", if (accent != null) "custom" else appearance.preset.name,
+                (if (accent != null) listOf("custom" to "自定义") else emptyList()) +
+                    presets.map { it.first.name to it.second },
+                Icons.Default.Palette, enabled = !dynamicActive) { value ->
+                if (value != "custom") {
+                    prefs.edit().putString(ThemePrefs.KEY_COLOR_SCHEME, value).remove(AccentPrefs.KEY).apply()
+                    settingsOverlayAction(context, LyricsOverlayService.ACTION_REFRESH_ACCENT)
+                }
+            }
+        },
+        {
+            SettingsChoiceItem("方案风格", appearance.style.name, styles.map { it.first.name to it.second },
+                Icons.Default.Style, enabled = !dynamicActive) {
+                prefs.edit().putString(ThemePrefs.KEY_SCHEME_STYLE, it).apply()
+            }
+        },
+        {
             SettingsItem(
                 headlineContent = { Text("主调颜色") },
-                supportingContent = { Text(accent ?: "森林") },
+                supportingContent = { Text(if (dynamicActive) "跟随动态颜色" else accent ?: presetLabel) },
                 leadingContent = { SettingsLeadingIcon(Icons.Default.Palette) },
                 trailingContent = { Box(Modifier.size(32.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary)) },
-                modifier = Modifier.clickable { showColorPicker = true },
+                modifier = Modifier.alpha(if (dynamicActive) 0.38f else 1f)
+                    .clickable(enabled = !dynamicActive) { showColorPicker = true },
             )
         },
     ))
     if (showColorPicker) SettingsColorDialog(
         title = "主调颜色",
-        initialColor = accent ?: settingsHexColor(AccentPrefs.accent(context)),
+        initialColor = accent ?: settingsHexColor(primary.toArgb()),
         onDismiss = { showColorPicker = false },
         onReset = {
             AccentPrefs.clear(context)

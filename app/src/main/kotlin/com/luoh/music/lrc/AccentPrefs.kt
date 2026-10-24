@@ -6,7 +6,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 
 /**
- * App accent color. The default is Agora's FOREST / Tonal Spot primary;
+ * Optional custom seed for the Compose theme and floating window controls;
  * users may choose a custom color in 设置 › 应用外观 › 主调颜色.
  */
 object AccentPrefs {
@@ -31,7 +31,7 @@ object AccentPrefs {
         prefs(context).edit().remove(KEY).apply()
     }
 
-    /** Main accent: custom color, or the FOREST primary for the active theme. */
+    /** Legacy resource fallback; Compose pages use MaterialTheme's current primary. */
     fun accent(context: Context): Int = customColor(context)
         ?: ContextCompat.getColor(context, R.color.accent)
 
