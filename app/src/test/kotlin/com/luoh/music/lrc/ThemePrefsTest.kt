@@ -87,4 +87,19 @@ class ThemePrefsTest {
         assertEquals(colorSchemeForPreset(ColorSchemePreset.OCEAN, SchemeStyle.NEUTRAL).primary,
             neutral.primary)
     }
+
+    @Test fun grayscaleSeedsNeverAcquireBlueAndDarkGrayStaysExactInLightTheme() {
+        val darkGray = android.graphics.Color.parseColor("#111111")
+        for (dark in listOf(false, true)) for (style in SchemeStyle.entries) {
+            val scheme = colorSchemeForSeed(darkGray, dark, style)
+            for (color in listOf(scheme.primary, scheme.secondary, scheme.tertiary, scheme.background,
+                scheme.surface, scheme.surfaceContainer, scheme.outline)) {
+                val argb = color.toArgb()
+                assertEquals(android.graphics.Color.red(argb), android.graphics.Color.green(argb))
+                assertEquals(android.graphics.Color.red(argb), android.graphics.Color.blue(argb))
+            }
+            assertTrue(ColorUtils.calculateContrast(scheme.primary.toArgb(), scheme.background.toArgb()) >= 4.5)
+        }
+        assertEquals(Color(darkGray), colorSchemeForSeed(darkGray, style = SchemeStyle.NEUTRAL).primary)
+    }
 }

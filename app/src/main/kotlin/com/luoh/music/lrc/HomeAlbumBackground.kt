@@ -4,7 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.material3.MaterialTheme
@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.drawscope.scale
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
 import com.materialkolor.hct.Hct
 import kotlinx.coroutines.Dispatchers
@@ -26,8 +27,12 @@ import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.PI
+import kotlin.math.sin
+import kotlin.math.cos
 
-internal data class HomeAlbumPalette(val primary: Int, val secondary: Int)
+internal data class HomeAlbumPalette(val primary: Int, val secondary: Int,
+    val tertiary: Int = primary, val fourth: Int = secondary)
 
 /** Read a small software thumbnail once per cover, never on the UI thread. */
 internal fun extractHomeAlbumPalette(cover: Bitmap?): HomeAlbumPalette? {
@@ -72,7 +77,9 @@ internal fun extractHomeAlbumPalette(cover: Bitmap?): HomeAlbumPalette? {
             val distance = abs(bucket - dominant)
             min(distance, 12 - distance) >= 2
         }?.let(::color) ?: primary
-        HomeAlbumPalette(primary, secondary)
+        HomeAlbumPalette(primary, secondary,
+            chromatic.getOrNull(2)?.let(::color) ?: secondary,
+            chromatic.getOrNull(3)?.let(::color) ?: primary)
     } catch (_: IllegalArgumentException) {
         null
     } catch (_: IllegalStateException) {
@@ -100,44 +107,59 @@ internal fun HomeAlbumBackground(state: HomePresentationState, modifier: Modifie
     val primary = colors?.primary ?: scheme.primary.toArgb()
     val secondary = colors?.secondary ?: scheme.tertiary.toArgb()
     val base by animateColorAsState(
-        if (colors == null) scheme.background else homeAlbumTone(primary, if (dark) 10.0 else 96.0, 14.0),
+        if (colors == null) scheme.background else homeAlbumTone(primary, if (dark) 14.0 else 90.0, 24.0),
         tween(900), label = "albumBackgroundBase",
     )
     val first by animateColorAsState(
-        homeAlbumTone(primary, if (dark) 26.0 else 85.0, 46.0),
+        homeAlbumTone(primary, if (dark) 34.0 else 70.0, 64.0),
         tween(900), label = "albumBackgroundPrimary",
     )
     val second by animateColorAsState(
-        homeAlbumTone(secondary, if (dark) 22.0 else 89.0, 38.0),
+        homeAlbumTone(secondary, if (dark) 28.0 else 78.0, 60.0),
         tween(900), label = "albumBackgroundSecondary",
+    )
+    val third by animateColorAsState(
+        homeAlbumTone(colors?.tertiary ?: secondary, if (dark) 22.0 else 82.0, 52.0),
+        tween(900), label = "albumBackgroundThird",
+    )
+    val fourth by animateColorAsState(
+        homeAlbumTone(colors?.fourth ?: primary, if (dark) 30.0 else 74.0, 58.0),
+        tween(900), label = "albumBackgroundFourth",
     )
     val motion = remember { Animatable(0f) }
     val animate = state.presentationActive && state.playing && LocalAgoraMotionPolicy.current.allowContinuousMotion
     LaunchedEffect(animate) {
         if (!animate) return@LaunchedEffect
-        var target = if (motion.value < .5f) 1f else 0f
+        val cycle = (2 * PI).toFloat()
         while (true) {
-            motion.animateTo(target, tween(
-                durationMillis = (18_000 * abs(target - motion.value)).toInt().coerceAtLeast(1),
-                easing = FastOutSlowInEasing,
+            motion.animateTo(cycle, tween(
+                durationMillis = (40_000 * (1f - motion.value / cycle)).toInt().coerceAtLeast(1),
+                easing = LinearEasing,
             ))
-            target = 1f - target
+            motion.snapTo(0f)
         }
     }
     // Only this drawing layer reads the continuous animation clock.
     Canvas(modifier) {
         val phase = motion.value
-        val radius = max(size.width, size.height) * .9f
         drawRect(base)
-        drawRect(Brush.radialGradient(
-            listOf(first.copy(alpha = .8f), first.copy(alpha = 0f)),
-            center = Offset(size.width * (.1f + phase * .65f), size.height * (.15f + phase * .2f)),
-            radius = radius,
-        ))
-        drawRect(Brush.radialGradient(
-            listOf(second.copy(alpha = .7f), second.copy(alpha = 0f)),
-            center = Offset(size.width * (.95f - phase * .6f), size.height * (.85f - phase * .2f)),
-            radius = radius * .85f,
-        ))
+        // Broad, overlapping elliptical color fields deform and orbit independently.
+        // The gradients provide the blur without full-resolution bitmap filters.
+        fun field(color: Color, x: Float, y: Float, radius: Float, stretch: Float, opacity: Float) {
+            val center = Offset(size.width * x, size.height * y)
+            scale(1f, stretch, pivot = center) {
+                drawCircle(Brush.radialGradient(
+                    0f to color.copy(alpha = opacity), .35f to color.copy(alpha = opacity * .8f),
+                    1f to color.copy(alpha = 0f), center = center, radius = radius,
+                ), radius, center)
+            }
+        }
+        val radius = max(size.width, size.height) * .65f
+        field(first, .28f + .28f * sin(phase), .25f + .18f * cos(phase), radius, 1.2f + .15f * sin(phase), .94f)
+        field(second, .75f + .24f * cos(phase), .65f + .23f * sin(phase), radius * .9f, .9f + .15f * cos(phase), .9f)
+        field(third, .2f + .28f * cos(phase * 2f), .8f + .15f * sin(phase), radius * .75f, 1.3f, .8f)
+        field(fourth, .65f + .25f * sin(phase), .15f + .28f * cos(phase * 2f), radius * .75f, .85f, .82f)
+        // A uniform veil keeps lyrics readable while preserving cover saturation.
+        drawRect(scheme.background.copy(alpha = if (dark) .12f else .1f))
     }
 }

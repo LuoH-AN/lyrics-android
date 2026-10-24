@@ -1,6 +1,7 @@
 package com.luoh.music.lrc
 
 import android.app.Application
+import android.content.Context
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
@@ -9,6 +10,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertRangeInfoEquals
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
@@ -22,6 +25,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.unit.dp
+import androidx.test.core.app.ApplicationProvider
 import com.luoh.music.lrc.ui.agora.AgoraMotionPolicy
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
 import org.junit.Assert.assertEquals
@@ -29,6 +33,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertTrue
 import org.junit.Rule
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -55,6 +60,11 @@ internal class RecordingHomeActions : HomePresentationState.Actions {
 @Config(sdk = [35], application = Application::class, qualifiers = "w400dp-h800dp-mdpi")
 class ComposeHomeScreenTest {
     @get:Rule val compose = createComposeRule()
+
+    @Before fun clearHomePreferences() {
+        ApplicationProvider.getApplicationContext<Context>()
+            .getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+    }
 
     @Test fun permissionActionsReachTheirCallbacksFromTheActualHomeGate() {
         val calls = mutableListOf<String>()
@@ -124,8 +134,8 @@ class ComposeHomeScreenTest {
         compose.onNodeWithContentDescription("显示桌面歌词").assertExists()
         compose.onNodeWithContentDescription("更多").performTouchInput { click() }
         compose.onNodeWithText("更多").assertIsDisplayed()
-        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("取消"))
-        compose.onNodeWithText("取消").performTouchInput { click() }
+        compose.onNodeWithText("取消").assertDoesNotExist()
+        compose.runOnIdle { requireNotNull(ShadowDialog.getLatestDialog()).onBackPressed() }
         compose.onNodeWithTag("home_player").performTouchInput {
             swipe(Offset(80f, 35f), Offset(80f, -100f), durationMillis = 500)
         }
@@ -174,6 +184,46 @@ class ComposeHomeScreenTest {
         compose.onNodeWithContentDescription("播放").assertIsDisplayed()
     }
 
+    @Test fun compactCoverShowsProgressAndTogglesPlaybackWithoutExpanding() {
+        val actions = RecordingHomeActions()
+        val state = HomePresentationState().apply {
+            this.actions = actions
+            setSnapshot(HomePresentationState.Snapshot(track = "Song", positionMs = 4_000, durationMs = 10_000))
+        }
+        compose.setContent {
+            CompositionLocalProvider(LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduceMotion = true)) {
+                MaterialTheme { Box(Modifier.size(400.dp, 700.dp)) { ComposeHomeScreen(state, {}, {}, {}) } }
+            }
+        }
+        compose.onNodeWithTag("home_cover_progress").assertDoesNotExist()
+        compose.onNodeWithContentDescription("收起播放控制栏").performTouchInput { click() }
+        compose.onNodeWithTag("home_cover_progress").assertRangeInfoEquals(ProgressBarRangeInfo(.4f, 0f..1f))
+        assertTrue("Compact controls should occupy at most 80dp", compose.onNodeWithTag("home_player").fetchSemanticsNode().size.height <= 80)
+        compose.onNodeWithContentDescription("开始播放").performTouchInput { click() }
+        compose.runOnIdle {
+            assertEquals(listOf("play"), actions.calls)
+            state.setProgress(6_000, false)
+        }
+        compose.onNodeWithTag("home_cover_progress").assertRangeInfoEquals(ProgressBarRangeInfo(.6f, 0f..1f))
+        compose.runOnIdle { state.setProgress(6_000, true) }
+        compose.onNodeWithContentDescription("暂停播放").performTouchInput { click() }
+        compose.runOnIdle { assertEquals(listOf("play", "play"), actions.calls) }
+        compose.onNodeWithContentDescription("展开播放控制栏").assertIsDisplayed()
+        compose.onNodeWithContentDescription("播放").assertDoesNotExist()
+    }
+
+    @Test fun backgroundPreferenceRemovesAndRestoresTheDrawingLayerImmediately() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val state = HomePresentationState()
+        compose.setContent { MaterialTheme { ComposeHomeScreen(state, {}, {}, {}) } }
+        compose.onNodeWithTag("home_album_background").assertExists()
+        compose.runOnIdle { HomeLyricsPrefs.saveAlbumBackground(context, false) }
+        compose.onNodeWithTag("home_album_background").assertDoesNotExist()
+        compose.runOnIdle { assertFalse(HomeLyricsPrefs.albumBackground(context)) }
+        compose.runOnIdle { HomeLyricsPrefs.saveAlbumBackground(context, true) }
+        compose.onNodeWithTag("home_album_background").assertExists()
+    }
+
     @Test fun moreSheetDimmingFollowsCloseMotionAndRepeatedOpenUsesANewDialog() {
         val actions = RecordingHomeActions()
         val state = HomePresentationState().apply {
@@ -201,10 +251,10 @@ class ComposeHomeScreenTest {
                 partialDim = requireNotNull(dialog.window).attributes.dimAmount
                 assertEquals(0.32f * 0.45f, partialDim, 0.002f)
             }
-            compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("取消"))
+            compose.onNodeWithText("取消").assertDoesNotExist()
             compose.mainClock.autoAdvance = false
-            // Repeated cancellation during one close must share the same dismissal.
-            repeat(2) { compose.onNodeWithText("取消").performTouchInput { click() } }
+            // Repeated Back presses during one close must share the same dismissal.
+            compose.runOnIdle { repeat(2) { dialog.onBackPressed() } }
             repeat(2) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
             compose.mainClock.advanceTimeBy(64)
             compose.waitForIdle()

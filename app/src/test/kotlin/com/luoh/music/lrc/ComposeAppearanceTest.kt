@@ -145,6 +145,14 @@ class ComposeAppearanceTest {
         compose.runOnIdle { assertEquals("#AD1457", prefs.getString(AccentPrefs.KEY, null)) }
     }
 
+    @Test fun monochromeStyleCanBeSelectedAndUpdatesAllAccentRoles() {
+        prefs.edit().putString(ThemePrefs.KEY, ThemePrefs.LIGHT).commit()
+        showSettings()
+        select("方案风格", "黑白灰")
+        assertScheme(colorSchemeForPreset(ColorSchemePreset.OCEAN, SchemeStyle.MONOCHROME))
+        compose.runOnIdle { assertEquals(SchemeStyle.MONOCHROME.name, prefs.getString(ThemePrefs.KEY_SCHEME_STYLE, null)) }
+    }
+
     @Test @Config(sdk = [28])
     fun olderAndroidDisablesDynamicColorsAndRestoredPreferenceFallsBackToPreset() {
         prefs.edit().putString(ThemePrefs.KEY, ThemePrefs.LIGHT)

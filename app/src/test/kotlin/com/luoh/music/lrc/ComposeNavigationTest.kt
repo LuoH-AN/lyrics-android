@@ -8,6 +8,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -37,6 +39,7 @@ class ComposeNavigationTest {
     @Before fun clearPreferences() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences(ThemePrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+        context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
     }
 
     private fun show(navigator: ComposeNavigator, width: Int = 400) {
@@ -67,6 +70,18 @@ class ComposeNavigationTest {
         compose.onNodeWithContentDescription("返回").performTouchInput { click() }
         compose.runOnIdle { assertEquals("settings", navigator.route.kind); assertTrue(navigator.isOpen) }
         compose.onNodeWithText("应用外观").assertExists()
+    }
+
+    @Test fun homeBackgroundSwitchPersistsAfterLeavingAndReopeningSettings() {
+        val navigator = ComposeNavigator(initial = ComposeRoute("settings"))
+        show(navigator)
+        compose.onNodeWithText("主页歌词").performScrollTo().performTouchInput { click() }
+        compose.onNodeWithText("专辑流动背景").assertIsOn().performTouchInput { click() }
+        compose.onNodeWithText("专辑流动背景").assertIsOff()
+        compose.runOnIdle { assertFalse(HomeLyricsPrefs.albumBackground(ApplicationProvider.getApplicationContext<Context>())) }
+        compose.onNodeWithContentDescription("返回").performTouchInput { click() }
+        compose.onNodeWithText("主页歌词").performScrollTo().performTouchInput { click() }
+        compose.onNodeWithText("专辑流动背景").assertIsOff()
     }
 
     @Test @Config(qualifiers = "w1200dp-h800dp-mdpi")

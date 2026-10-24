@@ -3,14 +3,16 @@ package com.luoh.music.lrc.ui.agora
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import com.materialkolor.scheme.DynamicScheme
 import com.materialkolor.scheme.SchemeExpressive
 import com.materialkolor.scheme.SchemeNeutral
+import com.materialkolor.scheme.SchemeMonochrome
 import com.materialkolor.scheme.SchemeTonalSpot
 import com.materialkolor.scheme.SchemeVibrant
 import com.materialkolor.hct.Hct
 
-enum class SchemeStyle { TONAL_SPOT, EXPRESSIVE, VIBRANT, NEUTRAL }
+enum class SchemeStyle { TONAL_SPOT, EXPRESSIVE, VIBRANT, NEUTRAL, MONOCHROME }
 
 enum class ColorSchemePreset { MIDNIGHT, NORDIC, FOREST, SUNSET, ROSE, LAVENDER, SLATE, OCEAN }
 
@@ -39,13 +41,26 @@ fun colorSchemeForSeed(
     style: SchemeStyle = SchemeStyle.TONAL_SPOT,
 ): ColorScheme {
     val hct = Hct.fromInt(seed)
-    val scheme: DynamicScheme = when (style) {
+    // Near-gray seeds have no meaningful hue. Giving them a chromatic palette
+    // turns inputs such as #111111 blue even in the Neutral scheme.
+    val achromatic = hct.chroma < 4.0
+    val scheme: DynamicScheme = when (if (achromatic) SchemeStyle.MONOCHROME else style) {
         SchemeStyle.TONAL_SPOT -> SchemeTonalSpot(hct, isDark, 0.0)
         SchemeStyle.EXPRESSIVE -> SchemeExpressive(hct, isDark, 0.0)
         SchemeStyle.VIBRANT   -> SchemeVibrant(hct, isDark, 0.0)
         SchemeStyle.NEUTRAL   -> SchemeNeutral(hct, isDark, 0.0)
+        SchemeStyle.MONOCHROME -> SchemeMonochrome(hct, isDark, 0.0)
     }
-    return scheme.toColorScheme()
+    val colors = scheme.toColorScheme()
+    if (achromatic && style != SchemeStyle.MONOCHROME) {
+        val opaqueSeed = seed or 0xFF000000.toInt()
+        if (androidx.core.graphics.ColorUtils.calculateContrast(opaqueSeed, colors.background.toArgb()) >= 4.5) {
+            val onSeed = if (androidx.core.graphics.ColorUtils.calculateContrast(0xFFFFFFFF.toInt(), opaqueSeed) >= 4.5)
+                Color.White else Color.Black
+            return colors.copy(primary = Color(opaqueSeed), onPrimary = onSeed, surfaceTint = Color(opaqueSeed))
+        }
+    }
+    return colors
 }
 
 private fun DynamicScheme.toColorScheme(): ColorScheme {

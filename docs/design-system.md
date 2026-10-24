@@ -16,7 +16,7 @@
 | 24dp 菜单与选项高亮 | `ui/agora/AgoraDropdownMenu.kt` |
 | 应用减少动效设置与三项系统动画比例观察 | `ui/agora/AgoraMotionPolicy.kt` |
 
-自定义主色仍通过原文的 Tonal Spot 算法生成完整颜色角色。主题由 Compose 根节点观察偏好和系统变化，无截图过渡或 Activity 重建。首页歌词使用 LazyColumn、monotonic LyricClock 和逐字绘制；设置、管理、编辑及隐私页面使用原文 Scaffold 和 Material3 控件。
+自定义主色按所选方案风格生成完整颜色角色；黑白灰或近灰输入使用 Monochrome，避免给无色相的输入添加蓝色。主题由 Compose 根节点观察偏好和系统变化，无截图过渡或 Activity 重建。首页歌词使用 LazyColumn、monotonic LyricClock 和逐字绘制；设置、管理、编辑及隐私页面使用原文 Scaffold 和 Material3 控件。
 
 面板关闭时额外同步清零窗口 dim，并禁用独立的平台窗口动画，避免弹窗销毁取消最后一帧遮罩更新。面板的运动曲线、拖动与 nested scroll 保持原组件逻辑。
 

@@ -615,6 +615,7 @@ private fun AppAppearanceSettings(context: Context, prefs: SharedPreferences, re
     val styles = listOf(
         SchemeStyle.NEUTRAL to "中性", SchemeStyle.TONAL_SPOT to "柔和",
         SchemeStyle.EXPRESSIVE to "表现力", SchemeStyle.VIBRANT to "鲜艳",
+        SchemeStyle.MONOCHROME to "黑白灰",
     )
     val presetLabel = presets.first { it.first == appearance.preset }.second
     val primary = MaterialTheme.colorScheme.primary
@@ -683,6 +684,12 @@ private fun AppAppearanceSettings(context: Context, prefs: SharedPreferences, re
 @Composable
 private fun HomeAlignmentSettings(context: Context, revision: Int) {
     val alignment = remember(revision) { HomeLyricsPrefs.alignment(context) }
+    val albumBackground = remember(revision) { HomeLyricsPrefs.albumBackground(context) }
+    SettingsGroup(title = "背景", items = listOf({
+        SettingsSwitchItem("专辑流动背景", "从封面取色，播放时缓慢流动", Icons.Default.BlurOn, albumBackground) {
+            HomeLyricsPrefs.saveAlbumBackground(context, it)
+        }
+    }))
     SettingsGroup(title = "歌词布局", items = listOf({
         SettingsChoiceItem("对齐方式", alignment, listOf(HomeLyricsPrefs.LEFT to "左对齐", HomeLyricsPrefs.CENTER to "居中", HomeLyricsPrefs.RIGHT to "右对齐"),
             Icons.Default.FormatAlignLeft) { HomeLyricsPrefs.save(context, it) }
