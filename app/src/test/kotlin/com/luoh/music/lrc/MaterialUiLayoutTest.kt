@@ -333,10 +333,25 @@ class MaterialUiLayoutTest {
         assertTrue(openedTranslationSettings)
     }
 
+    private fun layoutMoreSheet(dialog: BottomSheetDialog) {
+        val decor = requireNotNull(dialog.window).decorView
+        val density = decor.resources.displayMetrics.density
+        decor.measure(
+            View.MeasureSpec.makeMeasureSpec((320 * density).toInt(), View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec((640 * density).toInt(), View.MeasureSpec.EXACTLY)
+        )
+        decor.layout(0, 0, decor.measuredWidth, decor.measuredHeight)
+        decor.viewTreeObserver.dispatchOnPreDraw()
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(500))
+    }
+
     private fun assertMoreSheetDismissal(dialog: BottomSheetDialog, close: () -> Unit) {
         val window = requireNotNull(dialog.window)
         val sheet = requireNotNull(dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet))
         val scrim = requireNotNull(dialog.findViewById<View>(com.google.android.material.R.id.touch_outside))
+        assertTrue("Animated dismissal must start with a laid-out sheet", sheet.height > 1)
+        assertTrue("Animated dismissal must start with an attached sheet", sheet.isAttachedToWindow)
+        assertTrue("The sheet must be visible before closing", sheet.y < (sheet.parent as View).height - 1)
         assertEquals("The system must not add a separate delayed dim fade", 0f, window.attributes.dimAmount, 0f)
         val initialAlpha = scrim.alpha
         assertTrue(initialAlpha > 0f)
@@ -365,7 +380,7 @@ class MaterialUiLayoutTest {
         home.findViewById<View>(R.id.home_more).performClick()
         val dialog = org.robolectric.shadows.ShadowDialog.getLatestDialog() as BottomSheetDialog
         try {
-            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(500))
+            layoutMoreSheet(dialog)
             assertTrue(dialog.isShowing)
             assertNotNull(dialog.findViewById<View>(R.id.home_more_sheet))
             val decor = requireNotNull(dialog.window).decorView
@@ -383,9 +398,9 @@ class MaterialUiLayoutTest {
             assertEquals(1, actions.exports)
             assertFalse("Export must close the sheet", dialog.isShowing)
             home.findViewById<View>(R.id.home_more).performClick()
-            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(500))
             val reopened = org.robolectric.shadows.ShadowDialog.getLatestDialog() as BottomSheetDialog
             try {
+                layoutMoreSheet(reopened)
                 assertMoreSheetDismissal(reopened) {
                     requireNotNull(reopened.findViewById<MaterialButton>(R.id.home_more_settings)).performClick()
                 }
