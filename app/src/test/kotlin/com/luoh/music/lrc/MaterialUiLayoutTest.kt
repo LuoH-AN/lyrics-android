@@ -333,6 +333,28 @@ class MaterialUiLayoutTest {
         assertTrue(openedTranslationSettings)
     }
 
+    private fun assertMoreSheetDismissal(dialog: BottomSheetDialog, close: () -> Unit) {
+        val window = requireNotNull(dialog.window)
+        val sheet = requireNotNull(dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet))
+        val scrim = requireNotNull(dialog.findViewById<View>(com.google.android.material.R.id.touch_outside))
+        assertEquals("The system must not add a separate delayed dim fade", 0f, window.attributes.dimAmount, 0f)
+        val initialAlpha = scrim.alpha
+        assertTrue(initialAlpha > 0f)
+        close()
+        var fadedDuringSlide = false
+        for (frame in 1..60) {
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(16))
+            if (!dialog.isShowing) break
+            val visibleHeight = ((sheet.parent as View).height - sheet.y).coerceIn(0f, sheet.height.toFloat())
+            assertEquals("Scrim must track the visible sheet on every frame", .32f * visibleHeight / sheet.height, scrim.alpha, .0001f)
+            if (scrim.alpha > 0f && scrim.alpha < initialAlpha) fadedDuringSlide = true
+            assertTrue("An offscreen sheet must release its dialog immediately", visibleHeight > 1f)
+        }
+        assertTrue("The scrim must fade during the slide", fadedDuringSlide)
+        assertFalse("Closing must not wait for an invisible spring tail", dialog.isShowing)
+        assertEquals("No scrim may remain after the sheet closes", 0f, scrim.alpha, 0f)
+    }
+
     @Test fun modernMoreSheetOpensDetailedSettings() {
         val host = org.robolectric.Robolectric.buildActivity(android.app.Activity::class.java).setup()
         val home = HomeLyricsView(ContextThemeWrapper(host.get(), R.style.Theme_DesktopLyrics))
@@ -355,23 +377,51 @@ class MaterialUiLayoutTest {
                 output.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
                 bitmap.recycle()
             }
-            requireNotNull(dialog.findViewById<MaterialButton>(R.id.home_more_export)).performClick()
+            assertMoreSheetDismissal(dialog) {
+                requireNotNull(dialog.findViewById<MaterialButton>(R.id.home_more_export)).performClick()
+            }
             assertEquals(1, actions.exports)
-            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(1500))
             assertFalse("Export must close the sheet", dialog.isShowing)
             home.findViewById<View>(R.id.home_more).performClick()
             org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(500))
             val reopened = org.robolectric.shadows.ShadowDialog.getLatestDialog() as BottomSheetDialog
             try {
-                requireNotNull(reopened.findViewById<MaterialButton>(R.id.home_more_settings)).performClick()
+                assertMoreSheetDismissal(reopened) {
+                    requireNotNull(reopened.findViewById<MaterialButton>(R.id.home_more_settings)).performClick()
+                }
                 assertEquals(1, actions.settingsOpened)
-                org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(1500))
                 assertFalse(reopened.isShowing)
             } finally {
                 reopened.dismiss()
             }
         } finally {
             dialog.dismiss()
+            host.pause().stop().destroy()
+        }
+    }
+
+    @Test fun tappingOutsideMoreSheetWithMotionDisabledLeavesNoScrim() {
+        val host = org.robolectric.Robolectric.buildActivity(android.app.Activity::class.java).setup()
+        val home = HomeLyricsView(ContextThemeWrapper(host.get(), R.style.Theme_DesktopLyrics))
+        val resolver = host.get().contentResolver
+        val key = android.provider.Settings.Global.ANIMATOR_DURATION_SCALE
+        val originalScale = android.provider.Settings.Global.getFloat(resolver, key, 1f)
+        var dialog: BottomSheetDialog? = null
+        try {
+            android.provider.Settings.Global.putFloat(resolver, key, 0f)
+            host.get().setContentView(home)
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            home.findViewById<View>(R.id.home_more).performClick()
+            val opened = org.robolectric.shadows.ShadowDialog.getLatestDialog() as BottomSheetDialog
+            dialog = opened
+            val scrim = requireNotNull(opened.findViewById<View>(com.google.android.material.R.id.touch_outside))
+            assertTrue(opened.isShowing)
+            scrim.performClick()
+            assertFalse("Disabled motion must close the sheet immediately", opened.isShowing)
+            assertEquals("Outside dismissal must leave no dimming", 0f, scrim.alpha, 0f)
+        } finally {
+            dialog?.dismiss()
+            android.provider.Settings.Global.putFloat(resolver, key, originalScale)
             host.pause().stop().destroy()
         }
     }
