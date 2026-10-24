@@ -6,15 +6,21 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.swipe
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.unit.dp
 import com.luoh.music.lrc.ui.agora.AgoraMotionPolicy
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
@@ -88,6 +94,84 @@ class ComposeHomeScreenTest {
         compose.onNodeWithContentDescription("显示桌面歌词").assertExists()
         compose.runOnIdle { state.setOverlayState(true) }
         compose.onNodeWithContentDescription("关闭桌面歌词").assertExists()
+    }
+
+    @Test fun swipingPlayerKeepsCompactActionsAndRestoresPlaybackControls() {
+        val actions = RecordingHomeActions()
+        val state = HomePresentationState().apply {
+            this.actions = actions
+            setSnapshot(HomePresentationState.Snapshot(track = "Song", artist = "Artist", durationMs = 10_000))
+            setLyrics(LyricDocument(emptyList(), true))
+        }
+        compose.setContent {
+            CompositionLocalProvider(LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduceMotion = true)) {
+                MaterialTheme { Box(Modifier.size(400.dp, 700.dp)) { ComposeHomeScreen(state, {}, {}, {}) } }
+            }
+        }
+        val fullHeight = compose.onNodeWithTag("home_player").fetchSemanticsNode().size.height
+        compose.onNodeWithTag("home_player").performTouchInput {
+            swipe(Offset(80f, 30f), Offset(80f, 150f), durationMillis = 500)
+        }
+        compose.onNodeWithContentDescription("展开播放控制栏").assertIsDisplayed()
+        compose.onNodeWithText("Song").assertIsDisplayed()
+        compose.onNodeWithText("Artist").assertIsDisplayed()
+        compose.onNodeWithContentDescription("播放").assertDoesNotExist()
+        compose.onNodeWithContentDescription("上一首").assertDoesNotExist()
+        compose.onNodeWithContentDescription("下一首").assertDoesNotExist()
+        assertTrue(compose.onNodeWithTag("home_player").fetchSemanticsNode().size.height < fullHeight - 80)
+        compose.onNodeWithContentDescription("显示桌面歌词").performTouchInput { click() }
+        compose.runOnIdle { assertEquals(listOf("overlay"), actions.calls) }
+        compose.onNodeWithContentDescription("显示桌面歌词").assertExists()
+        compose.onNodeWithContentDescription("更多").performTouchInput { click() }
+        compose.onNodeWithText("更多").assertIsDisplayed()
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("取消"))
+        compose.onNodeWithText("取消").performTouchInput { click() }
+        compose.onNodeWithTag("home_player").performTouchInput {
+            swipe(Offset(80f, 35f), Offset(80f, -100f), durationMillis = 500)
+        }
+        compose.onNodeWithContentDescription("收起播放控制栏").assertIsDisplayed()
+        compose.onNodeWithContentDescription("播放").assertIsDisplayed().performTouchInput { click() }
+        compose.runOnIdle { assertEquals(listOf("overlay", "play"), actions.calls) }
+        assertEquals(fullHeight, compose.onNodeWithTag("home_player").fetchSemanticsNode().size.height)
+    }
+
+    @Test fun compactPlayerSurvivesSavedStateRestorationAndTrackChanges() {
+        val state = HomePresentationState().apply {
+            setSnapshot(HomePresentationState.Snapshot(track = "Song", artist = "Artist"))
+        }
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent {
+            CompositionLocalProvider(LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduceMotion = true)) {
+                MaterialTheme { Box(Modifier.size(400.dp, 700.dp)) { ComposeHomeScreen(state, {}, {}, {}) } }
+            }
+        }
+        compose.onNodeWithContentDescription("收起播放控制栏").performTouchInput { click() }
+        restoration.emulateSavedInstanceStateRestore()
+        compose.runOnIdle { state.setSnapshot(HomePresentationState.Snapshot(track = "Next Song", artist = "Next Artist")) }
+        compose.onNodeWithText("Next Song").assertIsDisplayed()
+        compose.onNodeWithContentDescription("展开播放控制栏").assertIsDisplayed()
+        compose.onNodeWithContentDescription("播放").assertDoesNotExist()
+        compose.onNodeWithContentDescription("展开播放控制栏").performTouchInput { click() }
+        compose.onNodeWithContentDescription("播放").assertIsDisplayed()
+    }
+
+    @Test fun horizontalProgressDragSeeksWithoutCollapsingThePlayer() {
+        val actions = RecordingHomeActions()
+        val state = HomePresentationState().apply {
+            this.actions = actions
+            setSnapshot(HomePresentationState.Snapshot(track = "Song", durationMs = 10_000))
+        }
+        compose.setContent {
+            CompositionLocalProvider(LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduceMotion = true)) {
+                MaterialTheme { Box(Modifier.size(400.dp, 700.dp)) { ComposeHomeScreen(state, {}, {}, {}) } }
+            }
+        }
+        compose.onNode(hasContentDescription("播放进度", substring = true)).performTouchInput {
+            swipe(Offset(width * .25f, centerY), Offset(width * .75f, centerY), durationMillis = 500)
+        }
+        compose.runOnIdle { assertTrue(actions.seeks.last() > 5_000) }
+        compose.onNodeWithContentDescription("收起播放控制栏").assertIsDisplayed()
+        compose.onNodeWithContentDescription("播放").assertIsDisplayed()
     }
 
     @Test fun moreSheetDimmingFollowsCloseMotionAndRepeatedOpenUsesANewDialog() {
