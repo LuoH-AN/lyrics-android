@@ -154,13 +154,13 @@ internal class HomePresentationState {
         private set
     internal var translationMessage by mutableStateOf("")
         private set
-    internal var lyricOffset by mutableIntStateOf(0)
+    internal var displayOffsetMs by mutableIntStateOf(0)
         private set
     internal var textAlignment by mutableStateOf(HomeLyricsPrefs.LEFT)
         private set
     internal var lyricMotionStyle by mutableStateOf(MotionStyle())
         private set
-    internal var isActive by mutableStateOf(false)
+    internal var presentationActive by mutableStateOf(false)
         private set
     internal var playing by mutableStateOf(false)
         private set
@@ -217,10 +217,10 @@ internal class HomePresentationState {
             else -> HomeLyricsPrefs.LEFT
         }
     }
-    fun setLyricOffset(offsetMs: Int) { lyricOffset = offsetMs }
+    fun setLyricOffset(offsetMs: Int) { displayOffsetMs = offsetMs }
     fun setMotionStyle(style: MotionStyle) { lyricMotionStyle = style }
     fun setOverlayState(running: Boolean) { isOverlayRunning = running }
-    fun setActive(on: Boolean) { isActive = on }
+    fun setActive(on: Boolean) { presentationActive = on }
 
     internal fun seek(positionMs: Long) {
         if (snapshot.track.isBlank()) return
@@ -351,9 +351,9 @@ private fun HomeProgress(state: HomePresentationState) {
         draft = 0f
         position = state.clock.positionMs()
     }
-    LaunchedEffect(state.isActive, state.playing, state.playbackRevision, duration) {
+    LaunchedEffect(state.presentationActive, state.playing, state.playbackRevision, duration) {
         position = state.clock.positionMs()
-        while (state.isActive && state.playing) {
+        while (state.presentationActive && state.playing) {
             delay(250)
             if (!dragging) position = state.clock.positionMs()
         }
@@ -398,8 +398,8 @@ private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = M
         return
     }
     val listState = rememberLazyListState()
-    val position = remember(document) { mutableLongStateOf(state.clock.positionMs() + state.lyricOffset) }
-    var focused by remember(document) { mutableIntStateOf(homeActiveLine(document, state.clock.positionMs() + state.lyricOffset, state.clock.durationMs)) }
+    val position = remember(document) { mutableLongStateOf(state.clock.positionMs() + state.displayOffsetMs) }
+    var focused by remember(document) { mutableIntStateOf(homeActiveLine(document, state.clock.positionMs() + state.displayOffsetMs, state.clock.durationMs)) }
     val dragged by listState.interactionSource.collectIsDraggedAsState()
     var manualUntil by remember(document) { mutableLongStateOf(0L) }
     val scrollProgress = remember { mutableFloatStateOf(1f) }
@@ -407,16 +407,16 @@ private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = M
     val motion = state.lyricMotionStyle
     val policy = LocalAgoraMotionPolicy.current
 
-    LaunchedEffect(document, state.isActive, state.playing, state.playbackRevision, state.lyricOffset) {
+    LaunchedEffect(document, state.presentationActive, state.playing, state.playbackRevision, state.displayOffsetMs) {
         fun update() {
-            val now = state.clock.positionMs() + state.lyricOffset
+            val now = state.clock.positionMs() + state.displayOffsetMs
             position.longValue = now
             val next = homeActiveLine(document, now, state.clock.durationMs)
             if (next != focused) focused = next
         }
         update()
         // Position is read only during glyph drawing. No page-wide Compose state changes per frame.
-        while (state.isActive && state.playing) withFrameNanos { update() }
+        while (state.presentationActive && state.playing) withFrameNanos { update() }
     }
     LaunchedEffect(dragged, document) {
         if (dragged) manualUntil = Long.MAX_VALUE
@@ -426,14 +426,14 @@ private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = M
             manualUntil = 0L
         }
     }
-    LaunchedEffect(state.seekRevision, state.isActive) {
+    LaunchedEffect(state.seekRevision, state.presentationActive) {
         manualUntil = 0L
     }
     BoxWithConstraints(modifier) {
         val density = LocalDensity.current
         val centerPx = with(density) { (maxHeight * .45f).toPx() }
-        LaunchedEffect(focused, manualUntil, document, state.isActive, motion, policy.allowProgrammaticScrollMotion) {
-            if (!state.isActive || dragged || manualUntil != 0L) return@LaunchedEffect
+        LaunchedEffect(focused, manualUntil, document, state.presentationActive, motion, policy.allowProgrammaticScrollMotion) {
+            if (!state.presentationActive || dragged || manualUntil != 0L) return@LaunchedEffect
             val target = focused.coerceIn(0, document.lines.lastIndex)
             val centerOffset = listState.layoutInfo.viewportStartOffset + centerPx
             val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == target }
@@ -477,12 +477,12 @@ private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = M
                     translationMode = state.translationDisplayMode,
                     alignment = state.textAlignment,
                     motion = motion,
-                    allowMotion = state.isActive && policy.allowSpatialTransitions,
+                    allowMotion = state.presentationActive && policy.allowSpatialTransitions,
                     position = position,
                     scrollProgress = scrollProgress,
                     scrollTravel = scrollTravel,
                     timed = document.timed,
-                    onClick = { state.seek(line.startMs - state.lyricOffset) },
+                    onClick = { state.seek(line.startMs - state.displayOffsetMs) },
                 )
             }
         }

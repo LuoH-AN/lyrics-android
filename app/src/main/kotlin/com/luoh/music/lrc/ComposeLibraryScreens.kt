@@ -100,7 +100,7 @@ private data class LibraryConfirmation(val title: String, val body: String, val 
 
 @Composable
 private fun LibraryConfirmationDialog(value: LibraryConfirmation?, dismiss: () -> Unit) {
-    if (value != null) AlertDialog(
+    if (value != null && LocalSettingsScrollRetentionActive.current) AlertDialog(
         onDismissRequest = dismiss,
         title = { Text(value.title) },
         text = { Text(value.body) },
@@ -112,12 +112,19 @@ private fun LibraryConfirmationDialog(value: LibraryConfirmation?, dismiss: () -
 @Composable
 private fun preferenceRevision(prefs: SharedPreferences, watchedKeys: Set<String>? = null): Int {
     var revision by remember(prefs, watchedKeys) { mutableIntStateOf(0) }
-    DisposableEffect(prefs, watchedKeys) {
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key == null || watchedKeys == null || key in watchedKeys) revision++
+    val active = LocalSettingsScrollRetentionActive.current
+    DisposableEffect(prefs, watchedKeys, active) {
+        if (active) {
+            val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                if (key == null || watchedKeys == null || key in watchedKeys) revision++
+            }
+            prefs.registerOnSharedPreferenceChangeListener(listener)
+            // A returning slot may have missed preference changes while it was outgoing.
+            revision++
+            onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+        } else {
+            onDispose { }
         }
-        prefs.registerOnSharedPreferenceChangeListener(listener)
-        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
     return revision
 }
@@ -419,7 +426,7 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
         }
         if (status.isNotBlank()) item(key = "status") { LibraryStatus(status) }
     }
-    if (profileMenu) AlertDialog(onDismissRequest = { profileMenu = false }, title = { Text("选择翻译 API") },
+    if (profileMenu && active) AlertDialog(onDismissRequest = { profileMenu = false }, title = { Text("选择翻译 API") },
         text = {
             Column {
                 profiles.forEach { item ->
@@ -440,7 +447,7 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
         }) { Text("管理 API") } }, dismissButton = { TextButton(onClick = { profileMenu = false }) { Text("取消") } })
     // Preserve the old choice to use mobile data as well as Wi-Fi.
     val downloadDialog = confirmation?.takeIf { it.title.startsWith("下载 ") }
-    if (downloadDialog != null) AlertDialog(onDismissRequest = { confirmation = null }, title = { Text(downloadDialog.title) },
+    if (downloadDialog != null && active) AlertDialog(onDismissRequest = { confirmation = null }, title = { Text(downloadDialog.title) },
         text = { Text(downloadDialog.body) },
         confirmButton = { TextButton(onClick = { confirmation = null; downloadDialog.accept() }) { Text("仅 Wi-Fi 下载") } },
         dismissButton = { Row {

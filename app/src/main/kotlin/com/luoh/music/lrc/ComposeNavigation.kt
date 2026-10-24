@@ -82,7 +82,7 @@ class ComposeNavigator(saved: Bundle? = null, initial: ComposeRoute? = null) {
         putParcelableArrayList("routes",ArrayList(stack.map { r -> Bundle().apply { putString("kind",r.kind);putString("id",r.id);putString("title",r.title);putString("artist",r.artist);putString("category",r.category) } }))
     }
     @Composable internal fun Content() {
-        CompositionLocalProvider(LocalSettingsScrollRetention provides retention) {
+        CompositionLocalProvider(LocalSettingsScrollRetention provides retention, LocalSettingsScrollRetentionActive provides isOpen) {
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 val useTwoPane = maxWidth >= 840.dp && settingsSession
                 SideEffect { wide = useTwoPane }
@@ -98,7 +98,7 @@ class ComposeNavigator(saved: Bundle? = null, initial: ComposeRoute? = null) {
 }
 
 internal fun routeForIntent(intent: Intent): ComposeRoute? = when(intent.component?.className?.substringAfterLast('.')) {
-    "SettingsActivity" -> intent.getStringExtra("settings_section")?.let { ComposeRoute("category",category=it.lowercase()) } ?: ComposeRoute("settings")
+    "SettingsActivity" -> intent.getStringExtra("settings_section")?.let { ComposeRoute("category",category=it.lowercase(java.util.Locale.ROOT)) } ?: ComposeRoute("settings")
     "TranslationSettingsActivity" -> ComposeRoute("translation")
     "ApiProfileManagerActivity" -> ComposeRoute("profiles")
     "LyricOffsetMemoryActivity" -> ComposeRoute("offsets")
@@ -144,6 +144,7 @@ private fun CategoryRow(category:SettingsCategory,modifier:Modifier = Modifier,s
 private fun SettingsTwoPane(navigator:ComposeNavigator) {
     val listState=rememberSettingsLazyListState()
     val parentPath=LocalSettingsScrollPath.current
+    val parentActive=LocalSettingsScrollRetentionActive.current
     Row(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(Modifier.width(400.dp).fillMaxHeight().clip(RoundedCornerShape(topEnd=24.dp,bottomEnd=24.dp)).background(MaterialTheme.colorScheme.background)) {
             Row(Modifier.fillMaxWidth().padding(start=16.dp,end=20.dp,top=WindowInsets.statusBars.asPaddingValues().calculateTopPadding()+12.dp,bottom=12.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -157,7 +158,7 @@ private fun SettingsTwoPane(navigator:ComposeNavigator) {
         Box(Modifier.weight(1f).fillMaxHeight().padding(horizontal=16.dp),contentAlignment=Alignment.TopCenter) {
             Box(Modifier.fillMaxHeight().widthIn(max=840.dp).fillMaxWidth().clipToBounds()) {
                 Crossfade(navigator.selectedCategory,animationSpec=tween(250),label="settingsCategory") { category ->
-                    val active=category==navigator.selectedCategory
+                    val active=parentActive && category==navigator.selectedCategory
                     CompositionLocalProvider(LocalSettingsScrollPath provides (parentPath+category),LocalSettingsScrollRetentionActive provides active) {
                         val paneRoute=if(navigator.route.kind in listOf("settings","category")) ComposeRoute("category",category=category) else navigator.route
                         GuardedAnimatedContent(paneRoute,navigator.forward) { destination ->

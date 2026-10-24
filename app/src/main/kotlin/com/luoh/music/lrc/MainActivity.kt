@@ -47,9 +47,6 @@ class MainActivity : ComponentActivity() {
     private val overlayPrefs by lazy {
         getSharedPreferences(LyricsOverlayService.PREFS_NAME, Context.MODE_PRIVATE)
     }
-    private val appPrefs by lazy {
-        getSharedPreferences(ThemePrefs.PREFS, Context.MODE_PRIVATE)
-    }
 
     private val sessionManager by lazy {
         getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
