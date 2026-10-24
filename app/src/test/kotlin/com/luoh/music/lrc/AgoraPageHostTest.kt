@@ -32,6 +32,10 @@ class AgoraPageHostTest {
         shadowOf(app).grantPermissions("${app.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
         ShadowChoreographer.setPaused(true)
         ShadowChoreographer.setFrameDelay(Duration.ofMillis(16))
+        // AndroidX 1.0 keeps a ThreadLocal handler with the previous test's Choreographer.
+        // Robolectric resets its clock, so obtain a fresh AndroidX frame provider for this test.
+        val handler = Class.forName("androidx.dynamicanimation.animation.AnimationHandler")
+        org.robolectric.util.ReflectionHelpers.getStaticField<ThreadLocal<Any>>(handler, "sAnimatorHandler").remove()
     }
     private fun frames(count: Int) { repeat(count) { shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(16)) } }
     private fun layout(view: View) {
@@ -76,6 +80,7 @@ class AgoraPageHostTest {
             assertTrue(old.consumesInput)
             click(host, host.width * .9f, host.height * .5f)
             click(host, host.width * .1f, host.height * .5f)
+            shadowOf(Looper.getMainLooper()).idle() // View posts its PerformClick after ACTION_UP.
             assertEquals("The incoming page accepts taps before its entrance finishes", 1, targetClicks)
             assertEquals("Uncovered areas must never tap through to outgoing controls", 0, oldClicks)
             frames(8)
