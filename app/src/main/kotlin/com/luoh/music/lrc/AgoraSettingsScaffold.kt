@@ -118,6 +118,15 @@ class AgoraSettingsScaffold @JvmOverloads constructor(
         val contentWidth = minOf((width - safeLeft - safeRight).coerceAtLeast(0), dp(840))
         body?.measure(MeasureSpec.makeMeasureSpec(contentWidth, MeasureSpec.EXACTLY),
             MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY))
+        // Resolve child margins during measurement so an unchanged bar size still gets a layout pass.
+        val outerSpace = (width - safeLeft - safeRight - contentWidth) / 2
+        (back.layoutParams as LayoutParams).apply {
+            topMargin = statusTop + dp(12)
+            val direction = this@AgoraSettingsScaffold.layoutDirection
+            marginStart = (if (direction == LAYOUT_DIRECTION_RTL) safeRight else safeLeft) + outerSpace + dp(16)
+            resolveLayoutDirection(direction)
+        }
+        bar.forceLayout()
         bar.measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
             MeasureSpec.makeMeasureSpec(statusTop + dp(64), MeasureSpec.EXACTLY))
         val titleWidth = (contentWidth - dp(40)).coerceAtLeast(0)
@@ -138,16 +147,6 @@ class AgoraSettingsScaffold @JvmOverloads constructor(
             val x = safeLeft + (width - safeLeft - safeRight - it.measuredWidth) / 2
             it.layout(x, 0, x + it.measuredWidth, height)
         }
-        // Set the margin before laying out the bar; insets must take effect in the same frame.
-        val contentWidth = minOf((width - safeLeft - safeRight).coerceAtLeast(0), dp(840))
-        val outerSpace = (width - safeLeft - safeRight - contentWidth) / 2
-        (back.layoutParams as LayoutParams).apply {
-            topMargin = statusTop + dp(12)
-            val direction = this@AgoraSettingsScaffold.layoutDirection
-            marginStart = (if (direction == LAYOUT_DIRECTION_RTL) safeRight else safeLeft) + outerSpace + dp(16)
-            resolveLayoutDirection(direction)
-        }
-        bar.forceLayout()
         bar.layout(0, 0, width, statusTop + dp(64))
         titleView.layout(0, 0, titleView.measuredWidth, titleView.measuredHeight)
         updateTitle()
