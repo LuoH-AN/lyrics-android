@@ -685,6 +685,10 @@ private fun AppAppearanceSettings(context: Context, prefs: SharedPreferences, re
 private fun HomeAlignmentSettings(context: Context, revision: Int) {
     val alignment = remember(revision) { HomeLyricsPrefs.alignment(context) }
     val albumBackground = remember(revision) { HomeLyricsPrefs.albumBackground(context) }
+    val appearance = remember(revision) { HomeLyricsPrefs.appearance(context) }
+    fun saveStyle(change: (HomeLyricAppearance) -> HomeLyricAppearance) {
+        HomeLyricsPrefs.saveAppearance(context, change(HomeLyricsPrefs.appearance(context)))
+    }
     SettingsGroup(title = "背景", items = listOf({
         SettingsSwitchItem("专辑流动背景", "从封面取色，播放时缓慢流动", Icons.Default.BlurOn, albumBackground) {
             HomeLyricsPrefs.saveAlbumBackground(context, it)
@@ -693,6 +697,28 @@ private fun HomeAlignmentSettings(context: Context, revision: Int) {
     SettingsGroup(title = "歌词布局", items = listOf({
         SettingsChoiceItem("对齐方式", alignment, listOf(HomeLyricsPrefs.LEFT to "左对齐", HomeLyricsPrefs.CENTER to "居中", HomeLyricsPrefs.RIGHT to "右对齐"),
             Icons.Default.FormatAlignLeft) { HomeLyricsPrefs.save(context, it) }
+    }))
+    SettingsGroup(title = "歌词文字", items = listOf(
+        { SettingsSliderItem("主页歌词字号", appearance.fontSize, 16..48, unit = "sp", icon = Icons.Default.FormatSize) {
+            value -> saveStyle { it.copy(fontSize = value) }
+        } },
+        { SettingsSliderItem("主页翻译字号", appearance.translationSize, 12..32, unit = "sp", icon = Icons.Default.Translate) {
+            value -> saveStyle { it.copy(translationSize = value) }
+        } },
+        { SettingsChoiceItem("主页歌词字重", appearance.fontWeight.toString(), listOf("300" to "细体", "400" to "常规",
+            "500" to "中等", "600" to "半粗", "700" to "粗体", "800" to "特粗"), Icons.Default.TextFields) {
+            value -> saveStyle { it.copy(fontWeight = value.toInt()) }
+        } },
+        { SettingsSliderItem("主页歌词行间距", appearance.lineSpacing, 0..28, step = 2, unit = "dp", icon = Icons.Default.FormatAlignLeft) {
+            value -> saveStyle { it.copy(lineSpacing = value) }
+        } },
+    ))
+    SettingsGroup(title = "文字预览", items = listOf({
+        Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("让音乐陪你到天亮", fontSize = appearance.fontSize.sp, fontWeight = FontWeight(appearance.fontWeight))
+            Text("Let the music stay with you", fontSize = appearance.translationSize.sp,
+                fontWeight = FontWeight(appearance.fontWeight), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }))
 }
 

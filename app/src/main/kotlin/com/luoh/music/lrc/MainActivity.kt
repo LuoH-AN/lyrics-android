@@ -422,12 +422,7 @@ class MainActivity : ComponentActivity() {
             ?: md?.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
 
     // ---------- 歌词拉取（自定义 → 本地缓存 → 联网） ----------
-    private val lyricCachePrefs by lazy {
-        getSharedPreferences(LYRIC_CACHE_PREFS, Context.MODE_PRIVATE)
-    }
-
-    private fun cacheKeyOf(track: String, artist: String, album: String) =
-        "$track\u0000$artist\u0000$album"
+    private val sharedLyricsCache by lazy { SharedLyricsCache(this) }
 
     /** 一份可上屏的歌词负载，signature 用于判断本地来源是否变化（自定义被增删/改）。 */
     private data class LyricPayload(
@@ -437,7 +432,7 @@ class MainActivity : ComponentActivity() {
         val source: String,
         val recordId: String
     ) {
-        val signature: String get() = "$source\u0000$recordId\u0000${lyrics.length}"
+        val signature: String get() = "$source\u0000$recordId\u0000${lyrics.hashCode()}\u0000${translated.hashCode()}\u0000${word.hashCode()}"
         val isBlank: Boolean get() = lyrics.isBlank()
     }
 
@@ -452,17 +447,8 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
-        val cached = runCatching {
-            lyricCachePrefs.getString(cacheKeyOf(track, artist, album), null)?.let { JSONObject(it) }
-        }.getOrNull() ?: return null
-        val at = cached.optLong("at", 0L)
-        if (at > 0 && System.currentTimeMillis() - at > CACHE_TTL_MS) return null
-        val lrc = cached.optString("lyrics")
-        if (lrc.isBlank()) return null
-        return LyricPayload(
-            lrc, cached.optString("translated"), cached.optString("word"),
-            cached.optString("source"), cached.optString("recordId")
-        )
+        val cached = sharedLyricsCache.read(track, artist, album, currentDurationMs) ?: return null
+        return LyricPayload(cached.lyrics, cached.translatedLyrics, cached.wordLyrics, cached.source, cached.recordId)
     }
 
     private fun parsePayload(payload: LyricPayload): LyricDocument =
@@ -499,7 +485,6 @@ class MainActivity : ComponentActivity() {
 
     private fun fetchLyrics(track: String, artist: String, album: String, durationMs: Long, forceNetwork: Boolean = false) {
         val reqId = ++lyricRequestId
-        val cacheKey = cacheKeyOf(track, artist, album)
 
         lyricFetchJob?.cancel()
         settingsRefreshJob?.cancel()
@@ -521,7 +506,9 @@ class MainActivity : ComponentActivity() {
             }
             withContext(Dispatchers.Main) { if (reqId == lyricRequestId) home.showLoading() }
             val result = runCatching {
-                repository.resolveLyrics(track, artist, album, durationMs)
+                sharedLyricsCache.resolve(track, artist, album, durationMs, forceNetwork) {
+                    repository.resolveLyrics(track, artist, album, durationMs)
+                }
             }.getOrNull()
             if (reqId != lyricRequestId) return@launch
             val lrc = result?.lyrics.orEmpty()
@@ -530,21 +517,6 @@ class MainActivity : ComponentActivity() {
             val source = result?.source.orEmpty()
             val recordId = result?.recordId.orEmpty()
             if (lrc.isNotBlank()) {
-                // 写缓存（限量，避免无限膨胀）
-                runCatching {
-                    val obj = JSONObject()
-                        .put("lyrics", lrc).put("translated", trans).put("word", word)
-                        .put("source", source).put("recordId", recordId)
-                        .put("at", System.currentTimeMillis())
-                    val editor = lyricCachePrefs.edit().putString(cacheKey, obj.toString())
-                    if (lyricCachePrefs.all.size > 60) {
-                        // 简单清理：删掉最旧的一半
-                        lyricCachePrefs.all.entries
-                            .sortedBy { (runCatching { JSONObject(it.value as String).optLong("at") }.getOrDefault(0L)) }
-                            .take(30).forEach { editor.remove(it.key) }
-                    }
-                    editor.apply()
-                }
                 // 镜像到歌词源管理记忆（与悬浮窗共用同一份 match_memory_v2）
                 mirrorToMatchMemory(track, artist, album, durationMs, source, recordId, lrc, trans, word)
             }
@@ -745,7 +717,5 @@ class MainActivity : ComponentActivity() {
     companion object {
         // 切歌后的稳定窗口：这段时间内若拿到的还是旧歌残留状态，位置先按 0 处理，避免歌词抖动。
         private const val TRACK_CHANGE_SETTLE_MS = 1500L
-        private const val LYRIC_CACHE_PREFS = "home_lyric_cache_v1"
-        private const val CACHE_TTL_MS = 14L * 24 * 60 * 60 * 1000
     }
 }

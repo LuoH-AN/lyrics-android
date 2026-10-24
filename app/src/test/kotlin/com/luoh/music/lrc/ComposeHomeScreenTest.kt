@@ -196,6 +196,8 @@ class ComposeHomeScreenTest {
             }
         }
         compose.onNodeWithTag("home_cover_progress").assertDoesNotExist()
+        compose.onNodeWithContentDescription("专辑封面").performTouchInput { click() }
+        compose.runOnIdle { assertTrue(actions.calls.isEmpty()) }
         compose.onNodeWithContentDescription("收起播放控制栏").performTouchInput { click() }
         compose.onNodeWithTag("home_cover_progress").assertRangeInfoEquals(ProgressBarRangeInfo(.4f, 0f..1f))
         assertTrue("Compact controls should occupy at most 80dp", compose.onNodeWithTag("home_player").fetchSemanticsNode().size.height <= 80)

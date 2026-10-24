@@ -428,7 +428,10 @@
         if (!raw) return null;
         const value = JSON.parse(raw);
         if (value.schema !== LYRICS_CACHE_SCHEMA) return null;
-        if (Date.now() - value.savedAt > 14 * 86400000) return null;
+        if (!Number.isFinite(value.savedAt) || value.savedAt <= 0 || Date.now() - value.savedAt > 14 * 86400000) return null;
+        if (!isUsableLyricPayload(value.lyrics) || value.source === '自定义歌词') return null;
+        const duration = Number(value.duration || 0);
+        if (duration > 0 && playback.durationMs > 0 && Math.abs(duration - playback.durationMs) > Math.max(3000, playback.durationMs / 30)) return null;
         return value;
       } catch (_) { return null; }
     }
@@ -497,12 +500,23 @@
       // 自定义歌词优先，命中即上屏并 return，不打网络也不写自动匹配记忆
       const custom = customLyricsFor(track, artist);
       if (custom) {
-        saveLyrics(key, custom);
         applyResolved(custom, key, requestId);
         return;
       }
-      const cached = cachedLyrics(key);
-      if (cached) applyResolved(cached, key, requestId);
+      let shared = null;
+      try {
+        const raw = window.LobstaNativeLyrics?.cachedLyrics?.(track, artist, playback.album||'', playback.durationMs||0);
+        if (raw) {
+          const data = JSON.parse(raw);
+          if (isUsableLyricPayload(data.lyrics)) shared = data;
+        }
+      } catch (_) {}
+      const cached = shared || cachedLyrics(key);
+      if (cached) {
+        playback.abort?.abort();
+        applyResolved(cached, key, requestId);
+        return;
+      }
       playback.abort?.abort();
       const controller = new AbortController();
       playback.abort = controller;

@@ -120,6 +120,7 @@ class LyricsOverlayService : Service() {
     private var lastDisplayHeight = 0
     private var currentController: MediaController? = null
     private var pendingSnapshot: JSONObject? = null
+    private val sharedLyricsCache by lazy { SharedLyricsCache(this) }
     private var cachedArtworkKey = ""
     private var cachedArtworkDataUrl = ""
     private var snapshotScheduled = false
@@ -612,6 +613,13 @@ class LyricsOverlayService : Service() {
             return CustomLyricsStore.toResultJson(entry, duration).toString()
         }
 
+        @JavascriptInterface
+        fun cachedLyrics(track: String, artist: String, album: String, durationMs: Double): String {
+            if (track.isBlank()) return ""
+            val duration = durationMs.takeIf { it.isFinite() && it > 0 }?.toLong() ?: 0L
+            return sharedLyricsCache.read(track, artist, album, duration)?.toJson()?.toString().orEmpty()
+        }
+
         /** 从悬浮窗菜单进入自定义歌词编辑页（当前这首歌）。 */
         @JavascriptInterface
         fun editCustomLyrics(track: String, artist: String) {
@@ -646,15 +654,12 @@ class LyricsOverlayService : Service() {
                 val coverLookup = if (needsRemoteCover) {
                     async { lyricsRepository.resolveCover(track, artist) }
                 } else null
-                val result = lyricsRepository.resolveLyrics(
-                    track,
-                    artist,
-                    album,
-                    durationMs.takeIf { it.isFinite() && it > 0 }?.toLong() ?: 0L,
-                    onPartial = { partial ->
+                val duration = durationMs.takeIf { it.isFinite() && it > 0 }?.toLong() ?: 0L
+                val result = sharedLyricsCache.resolve(track, artist, album, duration) {
+                    lyricsRepository.resolveLyrics(track, artist, album, duration, onPartial = { partial ->
                         if (requestId == latestLyricsRequestId) deliverLyricsResult(requestId, partial)
-                    }
-                )
+                    })
+                }
                 if (requestId != latestLyricsRequestId) {
                     coverLookup?.cancel()
                     return@launch

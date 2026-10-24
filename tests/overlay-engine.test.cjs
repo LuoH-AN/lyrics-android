@@ -96,7 +96,11 @@ engine.receiveSupplement(translations[0].epoch, { id: 0, text: 'stale translatio
 assert.equal(documents.length, clearedCount, 'ended session invalidates both lyric and translation callbacks');
 assert.ok(cancellations > 0);
 engine.updatePlayback({ ...snapshot, track: 'Next' });
-assert.ok(requests.at(-1)[4] > secondRequest, 'resuming the same song starts a fresh request generation');
+assert.equal(requests.length, 2, 'resuming cached lyrics must not repeat provider requests');
+assert.equal(documents.at(-1).lines[0].text, 'hello', 'resuming restores the cached document');
+const resumedCount = documents.length;
+engine.receiveLyrics(secondRequest, { source: 'LRCLIB', lyrics: '[00:00.00]stale after resume' });
+assert.equal(documents.length, resumedCount, 'cache reuse still invalidates the previous request generation');
 
 custom = JSON.stringify({ source: '自定义歌词', custom: true, lyrics: '[00:01.00]my lyrics', duration: 9000 });
 const networkBeforeCustom = requests.length;

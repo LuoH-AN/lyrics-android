@@ -6,6 +6,20 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HomePresentationStateTest {
+    @Test fun denseLyricTargetsKeepMovingAndThenSettleWithoutAnAbruptStop() {
+        val follower = HomeLyricScrollFollower()
+        var error = 100f
+        repeat(4) { error -= follower.advance(error, 1f / 60f, 900, 240) }
+        val before = follower.velocity
+        assertTrue(before > 0f)
+        error += 100f
+        error -= follower.advance(error, 1f / 60f, 900, 240)
+        assertTrue("A new line must carry the previous scroll velocity", follower.velocity >= before)
+        repeat(180) { error -= follower.advance(error, 1f / 60f, 900, 240) }
+        assertTrue(follower.settled(error))
+        assertTrue("Pixel-rounded layouts must also settle", follower.settled(.5f))
+    }
+
     @Test fun changingTrackClearsThePreviousLyricsButProgressUpdatesKeepThem() {
         val state = HomePresentationState()
         state.setSnapshot(HomePresentationState.Snapshot(track = "First", artist = "Artist", durationMs = 10_000))

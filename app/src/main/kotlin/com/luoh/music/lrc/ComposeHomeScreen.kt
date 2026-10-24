@@ -3,9 +3,7 @@ package com.luoh.music.lrc
 import android.graphics.Bitmap
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -78,6 +76,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -265,10 +265,12 @@ internal fun ComposeHomeScreen(
     val context = LocalContext.current
     val prefs = remember(context) { context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE) }
     var backgroundEnabled by remember(context) { mutableStateOf(HomeLyricsPrefs.albumBackground(context)) }
+    var appearance by remember(context) { mutableStateOf(HomeLyricsPrefs.appearance(context)) }
     DisposableEffect(prefs) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == HomeLyricsPrefs.KEY_ALBUM_BACKGROUND || key == null)
                 backgroundEnabled = HomeLyricsPrefs.albumBackground(context)
+            appearance = HomeLyricsPrefs.appearance(context)
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
@@ -282,12 +284,12 @@ internal fun ComposeHomeScreen(
                 HomePermissionGate(state.gateStatus, onListenerPermission, onOverlayPermission, onStartOverlay) { state.actions?.openSettings() }
             } else if (maxWidth >= 840.dp) {
                 Row(Modifier.fillMaxSize().padding(24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    HomeLyricsStage(state, Modifier.weight(1f).fillMaxHeight().homeLyricsFade(), backgroundEnabled)
+                    HomeLyricsStage(state, Modifier.weight(1f).fillMaxHeight().homeLyricsFade(), backgroundEnabled, appearance)
                     HomePlayer(state, Modifier.width(360.dp).align(Alignment.CenterVertically))
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
-                    HomeLyricsStage(state, Modifier.weight(1f).fillMaxWidth().homeLyricsFade(), backgroundEnabled)
+                    HomeLyricsStage(state, Modifier.weight(1f).fillMaxWidth().homeLyricsFade(), backgroundEnabled, appearance)
                     HomePlayer(state, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp))
                 }
             }
@@ -381,18 +383,13 @@ private fun HomePlayer(state: HomePresentationState, modifier: Modifier = Modifi
             },
         ),
         shape = RoundedCornerShape(28.dp),
-        color = Color.Transparent,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = .88f),
         contentColor = MaterialTheme.colorScheme.onSurface,
         shadowElevation = 2.dp,
     ) {
-        val surface = MaterialTheme.colorScheme.surface
-        Column(Modifier.background(Brush.verticalGradient(
-            0f to surface.copy(alpha = .4f),
-            .22f to surface.copy(alpha = .84f),
-            1f to surface.copy(alpha = .9f),
-        )).padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                HomePlayerArtwork(state, ringAlpha = 1f - fraction)
+                HomePlayerArtwork(state, ringAlpha = 1f - fraction, interactive = !expanded && !dragging && fraction <= .001f)
                 Column(Modifier.weight(1f).clickable(
                     onClickLabel = if (expanded) "收起播放控制栏" else "展开播放控制栏",
                 ) { expanded = !expanded }.semantics {
@@ -418,7 +415,7 @@ private fun HomePlayer(state: HomePresentationState, modifier: Modifier = Modifi
                         layout(placeable.width, (placeable.height * fraction).roundToInt()) {
                             placeable.placeRelative(0, 0)
                         }
-                    }.graphicsLayer { alpha = fraction },
+                    },
             ) {
                 if (state.translationMessage.isNotBlank()) {
                     SettingsItem(
@@ -428,7 +425,7 @@ private fun HomePlayer(state: HomePresentationState, modifier: Modifier = Modifi
                     )
                 }
                 HomeProgress(state)
-                Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                     IconButton(onClick = { state.actions?.skipPrev() }, enabled = snapshot.track.isNotBlank() && snapshot.canPrevious) {
                         Icon(Icons.Default.SkipPrevious, "上一首")
                     }
@@ -447,7 +444,7 @@ private fun HomePlayer(state: HomePresentationState, modifier: Modifier = Modifi
 }
 
 @Composable
-private fun HomePlayerArtwork(state: HomePresentationState, ringAlpha: Float) {
+private fun HomePlayerArtwork(state: HomePresentationState, ringAlpha: Float, interactive: Boolean) {
     val snapshot = state.snapshot
     val position = remember { mutableLongStateOf(state.clock.positionMs()) }
     LaunchedEffect(state.presentationActive, state.playing, state.playbackRevision) {
@@ -478,19 +475,19 @@ private fun HomePlayerArtwork(state: HomePresentationState, ringAlpha: Float) {
             if (progress > 0f) drawArc(primary, -90f, 360f * progress, false, Offset(inset, inset), bounds,
                 style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = StrokeCap.Round))
         }
-        Box(Modifier.size(46.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainer)
-            .clickable(enabled = snapshot.track.isNotBlank(), role = Role.Button,
+        val artwork = Modifier.size(46.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainer)
+        Box(if (interactive) artwork.clickable(enabled = snapshot.track.isNotBlank(), role = Role.Button,
                 onClickLabel = if (state.playing) "暂停播放" else "开始播放") { state.actions?.togglePlay() }
             .semantics {
                 contentDescription = if (state.playing) "暂停播放" else "开始播放"
                 stateDescription = if (state.playing) "正在播放" else "已暂停"
-            }, contentAlignment = Alignment.Center) {
+            } else artwork.semantics { contentDescription = "专辑封面" }, contentAlignment = Alignment.Center) {
             val cover = snapshot.cover
             if (cover != null && !cover.isRecycled) {
                 Image(remember(cover) { cover.asImageBitmap() }, null,
                     modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             } else Icon(Icons.Default.MusicNote, null, modifier = Modifier.size(26.dp))
-            if (!state.playing && snapshot.track.isNotBlank()) {
+            if (interactive && !state.playing && snapshot.track.isNotBlank()) {
                 Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .22f)), contentAlignment = Alignment.Center) {
                     Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(24.dp))
                 }
@@ -500,7 +497,6 @@ private fun HomePlayerArtwork(state: HomePresentationState, ringAlpha: Float) {
 }
 
 @Composable
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 private fun HomeProgress(state: HomePresentationState) {
     val duration = state.snapshot.durationMs.coerceAtLeast(0L)
     var position by remember { mutableLongStateOf(state.clock.positionMs()) }
@@ -525,16 +521,6 @@ private fun HomeProgress(state: HomePresentationState) {
         onValueChangeFinished = { dragging = false; state.seek(draft.toLong()); position = state.clock.positionMs() },
         valueRange = 0f..duration.coerceAtLeast(1L).toFloat(),
         enabled = state.snapshot.track.isNotBlank() && duration > 0L,
-        thumb = { Box(Modifier.size(12.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary)) },
-        track = { slider ->
-            val active = MaterialTheme.colorScheme.primary
-            val inactive = MaterialTheme.colorScheme.onSurface.copy(alpha = .16f)
-            Canvas(Modifier.fillMaxWidth().height(6.dp)) {
-                drawLine(inactive, Offset(0f, center.y), Offset(size.width, center.y), size.height, StrokeCap.Round)
-                val progress = slider.value / duration.coerceAtLeast(1L)
-                drawLine(active, Offset(0f, center.y), Offset(size.width * progress, center.y), size.height, StrokeCap.Round)
-            }
-        },
         modifier = Modifier.fillMaxWidth().semantics { contentDescription = "播放进度 ${homeFormatTime(displayed)} / ${homeFormatTime(duration)}" },
     )
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -544,7 +530,8 @@ private fun HomeProgress(state: HomePresentationState) {
 }
 
 @Composable
-private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = Modifier, albumBackground: Boolean = false) {
+private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = Modifier, albumBackground: Boolean = false,
+    appearance: HomeLyricAppearance = HomeLyricAppearance()) {
     val document = state.document
     if (document.lines.isEmpty()) {
         Box(modifier, contentAlignment = Alignment.Center) {
@@ -568,12 +555,12 @@ private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = M
         return
     }
     val listState = rememberLazyListState()
-    val position = remember(document) { mutableLongStateOf(state.clock.positionMs() + state.displayOffsetMs) }
-    var focused by remember(document) { mutableIntStateOf(homeActiveLine(document, state.clock.positionMs() + state.displayOffsetMs, state.clock.durationMs)) }
+    val timeline = remember(document) { document.lines.map { it.startMs } }
+    val position = remember(timeline) { mutableLongStateOf(state.clock.positionMs() + state.displayOffsetMs) }
+    var focused by remember(timeline) { mutableIntStateOf(homeActiveLine(document, state.clock.positionMs() + state.displayOffsetMs, state.clock.durationMs)) }
     val dragged by listState.interactionSource.collectIsDraggedAsState()
-    var manualUntil by remember(document) { mutableLongStateOf(0L) }
-    val scrollProgress = remember { mutableFloatStateOf(1f) }
-    val scrollTravel = remember { mutableFloatStateOf(0f) }
+    var manualUntil by remember(timeline) { mutableLongStateOf(0L) }
+    val scrollVelocity = remember { mutableFloatStateOf(0f) }
     val motion = state.lyricMotionStyle
     val policy = LocalAgoraMotionPolicy.current
 
@@ -588,7 +575,7 @@ private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = M
         // Position is read only during glyph drawing. No page-wide Compose state changes per frame.
         while (state.presentationActive && state.playing) withFrameNanos { update() }
     }
-    LaunchedEffect(dragged, document) {
+    LaunchedEffect(dragged, timeline) {
         if (dragged) manualUntil = Long.MAX_VALUE
         else if (manualUntil != 0L) {
             manualUntil = System.nanoTime() / 1_000_000L + 4000L
@@ -602,42 +589,60 @@ private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = M
     BoxWithConstraints(modifier) {
         val density = LocalDensity.current
         val centerPx = with(density) { (maxHeight * .45f).toPx() }
-        LaunchedEffect(focused, manualUntil, document, state.presentationActive, motion, policy.allowProgrammaticScrollMotion) {
+        LaunchedEffect(timeline, centerPx, state.presentationActive, dragged, manualUntil, state.seekRevision,
+            motion, policy.allowProgrammaticScrollMotion, appearance) {
             if (!state.presentationActive || dragged || manualUntil != 0L) return@LaunchedEffect
-            val target = focused.coerceIn(0, document.lines.lastIndex)
-            val centerOffset = listState.layoutInfo.viewportStartOffset + centerPx
-            val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == target }
-            if (item == null) {
-                listState.scrollToItem(target, -centerOffset.toInt())
-            }
-            val visible = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == target }
-            val distance = visible?.let { it.offset + it.size / 2f - centerOffset } ?: 0f
-            if (abs(distance) <= 1f) return@LaunchedEffect
-            val animateScroll = motion.easedScroll && policy.allowProgrammaticScrollMotion && abs(distance) < centerPx * 2f
-            if (!animateScroll) listState.scrollBy(distance)
-            else {
-                scrollTravel.floatValue = distance
-                scrollProgress.floatValue = 0f
-                try {
+            val follower = HomeLyricScrollFollower()
+            try {
+                while (true) {
+                    val target = focused.coerceIn(0, document.lines.lastIndex)
+                    if (listState.layoutInfo.visibleItemsInfo.none { it.index == target }) {
+                        listState.scrollToItem(target, -centerPx.toInt())
+                        follower.reset()
+                    }
+                    var restingTarget: Int? = null
                     listState.scroll {
-                        var previous = 0f
-                        animate(0f, 1f, animationSpec = tween(motion.scrollDurationMs, easing = FastOutSlowInEasing)) { value, _ ->
-                            scrollBy(distance * (value - previous))
-                            previous = value
-                            scrollProgress.floatValue = value
+                        var previousFrame = 0L
+                        while (true) {
+                            val frame = withFrameNanos { it }
+                            val elapsed = if (previousFrame == 0L) 1f / 60f else (frame - previousFrame) / 1_000_000_000f
+                            previousFrame = frame
+                            val current = focused.coerceIn(0, document.lines.lastIndex)
+                            val layout = listState.layoutInfo
+                            val item = layout.visibleItemsInfo.firstOrNull { it.index == current } ?: break
+                            val error = item.offset + item.size / 2f - layout.viewportStartOffset - centerPx
+                            if (!motion.easedScroll || !policy.allowProgrammaticScrollMotion) {
+                                scrollBy(error)
+                                follower.reset()
+                                scrollVelocity.floatValue = 0f
+                                restingTarget = current
+                                break
+                            }
+                            if (follower.settled(error)) {
+                                scrollVelocity.floatValue = follower.velocity
+                                restingTarget = current
+                                break
+                            }
+                            val interval = timeline.getOrNull(current + 1)?.minus(timeline[current])
+                                ?.takeIf { it > 0L } ?: motion.scrollDurationMs.toLong()
+                            val move = follower.advance(error, elapsed, motion.scrollDurationMs, interval)
+                            val consumed = scrollBy(move)
+                            if (abs(consumed - move) > .5f) follower.reset()
+                            scrollVelocity.floatValue = follower.velocity
                         }
                     }
-                } finally {
-                    scrollTravel.floatValue = 0f
-                    scrollProgress.floatValue = 1f
+                    restingTarget?.let { last -> snapshotFlow { focused }.first { it.coerceAtLeast(0) != last } }
                 }
+            } finally {
+                // Only leaving the page, seeking or manual scrolling resets the follower.
+                scrollVelocity.floatValue = 0f
             }
         }
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 28.dp, vertical = maxHeight * .45f),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(appearance.lineSpacing.dp),
         ) {
             itemsIndexed(document.lines, key = { index, line -> "$index:${line.startMs}" }) { index, line ->
                 HomeLyricRow(
@@ -649,11 +654,11 @@ private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = M
                     motion = motion,
                     allowMotion = state.presentationActive && policy.allowSpatialTransitions,
                     position = position,
-                    scrollProgress = scrollProgress,
-                    scrollTravel = scrollTravel,
+                    scrollVelocity = scrollVelocity,
                     timed = document.timed,
                     onClick = { state.seek(line.startMs - state.displayOffsetMs) },
                     activeColor = if (albumBackground) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary,
+                    appearance = appearance,
                 )
             }
         }
@@ -694,11 +699,11 @@ private fun HomeLyricRow(
     motion: MotionStyle,
     allowMotion: Boolean,
     position: State<Long>,
-    scrollProgress: State<Float>,
-    scrollTravel: State<Float>,
+    scrollVelocity: State<Float>,
     timed: Boolean,
     onClick: () -> Unit,
     activeColor: Color,
+    appearance: HomeLyricAppearance,
 ) {
     val distance = abs(index - focused)
     val duration = if (allowMotion && motion.easedScroll) motion.scrollDurationMs else 0
@@ -710,13 +715,10 @@ private fun HomeLyricRow(
         tween(if (allowMotion) 300 else 0, delayMillis = delayMs), label = "lyricAlpha$index")
     val depth by animateFloatAsState(if (motion.depthBlur) (distance - 1).coerceIn(0, 3) * motion.blurPercent / 100f else 0f,
         tween(duration, delayMillis = delayMs), label = "lyricBlur$index")
-    val rowProgress = remember { Animatable(1f) }
-    LaunchedEffect(focused, motion.stagger, duration, delayMs) {
-        if (motion.stagger && duration > 0) {
-            rowProgress.snapTo(0f)
-            rowProgress.animateTo(1f, tween(duration, delayMillis = delayMs, easing = FastOutSlowInEasing))
-        } else rowProgress.snapTo(1f)
-    }
+    val lagSeconds by animateFloatAsState(
+        if (motion.stagger && allowMotion) min(distance, 4) * motion.staggerDelayMs / 1000f else 0f,
+        tween(if (allowMotion) 160 else 0), label = "lyricLag$index",
+    )
     val textAlignment = when (alignment) { HomeLyricsPrefs.CENTER -> TextAlign.Center; HomeLyricsPrefs.RIGHT -> TextAlign.End; else -> TextAlign.Start }
     val origin = TransformOrigin(when (alignment) { HomeLyricsPrefs.CENTER -> .5f; HomeLyricsPrefs.RIGHT -> 1f; else -> 0f }, .5f)
     val color = if (index == focused) activeColor else MaterialTheme.colorScheme.onSurface
@@ -726,16 +728,17 @@ private fun HomeLyricRow(
             scaleY = scale
             this.alpha = alpha
             transformOrigin = origin
-            translationY = if (motion.stagger && allowMotion) scrollTravel.value * (scrollProgress.value - rowProgress.value) else 0f
+            translationY = if (motion.stagger && allowMotion) (scrollVelocity.value * lagSeconds).coerceIn(-48.dp.toPx(), 48.dp.toPx()) else 0f
         }.blur(depth.dp).clickable(enabled = timed, onClick = onClick).padding(vertical = 10.dp),
     ) {
         val primary = if (translationMode == LyricsOverlayService.TRANSLATION_TRANSLATED && line.translation.isNotBlank()) line.translation else line.text
         KaraokeLyricText(primary, line, position, index < focused, index == focused,
             wordTiming = translationMode != LyricsOverlayService.TRANSLATION_TRANSLATED && line.words.isNotEmpty(),
-            color = color, textAlign = textAlignment)
+            color = color, textAlign = textAlignment, appearance = appearance)
         if (translationMode == LyricsOverlayService.TRANSLATION_BILINGUAL && line.translation.isNotBlank()) {
             Text(line.translation, modifier = Modifier.fillMaxWidth().padding(top = 6.dp), color = color,
-                fontSize = 18.sp, lineHeight = 25.sp, textAlign = textAlignment, fontWeight = FontWeight.Medium)
+                fontSize = appearance.translationSize.sp, lineHeight = (appearance.translationSize * 1.4f).sp,
+                textAlign = textAlignment, fontWeight = FontWeight(appearance.fontWeight))
         }
     }
 }
@@ -751,14 +754,15 @@ private fun KaraokeLyricText(
     wordTiming: Boolean,
     color: Color,
     textAlign: TextAlign,
+    appearance: HomeLyricAppearance,
 ) {
     var layout by remember(text, textAlign) { mutableStateOf<TextLayoutResult?>(null) }
     Text(
         text = text,
         color = if (wordTiming) color.copy(alpha = .32f) else color,
-        fontSize = 28.sp,
-        lineHeight = 36.sp,
-        fontWeight = FontWeight.Medium,
+        fontSize = appearance.fontSize.sp,
+        lineHeight = (appearance.fontSize * 1.3f).sp,
+        fontWeight = FontWeight(appearance.fontWeight),
         textAlign = textAlign,
         onTextLayout = { layout = it },
         modifier = Modifier.fillMaxWidth().drawWithCache {
