@@ -1,7 +1,6 @@
 package com.luoh.music.lrc
 
 import android.content.Context
-import android.graphics.Typeface
 import android.util.AttributeSet
 import android.widget.FrameLayout
 import android.widget.LinearLayout

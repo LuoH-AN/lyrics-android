@@ -127,6 +127,7 @@ class SettingsActivity : AppCompatActivity() {
     private var appliedNightMode = Configuration.UI_MODE_NIGHT_UNDEFINED
     private var pendingThemeScrollY: Int? = null
     private var pendingThemeFocusId = View.NO_ID
+    private var pendingHeaderOffset = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -145,6 +146,7 @@ class SettingsActivity : AppCompatActivity() {
         if (pendingThemeScrollY == null) {
             pendingThemeScrollY = findViewById<NestedScrollView>(R.id.settings_scroll).scrollY
             pendingThemeFocusId = currentFocus?.id ?: View.NO_ID
+            pendingHeaderOffset = findViewById<View>(R.id.settings_appbar).top
         }
         val colorDraft = colorPicker?.takeIf { it.isShowing }?.draft
         colorPicker?.dismiss()
@@ -159,8 +161,13 @@ class SettingsActivity : AppCompatActivity() {
         themeTransition.finish {
             if (pendingThemeFocusId != View.NO_ID) findViewById<View>(pendingThemeFocusId)?.requestFocus()
             findViewById<NestedScrollView>(R.id.settings_scroll).scrollTo(0, pendingThemeScrollY ?: 0)
+            val appBar = findViewById<com.google.android.material.appbar.AppBarLayout>(R.id.settings_appbar)
+            val params = appBar.layoutParams as androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
+            (params.behavior as? com.google.android.material.appbar.AppBarLayout.Behavior)?.setTopAndBottomOffset(pendingHeaderOffset)
+            (appBar.parent as androidx.coordinatorlayout.widget.CoordinatorLayout).dispatchDependentViewsChanged(appBar)
             pendingThemeScrollY = null
             pendingThemeFocusId = View.NO_ID
+            pendingHeaderOffset = 0
         }
     }
 

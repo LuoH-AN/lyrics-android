@@ -42,6 +42,7 @@ class CustomLyricsEditActivity : AppCompatActivity() {
     private var editingId: String? = null
     private var savedSnapshot = ""
     private var statusJob: Job? = null
+    private var importJob: Job? = null
     private var saving = false
 
     private val importLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -184,6 +185,9 @@ class CustomLyricsEditActivity : AppCompatActivity() {
                 LyricsOverlayService.instance?.reloadCustomLyrics()
                 toast("已保存 · ${parsed.lineCount} 行歌词")
                 finish()
+            } catch (error: Exception) {
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                toast("保存失败，请重试")
             } finally {
                 saving = false
                 listOf(titleField, artistField, lyricsField).forEach { it.isEnabled = true }
@@ -210,6 +214,7 @@ class CustomLyricsEditActivity : AppCompatActivity() {
     }
 
     private fun pasteClipboard() {
+        if (saving) return
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val text = clipboard.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)
             ?.coerceToText(this)?.toString().orEmpty()
@@ -229,21 +234,23 @@ class CustomLyricsEditActivity : AppCompatActivity() {
     }
 
     private fun importFile(uri: Uri) {
-        lifecycleScope.launch {
+        if (saving) return
+        importJob?.cancel()
+        importJob = lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
-        val text = runCatching {
-            contentResolver.openInputStream(uri)?.use { input ->
-                val output = ByteArrayOutputStream()
-                val buffer = ByteArray(8192)
-                while (true) {
-                    val read = input.read(buffer)
-                    if (read < 0) break
-                    output.write(buffer, 0, read)
-                    if (output.size() > MAX_FILE_BYTES) error("File too large")
-                }
-                decodeText(output.toByteArray())
-            }
-        }.getOrNull()
+                val text = runCatching {
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        val output = ByteArrayOutputStream()
+                        val buffer = ByteArray(8192)
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read < 0) break
+                            output.write(buffer, 0, read)
+                            if (output.size() > MAX_FILE_BYTES) error("File too large")
+                        }
+                        decodeText(output.toByteArray())
+                    }
+                }.getOrNull()
                 text?.let { it to CustomLyricsStore.parse(it) }
             }
             val text = result?.first

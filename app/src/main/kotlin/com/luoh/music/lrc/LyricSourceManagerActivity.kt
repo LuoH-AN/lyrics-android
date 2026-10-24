@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
-import android.widget.LinearLayout
 import androidx.recyclerview.widget.RecyclerView
 import androidx.activity.OnBackPressedCallback
 import kotlinx.coroutines.Job
@@ -13,7 +12,6 @@ import com.google.android.material.textfield.TextInputLayout
 import android.text.Editable
 import android.text.TextWatcher
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +26,9 @@ class LyricSourceManagerActivity : AppCompatActivity() {
     private lateinit var content: RecyclerView
     private lateinit var searchField: TextInputLayout
     private var renderJob: Job? = null
+    private var renderedSelection: String? = null
+    private var songScrollState: android.os.Parcelable? = null
+    private var restoreSongs = false
     private data class Row(val kind: Int, val title: String, val artist: String = "", val detail: String = "",
         val entry: JSONObject? = null, val candidate: JSONObject? = null, val current: Boolean = false)
 
@@ -35,7 +36,6 @@ class LyricSourceManagerActivity : AppCompatActivity() {
     private var selected: String? = null
     private var message = ""
     private var songQuery = ""
-    private fun col(res: Int) = ContextCompat.getColor(this, res)
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
         searchField = NativeUi.field(this, "搜索已记录的歌名或歌手")
@@ -43,7 +43,7 @@ class LyricSourceManagerActivity : AppCompatActivity() {
         content = NativeUi.listScreen(this, "歌词源管理", header)
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (selected != null) { selected = null; render() }
+                if (selected != null) { selected = null; restoreSongs = true; render() }
                 else { isEnabled = false; onBackPressedDispatcher.onBackPressed() }
             }
         })
@@ -120,11 +120,12 @@ class LyricSourceManagerActivity : AppCompatActivity() {
                 }
             }
             if (selectedKey != selected) return@launch
-            NativeUi.items(content, rows, { LibraryRow(it) }) { view, row ->
+            NativeUi.items(content, rows, { LibraryRow(it) }, retainScroll = renderedSelection == selectedKey) { view, row ->
                 val cell = view as LibraryRow
                 val entry = row.entry
                 when (row.kind) {
                     1 -> cell.bind(row.title, row.artist, row.detail, "查看版本与预览", {
+                        songScrollState = content.layoutManager?.onSaveInstanceState()
                         selected = requireNotNull(entry).optString("key"); message = ""; render()
                     })
                     2 -> cell.bind(row.title, row.artist, action = "清除匹配记录与缓存…", onAction = ::confirmClearAll, enabled = !busy)
@@ -145,6 +146,11 @@ class LyricSourceManagerActivity : AppCompatActivity() {
                     else -> cell.bind(row.title, row.artist, row.detail)
                 }
             }
+            renderedSelection = selectedKey
+            if (selectedKey == null && restoreSongs) {
+                songScrollState?.let { content.layoutManager?.onRestoreInstanceState(it) }
+                restoreSongs = false
+            }
         }
     }
 
@@ -162,7 +168,7 @@ class LyricSourceManagerActivity : AppCompatActivity() {
         if (busy) return
         lifecycleScope.launch {
         val count = withContext(Dispatchers.IO) { entries() }.map { it.optString("title") + "\u0000" + it.optString("artist") }.distinct().size
-        MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder(this@LyricSourceManagerActivity)
             .setTitle("清除匹配记录与缓存？")
             .setMessage("将清除 $count 首歌曲的匹配记录（包括手动选定的版本与历史版本），以及主页缓存的歌词。此操作无法撤销。\n\n自定义歌词、翻译语言包和同步设置都会保留。")
             .setNegativeButton("取消", null)

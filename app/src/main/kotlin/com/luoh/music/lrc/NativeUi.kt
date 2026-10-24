@@ -7,7 +7,6 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.FrameLayout
 import android.widget.LinearLayout
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -168,7 +167,9 @@ object NativeUi {
     }
 
     /** Only visible rows are created; list data and lyric summaries are prepared off the UI thread. */
-    fun <T> items(list: RecyclerView, values: List<T>, create: (Context) -> View, bind: (View, T) -> Unit) {
+    fun <T> items(list: RecyclerView, values: List<T>, create: (Context) -> View,
+                  retainScroll: Boolean = true, bind: (View, T) -> Unit) {
+        val scrollState = if (retainScroll) list.layoutManager?.onSaveInstanceState() else null
         list.adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
             override fun getItemCount() = values.size
             override fun onCreateViewHolder(parent: ViewGroup, type: Int): RecyclerView.ViewHolder =
@@ -177,6 +178,8 @@ object NativeUi {
                 }) {}
             override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) = bind(holder.itemView, values[position])
         }
+        if (scrollState != null) list.layoutManager?.onRestoreInstanceState(scrollState)
+        else if (!retainScroll) list.scrollToPosition(0)
     }
 
     fun group(context: Context, rows: List<View>): LinearLayout = column(context, 0).apply {
