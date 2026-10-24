@@ -9,7 +9,7 @@ function checkCopy(file, removed, kept) {
   for (const text of kept) assert.ok(source.includes(text), `${file} must preserve UI feedback: ${text}`);
 }
 
-checkCopy(base + 'CustomLyricsEditActivity.kt', [
+checkCopy(base + 'CustomLyricsEditPage.kt', [
   '保存后，这首歌在主页和悬浮窗都直接使用这份歌词，不再联网搜索；删除即恢复自动匹配。',
   '格式：每行以 [分:秒.毫秒] 开头，例如 [01:23.45]歌词。同一时间戳写两行时，第二行作为译文显示；支持 [offset:毫秒] 整体偏移。',
 ], [
@@ -27,7 +27,7 @@ checkCopy(base + 'CustomLyricsEditActivity.kt', [
   '会恢复自动匹配歌词。',
 ]);
 
-checkCopy(base + 'CustomLyricsManagerActivity.kt', [
+checkCopy(base + 'CustomLyricsManagerPage.kt', [
   '获取不到歌词时，手动指定一份标准 LRC 时间轴歌词。按歌名+歌手匹配，命中后主页和悬浮窗都直接使用这份。',
 ], [
   '新建自定义歌词',
@@ -38,7 +38,7 @@ checkCopy(base + 'CustomLyricsManagerActivity.kt', [
   '删除后这首歌会恢复自动匹配。',
 ]);
 
-checkCopy(base + 'LyricSourceManagerActivity.kt', [
+checkCopy(base + 'LyricSourceManagerPage.kt', [
   '按歌曲整理尝试过的歌词版本，选择来源后可预览与切换。记录持续保留，可随时手动清理。',
   '包括手动选定的版本和历史记录；自定义歌词、翻译语言包与同步设置不受影响。',
   '这是旧版保存的选择，暂不自动应用，请核对歌词后重新选用或删除。',
