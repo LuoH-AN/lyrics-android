@@ -24,6 +24,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import org.robolectric.annotation.LooperMode
 import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
@@ -370,7 +371,12 @@ class MaterialUiLayoutTest {
         assertEquals("No scrim may remain after the sheet closes", 0f, scrim.alpha, 0f)
     }
 
-    @Test fun modernMoreSheetOpensDetailedSettings() {
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun modernMoreSheetOpensDetailedSettings() {
+        // Robolectric otherwise auto-advances through the entire spring in one idle().
+        org.robolectric.shadows.ShadowChoreographer.setPaused(true)
+        org.robolectric.shadows.ShadowChoreographer.setFrameDelay(java.time.Duration.ofMillis(16))
         val host = org.robolectric.Robolectric.buildActivity(android.app.Activity::class.java).setup()
         val home = HomeLyricsView(ContextThemeWrapper(host.get(), R.style.Theme_DesktopLyrics))
         val actions = Actions()
