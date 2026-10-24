@@ -147,7 +147,7 @@ private fun SettingsTwoPane(navigator:ComposeNavigator) {
     Row(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(Modifier.width(400.dp).fillMaxHeight().clip(RoundedCornerShape(topEnd=24.dp,bottomEnd=24.dp)).background(MaterialTheme.colorScheme.background)) {
             Row(Modifier.fillMaxWidth().padding(start=16.dp,end=20.dp,top=WindowInsets.statusBars.asPaddingValues().calculateTopPadding()+12.dp,bottom=12.dp),verticalAlignment=Alignment.CenterVertically) {
-                CircularBackButton(navigator::dismiss,"返回")
+                CircularBackButton(navigator::dismiss,contentDescription="返回")
                 Spacer(Modifier.width(14.dp));Text("设置",style=MaterialTheme.typography.headlineSmall)
             }
             LazyColumn(state=listState,contentPadding=PaddingValues(start=12.dp,end=12.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {

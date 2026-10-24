@@ -93,7 +93,11 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.luoh.music.lrc.ui.agora.CollapsingSettingsScaffold
 import com.luoh.music.lrc.ui.agora.SettingsGroup
 import com.luoh.music.lrc.ui.agora.SettingsItem
+import com.luoh.music.lrc.ui.agora.LocalSettingsScrollRetentionActive
+import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -153,11 +157,24 @@ internal fun SettingsCategoryContent(
 }
 
 @Composable
+private fun rememberSettingsBusinessScope(): CoroutineScope {
+    val scope = rememberCoroutineScope()
+    val active = LocalSettingsScrollRetentionActive.current
+    LaunchedEffect(active) {
+        if (!active) scope.coroutineContext.cancelChildren()
+    }
+    return scope
+}
+
+@Composable
 private fun settingsPreferenceRevision(vararg prefs: SharedPreferences): Int {
     var revision by remember { mutableIntStateOf(0) }
-    DisposableEffect(*prefs) {
+    val active = LocalSettingsScrollRetentionActive.current
+    DisposableEffect(prefs.toList(), active) {
+        if (!active) return@DisposableEffect onDispose { }
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> revision++ }
         prefs.forEach { it.registerOnSharedPreferenceChangeListener(listener) }
+        revision++
         onDispose { prefs.forEach { it.unregisterOnSharedPreferenceChangeListener(listener) } }
     }
     return revision
@@ -275,8 +292,10 @@ private fun SettingsSliderItem(
 @Composable
 private fun DesktopAccessSettings(context: Context) {
     val owner = LocalLifecycleOwner.current
+    val active = LocalSettingsScrollRetentionActive.current
     var revision by remember { mutableIntStateOf(0) }
-    DisposableEffect(context, owner) {
+    DisposableEffect(context, owner, active) {
+        if (!active) return@DisposableEffect onDispose { }
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) { revision++ }
         }
@@ -284,6 +303,7 @@ private fun DesktopAccessSettings(context: Context) {
             if (event == Lifecycle.Event.ON_RESUME) revision++
         }
         owner.lifecycle.addObserver(observer)
+        revision++
         ContextCompat.registerReceiver(
             context, receiver, IntentFilter(LyricsOverlayService.ACTION_STATE_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED,
         )
@@ -299,7 +319,7 @@ private fun DesktopAccessSettings(context: Context) {
     val overlayAllowed = remember(revision) {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(context)
     }
-    val scope = rememberCoroutineScope()
+    val scope = rememberSettingsBusinessScope()
     SettingsGroup(title = "桌面歌词", items = listOf(
         {
             SettingsSwitchItem("桌面歌词", "在其他应用上显示当前播放的歌词", Icons.Default.Lyrics, running) {
@@ -484,13 +504,15 @@ private fun LyricsSyncSettings(context: Context, prefs: SharedPreferences, revis
             .coerceIn(LyricsOverlayService.LYRIC_OFFSET_MIN_MS, LyricsOverlayService.LYRIC_OFFSET_MAX_MS) else 0)
     }
     var pendingWrites by remember(identity, source) { mutableIntStateOf(0) }
+    val screenActive = LocalSettingsScrollRetentionActive.current
+    LaunchedEffect(screenActive) { if (!screenActive) pendingWrites = 0 }
     LaunchedEffect(revision, identity, source) {
         if (pendingWrites == 0) {
             offset = if (available) prefs.getInt(LyricsOverlayService.lyricOffsetPreferenceKey(identity, source), 0)
                 .coerceIn(LyricsOverlayService.LYRIC_OFFSET_MIN_MS, LyricsOverlayService.LYRIC_OFFSET_MAX_MS) else 0
         }
     }
-    val scope = rememberCoroutineScope()
+    val scope = rememberSettingsBusinessScope()
     val offsetWrites = remember { Mutex() }
     fun saveOffset(value: Int) {
         if (!available) return
@@ -517,7 +539,7 @@ private fun LyricsSyncSettings(context: Context, prefs: SharedPreferences, revis
                     }
                 }
             } finally {
-                pendingWrites--
+                pendingWrites = (pendingWrites - 1).coerceAtLeast(0)
             }
         }
     }
@@ -644,7 +666,10 @@ private fun HomeMotionSettings(context: Context, revision: Int) {
 private fun ComposeMotionPreview(style: MotionStyle) {
     val lines = remember { listOf("City lights", "A quiet melody", "Stay with me", "One more song", "Until tomorrow") }
     var active by remember { mutableIntStateOf(2) }
-    LaunchedEffect(Unit) {
+    val screenActive = LocalSettingsScrollRetentionActive.current
+    val allowContinuousMotion = LocalAgoraMotionPolicy.current.allowContinuousMotion
+    LaunchedEffect(screenActive, allowContinuousMotion) {
+        if (!screenActive || !allowContinuousMotion) return@LaunchedEffect
         while (true) { delay(2400); active = if (active == 2) 3 else 2 }
     }
     val baseColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -679,7 +704,9 @@ private fun AboutSettings(context: Context, onNavigate: (ComposeRoute) -> Unit) 
     }
     var checking by remember { mutableStateOf(false) }
     var release by remember { mutableStateOf<UpdateChecker.Release?>(null) }
-    val scope = rememberCoroutineScope()
+    val active = LocalSettingsScrollRetentionActive.current
+    LaunchedEffect(active) { if (!active) { checking = false; release = null } }
+    val scope = rememberSettingsBusinessScope()
     SettingsGroup(title = "应用", items = listOf(
         {
             SettingsNavigationItem("检查更新", if (checking) "检查中…" else version, Icons.Default.Update, !checking) {
