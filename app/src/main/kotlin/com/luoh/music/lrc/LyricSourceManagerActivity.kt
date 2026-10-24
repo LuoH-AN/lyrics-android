@@ -201,18 +201,25 @@ class LyricSourceManagerActivity : AppCompatActivity() {
                         entry.optString("album"), entry.optLong("duration"), excluded)?.toJson()
                 } } finally { repository.close() }
             }
-            busy = false
             val candidate = result.getOrNull()
-            val values = withContext(Dispatchers.IO) { entries() }
-            val latest = values.find { it.optString("key") == key }
-            if (candidate != null && latest != null) {
-                candidate.remove("alternatives")
-                val recent = latest.optJSONArray("history") ?: history
-                if ((0 until recent.length()).none { recent.optJSONObject(it)?.optString("recordId") == candidate.optString("recordId") }) recent.put(candidate)
-                latest.put("history", recent).put("at", System.currentTimeMillis())
-                save(values, false)
-                message = "已找到新候选，预览后点击选用。当前歌词保持不变。"
-            } else message = if (result.isFailure) "请求失败或来源暂时不可用，请稍后重试。" else "没有更多可靠的匹配结果，已保留现有版本。"
+            val stored = withContext(Dispatchers.IO) {
+                val values = entries()
+                val latest = values.find { it.optString("key") == key }
+                if (candidate == null || latest == null) false else {
+                    candidate.remove("alternatives")
+                    val recent = latest.optJSONArray("history") ?: history
+                    if ((0 until recent.length()).none { recent.optJSONObject(it)?.optString("recordId") == candidate.optString("recordId") }) recent.put(candidate)
+                    latest.put("history", recent).put("at", System.currentTimeMillis())
+                    save(values, false)
+                    true
+                }
+            }
+            busy = false
+            if (selected == key) message = when {
+                stored -> "已找到新候选，预览后点击选用。当前歌词保持不变。"
+                result.isFailure -> "请求失败或来源暂时不可用，请稍后重试。"
+                else -> "没有更多可靠的匹配结果，已保留现有版本。"
+            }
             render()
         }
     }

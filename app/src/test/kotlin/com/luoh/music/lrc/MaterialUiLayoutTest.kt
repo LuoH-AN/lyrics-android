@@ -16,6 +16,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.slider.Slider
+import com.google.android.material.textfield.TextInputLayout
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -387,6 +388,19 @@ class MaterialUiLayoutTest {
         try {
             val activity = controller.get()
             val root = activity.findViewById<ViewGroup>(android.R.id.content).getChildAt(0) as ViewGroup
+            val initialFields = descendants(root).filterIsInstance<TextInputLayout>().map { it.editText!! }.toList()
+            assertEquals("The editor must create its form before loading records", 3, initialFields.size)
+            val loadDeadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5)
+            while (initialFields.any { !it.isEnabled } && System.nanoTime() < loadDeadline) {
+                org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+                Thread.sleep(10)
+            }
+            assertTrue("Record loading must enable the existing form", initialFields.all { it.isEnabled })
+            if (editing) {
+                assertEquals(title, initialFields[0].text.toString())
+                assertEquals(artist, initialFields[1].text.toString())
+                assertEquals("[00:00.00]原歌词", initialFields[2].text.toString())
+            }
             layout(root, preview = preview)
             val toolbar = descendants(root).filterIsInstance<MaterialToolbar>().single()
             val save = descendants(toolbar).filterIsInstance<MaterialButton>().single { it.text.toString() == "保存" }

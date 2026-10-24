@@ -44,6 +44,7 @@ class CustomLyricsEditActivity : AppCompatActivity() {
     private var statusJob: Job? = null
     private var importJob: Job? = null
     private var saving = false
+    private var loading = false
 
     private val importLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) importFile(uri)
@@ -58,16 +59,16 @@ class CustomLyricsEditActivity : AppCompatActivity() {
         super.onCreate(state)
         val requestedTitle = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         val requestedArtist = intent.getStringExtra(EXTRA_ARTIST).orEmpty()
-        val existing = intent.getStringExtra(EXTRA_ID)?.let { CustomLyricsStore.get(this, it) }
-            ?: CustomLyricsStore.find(this, requestedTitle, requestedArtist)
-        editingId = existing?.id
+        val requestedId = intent.getStringExtra(EXTRA_ID)
+        loading = requestedId != null || requestedTitle.isNotBlank()
 
         val root = NativeUi.column(this, 0).apply {
             layoutParams = LinearLayout.LayoutParams(-1, -1)
             setBackgroundColor(col(R.color.app_bg))
         }
-        val toolbar = NativeUi.toolbar(this, if (existing == null) "添加自定义歌词" else "编辑自定义歌词") { leave() }
+        val toolbar = NativeUi.toolbar(this, if (requestedId == null) "添加自定义歌词" else "编辑自定义歌词") { leave() }
         val saveButton = NativeUi.button(this, "保存", true) { save() }.apply {
+            isEnabled = !loading
             isSingleLine = true
             minWidth = dp(64)
             setPadding(dp(16), 0, dp(16), 0)
@@ -92,33 +93,66 @@ class CustomLyricsEditActivity : AppCompatActivity() {
         setContentView(root)
 
         val info = NativeUi.column(this)
-        info.addView(NativeUi.field(this, "歌名（必填）", existing?.title ?: requestedTitle).also { titleField = it.editText!! })
-        info.addView(NativeUi.field(this, "歌手（留空匹配所有同名歌曲）", existing?.artist ?: requestedArtist).also { artistField = it.editText!! })
+        info.addView(NativeUi.field(this, "歌名（必填）", requestedTitle).also { titleField = it.editText!! })
+        info.addView(NativeUi.field(this, "歌手（留空匹配所有同名歌曲）", requestedArtist).also { artistField = it.editText!! })
         content.addView(NativeUi.card(this).apply { addView(info) })
 
+        val importButton = button("导入 .lrc 文件") { if (!saving && !loading) importLauncher.launch(arrayOf("*/*")) }
+            .apply { isEnabled = !loading }
+        val pasteButton = button("粘贴剪贴板") { pasteClipboard() }.apply { isEnabled = !loading }
         content.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            addView(button("导入 .lrc 文件") { importLauncher.launch(arrayOf("*/*")) },
+            addView(importButton,
                 LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(5); topMargin = dp(12) })
-            addView(button("粘贴剪贴板") { pasteClipboard() },
+            addView(pasteButton,
                 LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(5); topMargin = dp(12) })
         })
-        content.addView(NativeUi.field(this, "LRC 时间轴歌词", existing?.lyrics.orEmpty(), true).also {
+        content.addView(NativeUi.field(this, "LRC 时间轴歌词", multiline = true).also {
             lyricsField = it.editText!!
             lyricsField.typeface = Typeface.MONOSPACE
             it.placeholderText = "[00:12.30]第一句歌词\n[00:16.85]第二句歌词\n[00:16.85]同一时间戳的第二行作为译文"
         })
         status = text("", 13f).apply { setPadding(dp(2), dp(10), 0, 0) }
         content.addView(status)
-        if (existing != null) content.addView(button("删除这份自定义歌词") { confirmDelete(existing) })
 
         lyricsField.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
             override fun afterTextChanged(s: Editable?) = updateStatus()
         })
-        updateStatus()
         savedSnapshot = snapshot()
+        if (loading) {
+            listOf(titleField, artistField, lyricsField).forEach { it.isEnabled = false }
+            status.text = "正在读取歌词…"
+            lifecycleScope.launch {
+                try {
+                    val existing = withContext(Dispatchers.IO) {
+                        requestedId?.let { CustomLyricsStore.get(this@CustomLyricsEditActivity, it) }
+                            ?: CustomLyricsStore.find(this@CustomLyricsEditActivity, requestedTitle, requestedArtist)
+                    }
+                    editingId = existing?.id
+                    toolbar.title = if (existing == null) "添加自定义歌词" else "编辑自定义歌词"
+                    if (existing != null) {
+                        titleField.setText(existing.title)
+                        artistField.setText(existing.artist)
+                        lyricsField.setText(existing.lyrics)
+                        content.addView(button("删除这份自定义歌词") { confirmDelete(existing) })
+                    }
+                    savedSnapshot = snapshot()
+                    updateStatus()
+                } catch (error: Exception) {
+                    if (error is kotlinx.coroutines.CancellationException) throw error
+                    toast("无法读取已保存的歌词，请重试")
+                    finish()
+                } finally {
+                    loading = false
+                    listOf(titleField, artistField, lyricsField).forEach { it.isEnabled = true }
+                    saveButton.isEnabled = true
+                    importButton.isEnabled = true
+                    pasteButton.isEnabled = true
+                }
+            }
+        } else updateStatus()
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() = leave()
@@ -156,7 +190,7 @@ class CustomLyricsEditActivity : AppCompatActivity() {
     }
 
     private fun save() {
-        if (saving) return
+        if (saving || loading) return
         val title = titleField.text.toString().trim()
         val artist = artistField.text.toString().trim()
         val raw = lyricsField.text.toString().trim()
@@ -170,6 +204,7 @@ class CustomLyricsEditActivity : AppCompatActivity() {
             return
         }
         saving = true
+        importJob?.cancel()
         listOf(titleField, artistField, lyricsField).forEach { it.isEnabled = false }
         lifecycleScope.launch {
             try {
@@ -197,6 +232,7 @@ class CustomLyricsEditActivity : AppCompatActivity() {
 
     private fun leave() {
         if (saving) return
+        if (loading) { finish(); return }
         if (snapshot() == savedSnapshot) {
             finish()
             return
@@ -214,7 +250,7 @@ class CustomLyricsEditActivity : AppCompatActivity() {
     }
 
     private fun pasteClipboard() {
-        if (saving) return
+        if (saving || loading) return
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val text = clipboard.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)
             ?.coerceToText(this)?.toString().orEmpty()
@@ -234,8 +270,9 @@ class CustomLyricsEditActivity : AppCompatActivity() {
     }
 
     private fun importFile(uri: Uri) {
-        if (saving) return
+        if (saving || loading) return
         importJob?.cancel()
+        val beforeImport = snapshot()
         importJob = lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 val text = runCatching {
@@ -253,6 +290,7 @@ class CustomLyricsEditActivity : AppCompatActivity() {
                 }.getOrNull()
                 text?.let { it to CustomLyricsStore.parse(it) }
             }
+            if (saving || snapshot() != beforeImport) return@launch
             val text = result?.first
             if (text.isNullOrBlank()) {
                 toast("无法读取这个文件，请确认是文本格式的 LRC 歌词")
