@@ -15,6 +15,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.widget.NestedScrollView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.ConcatAdapter
 import com.google.android.material.textview.MaterialTextView
 import kotlin.math.roundToInt
 
@@ -92,7 +93,7 @@ class AgoraSettingsScaffold @JvmOverloads constructor(
         header = HeaderAdapter(context, controls)
         view.setTag(R.id.agora_list_header, header)
         mountBody(view)
-        view.adapter = header
+        view.adapter = ConcatAdapter(requireNotNull(header))
         view.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) { updateTitle() }
         })

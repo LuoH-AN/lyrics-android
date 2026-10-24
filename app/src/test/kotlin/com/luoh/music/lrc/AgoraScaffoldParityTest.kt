@@ -93,6 +93,8 @@ class AgoraScaffoldParityTest {
             val root = activity.findViewById<ViewGroup>(android.R.id.content)
             layout(root)
             controls.editText!!.setText("保留搜索")
+            controls.editText!!.requestFocus()
+            assertTrue(controls.editText!!.hasFocus())
             val scaffold = list.parent as AgoraSettingsScaffold
             val y = scaffold.titleView.translationY
             list.scrollBy(0, NativeUi.dp(activity, 33))
@@ -101,6 +103,7 @@ class AgoraScaffoldParityTest {
             fill(); layout(root)
             assertEquals("保留搜索", controls.editText!!.text.toString())
             assertTrue(controls.isAttachedToWindow)
+            assertTrue("Result refresh must preserve the search field's focus", controls.editText!!.hasFocus())
         } finally { controller.pause().stop().destroy() }
     }
 
@@ -150,6 +153,12 @@ class AgoraScaffoldParityTest {
             val fresh = activity.pageNavigator.currentPage!!.findViewById<NestedScrollView>(R.id.settings_scroll)
             assertNotSame(old, fresh)
             assertEquals(position, fresh.scrollY)
+            activity.pageNavigator.back(); layout(root); frames(100)
+            activity.pageNavigator.open(destination)
+            activity.pageNavigator.back() // Interrupt before the new view can restore its scroll during layout.
+            layout(root); frames(100)
+            activity.pageNavigator.open(destination); layout(root)
+            assertEquals(position, activity.pageNavigator.currentPage!!.findViewById<NestedScrollView>(R.id.settings_scroll).scrollY)
         } finally { controller.pause().stop().destroy() }
     }
 
@@ -195,6 +204,29 @@ class AgoraScaffoldParityTest {
             assertEquals(24 + NativeUi.dp(activity, 12), back.top)
             val content = scaffold.findViewById<View>(R.id.settings_content)
             assertEquals(32 + NativeUi.dp(activity, 32), content.paddingBottom)
+        } finally { controller.pause().stop().destroy() }
+    }
+
+    @Test fun scrimClosesTheWholeOverlayAndStartsAFreshScrollSession() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        try {
+            val activity = controller.get()
+            val root = activity.findViewById<ViewGroup>(android.R.id.content)
+            activity.startActivity(android.content.Intent(activity, SettingsActivity::class.java))
+            layout(root); frames(100)
+            val category = SettingsActivity.intent(activity, SettingsActivity.Section.OVERLAY)
+            activity.pageNavigator.open(category); layout(root); frames(100)
+            activity.pageNavigator.currentPage!!.findViewById<NestedScrollView>(R.id.settings_scroll)
+                .scrollTo(0, NativeUi.dp(activity, 180))
+            val outer = root.getChildAt(1) as AgoraNavigationOverlay
+            outer.getChildAt(0).performClick()
+            frames(100)
+            assertFalse("Scrim dismisses the outer presentation rather than popping one inner route", activity.pageNavigator.isOpen)
+            activity.startActivity(android.content.Intent(activity, SettingsActivity::class.java))
+            layout(root); frames(100)
+            activity.pageNavigator.open(category); layout(root)
+            assertEquals("A new settings session must start with fresh scroll positions", 0,
+                activity.pageNavigator.currentPage!!.findViewById<NestedScrollView>(R.id.settings_scroll).scrollY)
         } finally { controller.pause().stop().destroy() }
     }
 }

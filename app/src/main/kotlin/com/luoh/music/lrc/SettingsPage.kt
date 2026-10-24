@@ -142,7 +142,6 @@ class SettingsPage : NativePage() {
             findViewById<NestedScrollView>(R.id.settings_scroll).scrollTo(0, pendingThemeScrollY ?: 0)
             pendingThemeScrollY = null
             pendingThemeFocusId = View.NO_ID
-            pendingHeaderOffset = 0
         }
     }
 

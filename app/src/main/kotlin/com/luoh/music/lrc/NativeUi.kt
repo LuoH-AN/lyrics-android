@@ -173,7 +173,12 @@ object NativeUi {
             override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) = bind(holder.itemView, values[position])
         }
         val header = list.getTag(R.id.agora_list_header) as? AgoraSettingsScaffold.HeaderAdapter
-        list.adapter = if (header == null) adapter else ConcatAdapter(header, adapter)
+        val container = list.adapter as? ConcatAdapter
+        if (header != null && container != null && container.adapters.firstOrNull() === header) {
+            // Keep the scrolling search/header attached and focused while replacing results.
+            container.adapters.filter { it !== header }.forEach { container.removeAdapter(it) }
+            container.addAdapter(adapter)
+        } else list.adapter = if (header == null) adapter else ConcatAdapter(header, adapter)
         if (scrollState != null) list.layoutManager?.onRestoreInstanceState(scrollState)
         else if (!retainScroll) list.scrollToPosition(0)
     }

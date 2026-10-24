@@ -113,7 +113,10 @@ class NativeNavigator(
 
     private fun retainCurrentScroll() {
         val destination = stack.lastOrNull() ?: return
-        val scroll = currentPage?.captureScroll() ?: return
+        val page = currentPage ?: return
+        // Rapid Back before the restored page's first layout must not replace its saved offset with zero.
+        val scroll = if (!page.pageRoot.isLaidOut) destination.getBundle("scroll") ?: page.captureScroll()
+            else page.captureScroll()
         destination.putBundle("scroll", scroll)
         destination.getString("path")?.let { sessionScroll[it] = scroll }
     }
@@ -147,11 +150,10 @@ class NativeNavigator(
     }
 
     fun saveState(): Bundle {
+        retainCurrentScroll()
         currentPage?.let { page ->
-            stack.last().putBundle("scroll", page.captureScroll())
             stack.last().putParcelable("saved", activity.supportFragmentManager.saveFragmentInstanceState(page))
         }
-        retainCurrentScroll()
         return Bundle().apply {
             putParcelableArrayList("stack", ArrayList(stack))
             putParcelableArrayList("scroll_session", ArrayList(sessionScroll.map { (path, scroll) ->
