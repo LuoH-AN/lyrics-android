@@ -14,7 +14,9 @@ internal class SharedLyricsCache(context: Context, private val now: () -> Long =
 
     fun read(track: String, artist: String, album: String = "", durationMs: Long = 0L): DirectLyricsRepository.Result? {
         val identity = key(track, artist)
-        decode(prefs.getString(identity, null), durationMs)?.let { return it }
+        // Once migrated, stale legacy entries must not replace a newer recording or expired result.
+        val current = prefs.getString(identity, null)
+        if (current != null) return decode(current, durationMs)
         // Retain previously downloaded home lyrics when upgrading; album metadata can arrive late.
         val old = legacy.getString("$track\u0000$artist\u0000$album", null)
             ?: legacy.all.entries.firstOrNull { it.key.substringBeforeLast('\u0000')
