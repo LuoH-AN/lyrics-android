@@ -343,7 +343,11 @@ class MaterialUiLayoutTest {
         )
         decor.layout(0, 0, decor.measuredWidth, decor.measuredHeight)
         decor.viewTreeObserver.dispatchOnPreDraw()
-        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(500))
+        // Paused vsync emits one frame per clock advance; a single large jump only
+        // starts the spring instead of running its opening frames.
+        repeat(40) {
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(16))
+        }
     }
 
     private fun assertMoreSheetDismissal(dialog: BottomSheetDialog, close: () -> Unit) {
