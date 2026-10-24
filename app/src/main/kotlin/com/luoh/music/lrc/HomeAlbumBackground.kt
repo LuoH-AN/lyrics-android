@@ -92,7 +92,8 @@ internal fun extractHomeAlbumPalette(cover: Bitmap?): HomeAlbumPalette? {
 
 internal fun homeAlbumTone(argb: Int, tone: Double, maxChroma: Double): Color {
     val hct = Hct.fromInt(argb)
-    return Color(Hct.from(hct.hue, min(hct.chroma, maxChroma), tone).toInt())
+    val chroma = if (hct.chroma < 4.0) 0.0 else min(hct.chroma, maxChroma)
+    return Color(Hct.from(hct.hue, chroma, tone).toInt())
 }
 
 @Composable

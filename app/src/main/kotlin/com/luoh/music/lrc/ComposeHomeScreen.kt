@@ -495,6 +495,7 @@ private fun HomePlayerArtwork(state: HomePresentationState, ringAlpha: Float) {
 }
 
 @Composable
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 private fun HomeProgress(state: HomePresentationState) {
     val duration = state.snapshot.durationMs.coerceAtLeast(0L)
     var position by remember { mutableLongStateOf(state.clock.positionMs()) }

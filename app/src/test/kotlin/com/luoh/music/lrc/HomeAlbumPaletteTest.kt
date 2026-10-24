@@ -3,6 +3,7 @@ package com.luoh.music.lrc
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -34,6 +35,11 @@ class HomeAlbumPaletteTest {
         val palette = requireNotNull(extractHomeAlbumPalette(cover))
         assertEquals(AndroidColor.GRAY, palette.primary)
         assertEquals(AndroidColor.GRAY, palette.secondary)
+        for (tone in listOf(14.0, 34.0, 70.0, 90.0)) {
+            val color = homeAlbumTone(palette.primary, tone, 64.0).toArgb()
+            assertEquals(AndroidColor.red(color), AndroidColor.green(color))
+            assertEquals(AndroidColor.red(color), AndroidColor.blue(color))
+        }
         cover.recycle()
     }
 
