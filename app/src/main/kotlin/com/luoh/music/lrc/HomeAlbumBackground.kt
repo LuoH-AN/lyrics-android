@@ -49,7 +49,7 @@ internal fun prepareHomeAlbumBackground(cover: Bitmap?): Bitmap? {
         val pixels = IntArray(width * height)
         readable.getPixels(pixels, 0, width, 0, 0, width, height)
         val scratch = IntArray(pixels.size)
-        val radius = (min(width, height) / 32).coerceIn(1, 7)
+        val radius = (min(width, height) / 28).coerceIn(1, 8)
         // Three box passes approximate a Gaussian without filtering a full-screen bitmap every frame.
         repeat(3) {
             blurAlbumAxis(pixels, scratch, width, height, radius, horizontal = true)
@@ -137,9 +137,9 @@ internal fun HomeAlbumBackground(state: HomePresentationState, modifier: Modifie
             }
         }
         if (hasCover) Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
-            0f to Color.Black.copy(alpha = .56f),
-            .5f to Color.Black.copy(alpha = .64f),
-            1f to Color.Black.copy(alpha = .78f),
+            0f to Color.Black.copy(alpha = .48f),
+            .5f to Color.Black.copy(alpha = .56f),
+            1f to Color.Black.copy(alpha = .68f),
         )))
     }
 }
