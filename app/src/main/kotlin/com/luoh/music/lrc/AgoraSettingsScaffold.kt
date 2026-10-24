@@ -139,10 +139,10 @@ class AgoraSettingsScaffold @JvmOverloads constructor(
             it.layout(x, 0, x + it.measuredWidth, height)
         }
         // Set the margin before laying out the bar; insets must take effect in the same frame.
+        val contentWidth = minOf((width - safeLeft - safeRight).coerceAtLeast(0), dp(840))
+        val outerSpace = (width - safeLeft - safeRight - contentWidth) / 2
         (back.layoutParams as LayoutParams).apply {
             topMargin = statusTop + dp(12)
-            val contentWidth = minOf((width - safeLeft - safeRight).coerceAtLeast(0), dp(840))
-            val outerSpace = (width - safeLeft - safeRight - contentWidth) / 2
             val direction = this@AgoraSettingsScaffold.layoutDirection
             marginStart = (if (direction == LAYOUT_DIRECTION_RTL) safeRight else safeLeft) + outerSpace + dp(16)
             resolveLayoutDirection(direction)

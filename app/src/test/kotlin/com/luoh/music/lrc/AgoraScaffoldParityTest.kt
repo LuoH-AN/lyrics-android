@@ -193,8 +193,12 @@ class AgoraScaffoldParityTest {
         val controller = Robolectric.buildActivity(SettingsActivity::class.java).setup()
         try {
             val activity = controller.get()
-            val root = activity.pageNavigator.currentPage!!.pageRoot
-            val scaffold = root.getChildAt(0) as AgoraSettingsScaffold
+            // A detached fixture keeps the real window from replacing the simulated cutout insets.
+            val root = FrameLayout(activity)
+            val scaffold = android.view.LayoutInflater.from(activity)
+                .inflate(R.layout.activity_settings, root, false) as AgoraSettingsScaffold
+            root.addView(scaffold, ViewGroup.LayoutParams(-1, -1))
+            scaffold.title = "设置"
             val insets = WindowInsetsCompat.Builder()
                 .setInsets(WindowInsetsCompat.Type.systemBars(), Insets.of(0, 24, 0, 32)).build()
             ViewCompat.dispatchApplyWindowInsets(scaffold, insets)
@@ -208,6 +212,8 @@ class AgoraScaffoldParityTest {
             ViewCompat.dispatchApplyWindowInsets(scaffold, WindowInsetsCompat.Builder()
                 .setInsets(WindowInsetsCompat.Type.systemBars(), Insets.of(64, 24, 0, 32)).build())
             layout(root)
+            assertEquals("The fixture supplies the horizontal safe area to the whole body", 64,
+                scaffold.findViewById<View>(R.id.settings_scroll).left)
             assertEquals("Back must avoid a left cutout as well as the status strip", 64 + NativeUi.dp(activity, 16), back.left)
         } finally { controller.pause().stop().destroy() }
     }
