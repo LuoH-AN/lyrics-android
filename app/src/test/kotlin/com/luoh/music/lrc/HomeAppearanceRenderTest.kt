@@ -77,10 +77,10 @@ class HomeAppearanceRenderTest {
                 bitmap.recycle()
             }
         }
-        save("home-flow-expanded-$suffix")
+        save("home-cover-expanded-$suffix")
         compose.onNodeWithContentDescription("收起播放控制栏").performTouchInput { click() }
         compose.onNodeWithTag("home_cover_progress").assertExists()
-        save("home-flow-compact-$suffix")
+        save("home-cover-compact-$suffix")
         compose.runOnIdle { HomeLyricsPrefs.saveAlbumBackground(compose.activity, false) }
         compose.onNodeWithTag("home_album_background").assertDoesNotExist()
         save("home-background-off-$suffix")

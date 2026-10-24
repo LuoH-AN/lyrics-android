@@ -275,6 +275,7 @@ internal fun ComposeHomeScreen(
         prefs.registerOnSharedPreferenceChangeListener(listener)
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
+    val darkAlbumBackground = backgroundEnabled && state.snapshot.cover?.let { !it.isRecycled } == true
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         if (!state.gateVisible && backgroundEnabled) HomeAlbumBackground(state, Modifier.fillMaxSize().testTag("home_album_background"))
         BoxWithConstraints(
@@ -284,12 +285,12 @@ internal fun ComposeHomeScreen(
                 HomePermissionGate(state.gateStatus, onListenerPermission, onOverlayPermission, onStartOverlay) { state.actions?.openSettings() }
             } else if (maxWidth >= 840.dp) {
                 Row(Modifier.fillMaxSize().padding(24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    HomeLyricsStage(state, Modifier.weight(1f).fillMaxHeight().homeLyricsFade(), backgroundEnabled, appearance)
+                    HomeLyricsStage(state, Modifier.weight(1f).fillMaxHeight().homeLyricsFade(), darkAlbumBackground, appearance)
                     HomePlayer(state, Modifier.width(360.dp).align(Alignment.CenterVertically))
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
-                    HomeLyricsStage(state, Modifier.weight(1f).fillMaxWidth().homeLyricsFade(), backgroundEnabled, appearance)
+                    HomeLyricsStage(state, Modifier.weight(1f).fillMaxWidth().homeLyricsFade(), darkAlbumBackground, appearance)
                     HomePlayer(state, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp))
                 }
             }
@@ -533,21 +534,24 @@ private fun HomeProgress(state: HomePresentationState) {
 private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = Modifier, albumBackground: Boolean = false,
     appearance: HomeLyricAppearance = HomeLyricAppearance()) {
     val document = state.document
+    val foreground = if (albumBackground) Color.White else MaterialTheme.colorScheme.onSurface
+    val secondary = if (albumBackground) Color.White.copy(alpha = .72f) else MaterialTheme.colorScheme.onSurfaceVariant
     if (document.lines.isEmpty()) {
         Box(modifier, contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 if (state.snapshot.track.isNotBlank() && state.lyricStatus == "loading") {
-                    CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
+                    CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp,
+                        color = if (albumBackground) foreground else MaterialTheme.colorScheme.primary)
                 }
                 Text(when {
                     state.snapshot.track.isBlank() -> "暂未播放"
                     state.lyricStatus == "loading" -> "正在获取歌词"
                     else -> "未找到歌词"
-                }, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }, style = MaterialTheme.typography.titleLarge, color = secondary)
                 if (state.lyricStatus == "empty") {
                     Row {
-                        IconButton(onClick = { state.actions?.retryLyrics() }) { Icon(Icons.Default.Refresh, "重新获取歌词") }
-                        IconButton(onClick = { state.actions?.editCustomLyrics() }) { Icon(Icons.Default.Edit, "添加自定义歌词") }
+                        IconButton(onClick = { state.actions?.retryLyrics() }) { Icon(Icons.Default.Refresh, "重新获取歌词", tint = foreground) }
+                        IconButton(onClick = { state.actions?.editCustomLyrics() }) { Icon(Icons.Default.Edit, "添加自定义歌词", tint = foreground) }
                     }
                 }
             }
@@ -657,13 +661,14 @@ private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = M
                     scrollVelocity = scrollVelocity,
                     timed = document.timed,
                     onClick = { state.seek(line.startMs - state.displayOffsetMs) },
-                    activeColor = if (albumBackground) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary,
+                    activeColor = if (albumBackground) foreground else MaterialTheme.colorScheme.primary,
+                    foregroundColor = foreground,
                     appearance = appearance,
                 )
             }
         }
         if (document.timed) {
-            val dotColor = if (albumBackground) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary
+            val dotColor = if (albumBackground) foreground else MaterialTheme.colorScheme.primary
             Canvas(Modifier.fillMaxSize()) {
                 val now = position.longValue
                 val gapStart = document.lines.getOrNull(focused)?.let(LyricTiming::lineEnd) ?: 0L
@@ -703,6 +708,7 @@ private fun HomeLyricRow(
     timed: Boolean,
     onClick: () -> Unit,
     activeColor: Color,
+    foregroundColor: Color,
     appearance: HomeLyricAppearance,
 ) {
     val distance = abs(index - focused)
@@ -721,7 +727,7 @@ private fun HomeLyricRow(
     )
     val textAlignment = when (alignment) { HomeLyricsPrefs.CENTER -> TextAlign.Center; HomeLyricsPrefs.RIGHT -> TextAlign.End; else -> TextAlign.Start }
     val origin = TransformOrigin(when (alignment) { HomeLyricsPrefs.CENTER -> .5f; HomeLyricsPrefs.RIGHT -> 1f; else -> 0f }, .5f)
-    val color = if (index == focused) activeColor else MaterialTheme.colorScheme.onSurface
+    val color = if (index == focused) activeColor else foregroundColor
     Column(
         Modifier.fillMaxWidth().graphicsLayer {
             scaleX = scale

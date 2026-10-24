@@ -690,7 +690,7 @@ private fun HomeAlignmentSettings(context: Context, revision: Int) {
         HomeLyricsPrefs.saveAppearance(context, change(HomeLyricsPrefs.appearance(context)))
     }
     SettingsGroup(title = "背景", items = listOf({
-        SettingsSwitchItem("专辑流动背景", "从封面取色，播放时缓慢流动", Icons.Default.BlurOn, albumBackground) {
+        SettingsSwitchItem("封面模糊背景", "封面铺满、模糊压暗，播放时轻微移动", Icons.Default.BlurOn, albumBackground) {
             HomeLyricsPrefs.saveAlbumBackground(context, it)
         }
     }))

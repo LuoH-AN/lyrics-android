@@ -76,12 +76,12 @@ class ComposeNavigationTest {
         val navigator = ComposeNavigator(initial = ComposeRoute("settings"))
         show(navigator)
         compose.onNodeWithText("主页歌词").performScrollTo().performTouchInput { click() }
-        compose.onNodeWithText("专辑流动背景").assertIsOn().performTouchInput { click() }
-        compose.onNodeWithText("专辑流动背景").assertIsOff()
+        compose.onNodeWithText("封面模糊背景").assertIsOn().performTouchInput { click() }
+        compose.onNodeWithText("封面模糊背景").assertIsOff()
         compose.runOnIdle { assertFalse(HomeLyricsPrefs.albumBackground(ApplicationProvider.getApplicationContext<Context>())) }
         compose.onNodeWithContentDescription("返回").performTouchInput { click() }
         compose.onNodeWithText("主页歌词").performScrollTo().performTouchInput { click() }
-        compose.onNodeWithText("专辑流动背景").assertIsOff()
+        compose.onNodeWithText("封面模糊背景").assertIsOff()
     }
 
     @Test @Config(qualifiers = "w1200dp-h800dp-mdpi")
