@@ -785,6 +785,7 @@ class LyricsOverlayService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
+            preferredRefreshRate = highestOverlayRefreshRate()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 setFitInsetsTypes(0)
                 layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
@@ -988,6 +989,20 @@ class LyricsOverlayService : Service() {
             max(1, resources.displayMetrics.heightPixels)
     }
 
+    /** Ask the overlay window for the fastest mode at its current resolution. */
+    @Suppress("DEPRECATION")
+    private fun highestOverlayRefreshRate(): Float {
+        val display = windowManager.defaultDisplay
+        val current = display.mode
+        val modes = display.supportedModes.map {
+            OverlayDisplayMode(it.modeId, it.physicalWidth, it.physicalHeight, it.refreshRate)
+        }
+        return preferredOverlayRefreshRate(
+            modes,
+            OverlayDisplayMode(current.modeId, current.physicalWidth, current.physicalHeight, current.refreshRate)
+        )
+    }
+
     private fun currentSafeDisplayBounds(): Rect {
         val (screenWidth, screenHeight) = currentDisplaySize()
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
@@ -1076,6 +1091,7 @@ class LyricsOverlayService : Service() {
         val safe = currentSafeDisplayBounds()
         val previousWidth = max(1, lastDisplayWidth)
         val previousHeight = max(1, lastDisplayHeight)
+        lp.preferredRefreshRate = highestOverlayRefreshRate()
         val centerX = (lp.x + lp.width / 2f) / previousWidth
         val centerY = (lp.y + lp.height / 2f) / previousHeight
         val currentLogicalSize = windowToLogicalSize(lp.width, lp.height, overlayRotated)
