@@ -5,7 +5,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.ActivityInfo
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.core.content.ContextCompat
+import android.graphics.Color
+import android.view.View
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.test.core.app.ApplicationProvider
 import org.junit.After
@@ -49,8 +50,11 @@ class ThemePrefsTest {
         try {
             val activity = controller.get()
             ThemePrefs.updateSystemBars(activity)
-            assertEquals(ContextCompat.getColor(activity, R.color.status_bar), activity.window.statusBarColor)
-            assertEquals(ContextCompat.getColor(activity, R.color.nav_bar), activity.window.navigationBarColor)
+            assertEquals(Color.TRANSPARENT, activity.window.statusBarColor)
+            assertEquals(Color.TRANSPARENT, activity.window.navigationBarColor)
+            val layoutFlags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+            assertEquals(layoutFlags, activity.window.decorView.systemUiVisibility and layoutFlags)
             val bars = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
             assertEquals(!lightIcons, bars.isAppearanceLightStatusBars)
             assertEquals(!lightIcons, bars.isAppearanceLightNavigationBars)

@@ -287,7 +287,7 @@ class OverlaySettingsTest {
                 assertEquals(ContextCompat.getColor(activity, R.color.control_active),
                     activity.findViewById<Slider>(R.id.seek_font_size).trackActiveTintList.defaultColor)
                 assertEquals(1f, root.alpha, 0f)
-                assertEquals(ContextCompat.getColor(activity, R.color.status_bar), activity.window.statusBarColor)
+                assertEquals(android.graphics.Color.TRANSPARENT, activity.window.statusBarColor)
             }
         } finally { controller.stop().destroy() }
     }

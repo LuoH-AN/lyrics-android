@@ -6,4 +6,5 @@
     <item name="settings_scroll" type="id" />
     <item name="settings_content" type="id" />
     <item name="agora_list_header" type="id" />
+    <item name="agora_pending_list_scroll" type="id" />
 </resources>

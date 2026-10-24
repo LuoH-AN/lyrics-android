@@ -91,6 +91,7 @@ class AgoraScaffoldParityTest {
             }
             fill()
             val root = activity.findViewById<ViewGroup>(android.R.id.content)
+            frames(2) // Allow ViewRoot to attach the new scaffold to the real window.
             layout(root)
             controls.editText!!.setText("保留搜索")
             controls.editText!!.requestFocus()
@@ -204,6 +205,10 @@ class AgoraScaffoldParityTest {
             assertEquals(24 + NativeUi.dp(activity, 12), back.top)
             val content = scaffold.findViewById<View>(R.id.settings_content)
             assertEquals(32 + NativeUi.dp(activity, 32), content.paddingBottom)
+            ViewCompat.dispatchApplyWindowInsets(scaffold, WindowInsetsCompat.Builder()
+                .setInsets(WindowInsetsCompat.Type.systemBars(), Insets.of(64, 24, 0, 32)).build())
+            layout(root)
+            assertEquals("Back must avoid a left cutout as well as the status strip", 64 + NativeUi.dp(activity, 16), back.left)
         } finally { controller.pause().stop().destroy() }
     }
 
@@ -227,6 +232,38 @@ class AgoraScaffoldParityTest {
             activity.pageNavigator.open(category); layout(root)
             assertEquals("A new settings session must start with fresh scroll positions", 0,
                 activity.pageNavigator.currentPage!!.findViewById<NestedScrollView>(R.id.settings_scroll).scrollY)
+        } finally { controller.pause().stop().destroy() }
+    }
+
+    @Test fun delayedListDataRestoresTheSavedAnchorAfterHeaderOnlyFrames() {
+        val controller = Robolectric.buildActivity(SettingsActivity::class.java).setup()
+        try {
+            val activity = controller.get()
+            val page = activity.pageNavigator.currentPage!!
+            fun create() = NativeUi.listScreen(page, "记录")
+            fun fill(list: androidx.recyclerview.widget.RecyclerView) =
+                NativeUi.items(list, (1..100).toList(), { LibraryRow(it) }) { view, value ->
+                    (view as LibraryRow).bind("记录 $value", "歌手")
+                }
+            val root = page.pageRoot
+            val first = create()
+            fill(first); layout(root)
+            (first.layoutManager as androidx.recyclerview.widget.LinearLayoutManager).scrollToPositionWithOffset(40, -20)
+            layout(root)
+            val state = page.captureScroll()
+            val second = create()
+            page.restoreScroll(state)
+            repeat(3) { layout(root); frames(1) } // Data is still loading; only the header exists.
+            assertNotNull(second.getTag(R.id.agora_pending_list_scroll))
+            val retained = page.captureScroll()
+            val third = create() // Model another navigation interruption before data arrives.
+            page.restoreScroll(retained)
+            layout(root)
+            fill(third); layout(root)
+            val manager = third.layoutManager as androidx.recyclerview.widget.LinearLayoutManager
+            assertEquals(40, manager.findFirstVisibleItemPosition())
+            assertEquals(-20, manager.findViewByPosition(40)!!.top)
+            assertNull(third.getTag(R.id.agora_pending_list_scroll))
         } finally { controller.pause().stop().destroy() }
     }
 }

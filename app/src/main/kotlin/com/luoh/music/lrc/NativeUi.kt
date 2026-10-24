@@ -163,7 +163,8 @@ object NativeUi {
     /** Only visible rows are created; list data and lyric summaries are prepared off the UI thread. */
     fun <T> items(list: RecyclerView, values: List<T>, create: (Context) -> View,
                   retainScroll: Boolean = true, bind: (View, T) -> Unit) {
-        val scrollState = if (retainScroll) list.layoutManager?.onSaveInstanceState() else null
+        val pendingScroll = list.getTag(R.id.agora_pending_list_scroll) as? android.os.Parcelable
+        val scrollState = pendingScroll ?: if (retainScroll) list.layoutManager?.onSaveInstanceState() else null
         val adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
             override fun getItemCount() = values.size
             override fun onCreateViewHolder(parent: ViewGroup, type: Int): RecyclerView.ViewHolder =
@@ -179,6 +180,7 @@ object NativeUi {
             container.adapters.filter { it !== header }.forEach { container.removeAdapter(it) }
             container.addAdapter(adapter)
         } else list.adapter = if (header == null) adapter else ConcatAdapter(header, adapter)
+        list.setTag(R.id.agora_pending_list_scroll, null)
         if (scrollState != null) list.layoutManager?.onRestoreInstanceState(scrollState)
         else if (!retainScroll) list.scrollToPosition(0)
     }

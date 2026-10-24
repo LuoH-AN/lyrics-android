@@ -15,6 +15,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.ConcatAdapter
 
 /** A destination owns its controls, jobs and back actions, independently of other visible pages. */
 abstract class NativePage : Fragment() {
@@ -68,7 +69,8 @@ abstract class NativePage : Fragment() {
         walk(pageRoot, "root") { view, path ->
             when (view) {
                 is NestedScrollView -> state.putInt("$path/y", view.scrollY)
-                is RecyclerView -> state.putParcelable("$path/list", view.layoutManager?.onSaveInstanceState())
+                is RecyclerView -> state.putParcelable("$path/list",
+                    view.getTag(R.id.agora_pending_list_scroll) as? Parcelable ?: view.layoutManager?.onSaveInstanceState())
             }
         }
     }
@@ -76,7 +78,12 @@ abstract class NativePage : Fragment() {
         walk(pageRoot, "root") { view, path ->
             when (view) {
                 is NestedScrollView -> view.scrollTo(0, state.getInt("$path/y"))
-                is RecyclerView -> view.layoutManager?.onRestoreInstanceState(state.getParcelable<Parcelable>("$path/list"))
+                is RecyclerView -> {
+                    val saved = state.getParcelable<Parcelable>("$path/list")
+                    val headerOnly = (view.adapter as? ConcatAdapter)?.adapters?.size == 1
+                    if (headerOnly) view.setTag(R.id.agora_pending_list_scroll, saved)
+                    else view.layoutManager?.onRestoreInstanceState(saved)
+                }
             }
         }
     }
