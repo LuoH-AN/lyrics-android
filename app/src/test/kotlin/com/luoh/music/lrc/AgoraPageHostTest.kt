@@ -9,6 +9,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import androidx.compose.animation.core.Spring
 import androidx.core.widget.NestedScrollView
 import org.junit.Assert.*
 import org.junit.Before
@@ -29,6 +30,13 @@ import java.time.Duration
 @LooperMode(LooperMode.Mode.PAUSED)
 @GraphicsMode(GraphicsMode.Mode.NATIVE) // Exercise actual RenderNode z-order and transformed hit testing.
 class AgoraPageHostTest {
+    @Test fun springUsesAgorasActualNamedConstants() {
+        val spec = agoraPageSpring()
+        assertEquals(.75f, Spring.DampingRatioLowBouncy, 0f)
+        assertEquals(Spring.DampingRatioLowBouncy, spec.dampingRatio, 0f)
+        assertEquals(Spring.StiffnessLow, spec.stiffness, 0f)
+        assertEquals(.001f, spec.visibilityThreshold!!, 0f)
+    }
     @After fun releaseFrameProvider() {
         val handler = Class.forName("androidx.dynamicanimation.animation.AnimationHandler")
         org.robolectric.util.ReflectionHelpers.getStaticField<ThreadLocal<Any>>(handler, "sAnimatorHandler").remove()
@@ -106,8 +114,18 @@ class AgoraPageHostTest {
             assertTrue(target.alpha > 0f && target.alpha < 1f)
             assertTrue(old.alpha < 1f)
             var crossedTarget = false
-            repeat(30) { frames(1); if (target.translationX < 0f) crossedTarget = true }
+            var maximumRebound = 0f
+            var maximumScale = target.scaleX
+            repeat(30) {
+                frames(1)
+                if (target.translationX < 0f) crossedTarget = true
+                maximumRebound = maxOf(maximumRebound, -target.translationX)
+                maximumScale = maxOf(maximumScale, target.scaleX)
+            }
             assertTrue("Use Agora's live low-bouncy spring, not a sampled window curve", crossedTarget)
+            assertTrue("LowBouncy's rebound is about 2.84% of travel; MediumBouncy incorrectly rebounds 16%",
+                maximumRebound <= host.width * .75f * .031f + 1f)
+            assertTrue("The .94 to 1 scale spring must not visibly expand past the viewport", maximumScale <= 1.002f)
             frames(100)
             assertFalse(host.isTransitioning)
             assertEquals(1, host.pageCount)
@@ -139,6 +157,13 @@ class AgoraPageHostTest {
             assertEquals(alpha, middle.alpha, 0f)
             assertEquals(scale, middle.scaleX, 0f)
             assertEquals(-host.width * .75f, last.translationX, 1f)
+            repeat(8) {
+                frames(1)
+                assertTrue("Canceling Agora's entrance resets velocity; outgoing fade must not grow brighter",
+                    middle.alpha <= alpha + .0001f)
+                assertTrue("The interrupted scale must turn toward its exit instead of carrying the entrance velocity",
+                    middle.scaleX <= scale + .0001f)
+            }
             frames(150)
             assertEquals(1, host.pageCount)
             assertSame(last, host.targetView)
@@ -223,6 +248,30 @@ class AgoraPageHostTest {
             assertFalse(activity.pageNavigator.isOpen)
             assertFalse(activity.isFinishing)
             assertNull(shadowOf(activity).nextStartedActivity)
+        } finally { controller.pause().stop().destroy() }
+    }
+
+    @Test fun overlayUsesTheSameSmallReboundAsAgorasComposeSpring() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        try {
+            val activity = controller.get()
+            val root = activity.findViewById<ViewGroup>(android.R.id.content)
+            layout(root)
+            activity.startActivity(Intent(activity, SettingsActivity::class.java))
+            layout(root)
+            val overlay = root.getChildAt(1) as AgoraNavigationOverlay
+            val surface = overlay.getChildAt(1)
+            var rebound = 0f
+            var maximumScale = surface.scaleX
+            repeat(65) {
+                frames(1)
+                rebound = maxOf(rebound, -surface.translationX)
+                maximumScale = maxOf(maximumScale, surface.scaleX)
+            }
+            assertTrue("A low-bouncy .25-width entrance should retain only a small overshoot", rebound > 0f)
+            assertTrue("The overlay must use .75 damping, not the old .5 medium-bouncy spring",
+                rebound <= root.width * .25f * .031f + 1f)
+            assertTrue(maximumScale <= 1.003f)
         } finally { controller.pause().stop().destroy() }
     }
 

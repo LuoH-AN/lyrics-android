@@ -89,6 +89,8 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("androidx.dynamicanimation:dynamicanimation:1.0.0")
+    // Navigation uses Agora's actual Animatable/spring/tween engine; no Compose UI migration needed.
+    implementation("androidx.compose.animation:animation-core:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.lifecycle:lifecycle-service:2.7.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")

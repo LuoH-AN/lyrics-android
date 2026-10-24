@@ -4,11 +4,14 @@ import android.content.Context
 import android.graphics.Color
 import android.view.View
 import android.widget.FrameLayout
-import androidx.core.view.OneShotPreDrawListener
-import androidx.core.view.doOnPreDraw
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-/** Port of Agora SettingsOverlayHost.kt: retained home, independent scrim, asymmetric enter/exit. */
+/** SettingsOverlayHost.kt motion, using the original Compose engine over retained native content. */
 internal class AgoraNavigationOverlay(context: Context, onDismiss: () -> Unit) : FrameLayout(context) {
     val host = AgoraPageHost(context)
     private val scrim = View(context).apply {
@@ -19,51 +22,67 @@ internal class AgoraNavigationOverlay(context: Context, onDismiss: () -> Unit) :
         setOnClickListener { onDismiss() }
     }
     private val surface = AgoraPageSurface(context).apply { addView(host, LayoutParams(-1, -1)) }
-    private val offset = AgoraMotionValue(0f, ::render)
-    private val pageAlpha = AgoraMotionValue(1f, ::render)
-    private val scale = AgoraMotionValue(1f, ::render)
-    private val scrimAlpha = AgoraMotionValue(0f, ::render)
-    private var generation = 0
-    private var pendingDraw: OneShotPreDrawListener? = null
+    private val offset = Animatable(0f)
+    private val pageAlpha = Animatable(1f)
+    private val scale = Animatable(1f)
+    private val scrimAlpha = Animatable(0f)
+    private val runtime = AgoraTransitionRuntime(context)
     var closing = false
         private set
 
     init { addView(scrim, LayoutParams(-1, -1)); addView(surface, LayoutParams(-1, -1)); clipChildren = true }
 
     fun enter(animate: Boolean = true) {
-        cancel()
         closing = false
         surface.consumesInput = false
         val spatial = animate && allowAgoraSpatialMotion(context)
-        offset.snap(if (spatial) .25f else 0f)
-        scale.snap(if (spatial) .92f else 1f)
-        pageAlpha.snap(if (animate) 0f else 1f)
-        scrimAlpha.snap(if (animate) 0f else .45f)
-        if (!animate) return
-        val token = generation
-        pendingDraw = doOnPreDraw {
-            pendingDraw = null
-            if (token != generation) return@doOnPreDraw
-            if (spatial) { offset.spring(0f) {}; scale.spring(1f) {} }
-            pageAlpha.tween(1f) {}
-            scrimAlpha.tween(.45f, delay = if (spatial) 50L else 0L) {}
+        runtime.start {
+            offset.snapTo(if (spatial) .25f else 0f)
+            scale.snapTo(if (spatial) .92f else 1f)
+            pageAlpha.snapTo(if (animate) 0f else 1f)
+            scrimAlpha.snapTo(if (animate) 0f else .45f)
+            render()
+            if (!animate) return@start
+            awaitAgoraDraw()
+            if (spatial) {
+                listOf(
+                    launch { animateAgora(scrimAlpha, .45f, tween(300, delayMillis = 50), ::render) },
+                    launch { animateAgora(offset, 0f, agoraPageSpring(), ::render) },
+                    launch { animateAgora(pageAlpha, 1f, tween(300), ::render) },
+                    launch { animateAgora(scale, 1f, agoraPageSpring(), ::render) }
+                ).joinAll()
+            } else {
+                listOf(
+                    launch { animateAgora(scrimAlpha, .45f, tween(300), ::render) },
+                    launch { animateAgora(pageAlpha, 1f, tween(300), ::render) }
+                ).joinAll()
+            }
         }
     }
 
     fun exit(complete: () -> Unit) {
         if (closing) return
-        cancel()
         closing = true
         surface.consumesInput = true
-        val token = generation
         val spatial = allowAgoraSpatialMotion(context)
-        var remaining = if (spatial) 4 else 2
-        val done = { if (token == generation && --remaining == 0) complete(); Unit }
-        val duration = if (spatial) 400L else 300L
-        if (spatial) { offset.tween(1f, duration, complete = done); scale.tween(.94f, duration, complete = done) }
-        else { offset.snap(0f); scale.snap(1f) }
-        pageAlpha.tween(0f, duration, complete = done)
-        scrimAlpha.tween(0f, duration, complete = done)
+        runtime.start {
+            if (spatial) {
+                listOf(
+                    launch { animateAgora(scrimAlpha, 0f, tween(400, easing = FastOutSlowInEasing), ::render) },
+                    launch { animateAgora(offset, 1f, tween(400, easing = FastOutSlowInEasing), ::render) },
+                    launch { animateAgora(pageAlpha, 0f, tween(400, easing = FastOutSlowInEasing), ::render) },
+                    launch { animateAgora(scale, .94f, tween(400, easing = FastOutSlowInEasing), ::render) }
+                ).joinAll()
+            } else {
+                offset.snapTo(0f); scale.snapTo(1f)
+                render()
+                listOf(
+                    launch { animateAgora(scrimAlpha, 0f, tween(300), ::render) },
+                    launch { animateAgora(pageAlpha, 0f, tween(300), ::render) }
+                ).joinAll()
+            }
+            complete()
+        }
     }
     private fun render() {
         surface.translationX = (width * offset.value).roundToInt().toFloat()
@@ -73,10 +92,5 @@ internal class AgoraNavigationOverlay(context: Context, onDismiss: () -> Unit) :
         scrim.alpha = scrimAlpha.value.coerceIn(0f, .45f)
     }
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) { super.onSizeChanged(w, h, oldw, oldh); render() }
-    private fun cancel() {
-        generation++
-        pendingDraw?.removeListener(); pendingDraw = null
-        offset.cancel(); scale.cancel(); pageAlpha.cancel(); scrimAlpha.cancel()
-    }
-    fun dispose() { cancel(); host.dispose() }
+    fun dispose() { runtime.dispose(); host.dispose() }
 }
