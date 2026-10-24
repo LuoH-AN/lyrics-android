@@ -1,7 +1,6 @@
 package com.luoh.music.lrc
 
 import android.graphics.Bitmap
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -13,8 +12,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
@@ -33,7 +34,7 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /** A small, preblurred copy also works on Android 8–11, where Compose blur is unavailable. */
-internal fun prepareHomeAlbumBackground(cover: Bitmap?): Bitmap? {
+internal fun prepareHomeAlbumBackground(cover: Bitmap?, previous: Bitmap? = null): Bitmap? {
     if (cover == null || cover.isRecycled) return null
     var thumbnail: Bitmap? = null
     var software: Bitmap? = null
@@ -55,7 +56,13 @@ internal fun prepareHomeAlbumBackground(cover: Bitmap?): Bitmap? {
             blurAlbumAxis(pixels, scratch, width, height, radius, horizontal = true)
             blurAlbumAxis(scratch, pixels, width, height, radius, horizontal = false)
         }
-        Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
+        val result = Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
+        // MediaSession can resend identical artwork in a different Bitmap on playback updates.
+        // Keep the existing image identity so these updates cannot restart a full-page fade.
+        if (previous != null && !previous.isRecycled && result.sameAs(previous)) {
+            result.recycle()
+            previous
+        } else result
     } catch (_: IllegalArgumentException) {
         null
     } catch (_: IllegalStateException) {
@@ -104,7 +111,8 @@ internal fun HomeAlbumBackground(state: HomePresentationState, modifier: Modifie
     val cover = state.snapshot.cover
     val hasCover = cover != null && !cover.isRecycled
     val background by produceState<Bitmap?>(null, cover) {
-        value = withContext(Dispatchers.Default) { prepareHomeAlbumBackground(cover) }
+        val previous = value
+        value = withContext(Dispatchers.Default) { prepareHomeAlbumBackground(cover, previous) }
     }
     val motion = remember { Animatable(0f) }
     val animate = hasCover && state.presentationActive && state.playing &&
@@ -122,24 +130,49 @@ internal fun HomeAlbumBackground(state: HomePresentationState, modifier: Modifie
     }
     val allowFade = hasCover && state.presentationActive && LocalAgoraMotionPolicy.current.allowSpatialTransitions
     Box(modifier.clipToBounds().background(if (hasCover) Color(0xFF101014) else MaterialTheme.colorScheme.background)) {
-        Crossfade(if (hasCover) background else null, animationSpec = tween(if (allowFade) 700 else 0),
-            modifier = Modifier.fillMaxSize(), label = "albumBackgroundCover") { bitmap ->
-            if (bitmap != null && !bitmap.isRecycled) {
-                Image(remember(bitmap) { bitmap.asImageBitmap() }, contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().graphicsLayer {
-                        val phase = motion.value
-                        scaleX = 1.1f + .025f * sin(phase)
-                        scaleY = scaleX
-                        translationX = size.width * .015f * cos(phase)
-                        translationY = size.height * .015f * sin(phase)
-                    })
-            }
-        }
+        HomeAlbumArtwork(if (hasCover) background else null, allowFade,
+            phase = { motion.value }, modifier = Modifier.fillMaxSize())
         if (hasCover) Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
             0f to Color.Black.copy(alpha = .48f),
             .5f to Color.Black.copy(alpha = .56f),
             1f to Color.Black.copy(alpha = .68f),
         )))
     }
+}
+
+/** Keep an opaque outgoing image underneath the incoming one throughout a cover change. */
+@Composable
+internal fun HomeAlbumArtwork(bitmap: Bitmap?, allowFade: Boolean, phase: () -> Float,
+    modifier: Modifier = Modifier) {
+    var current by remember { mutableStateOf(bitmap) }
+    var previous by remember { mutableStateOf<Bitmap?>(null) }
+    val reveal = remember { Animatable(1f) }
+    LaunchedEffect(bitmap, allowFade) {
+        if (bitmap !== current) {
+            previous = current
+            current = bitmap
+            reveal.snapTo(if (allowFade && previous != null && bitmap != null) 0f else 1f)
+        }
+        if (allowFade && reveal.value < 1f) reveal.animateTo(1f, tween(700))
+        else reveal.snapTo(1f)
+        previous = null
+    }
+    Box(modifier) {
+        previous?.takeUnless { it.isRecycled }?.let { AlbumArtworkImage(it, phase) { 1f } }
+        current?.takeUnless { it.isRecycled }?.let { AlbumArtworkImage(it, phase) { reveal.value } }
+    }
+}
+
+@Composable
+private fun AlbumArtworkImage(bitmap: Bitmap, phase: () -> Float, opacity: () -> Float) {
+    Image(remember(bitmap) { bitmap.asImageBitmap() }, contentDescription = null,
+        contentScale = ContentScale.Crop,
+        modifier = Modifier.fillMaxSize().graphicsLayer {
+            val position = phase()
+            scaleX = 1.1f + .025f * sin(position)
+            scaleY = scaleX
+            translationX = size.width * .015f * cos(position)
+            translationY = size.height * .015f * sin(position)
+            alpha = opacity()
+        })
 }
