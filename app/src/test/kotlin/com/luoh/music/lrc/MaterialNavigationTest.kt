@@ -44,11 +44,27 @@ class MaterialNavigationTest {
         bitmap.recycle()
     }
 
-    @Test fun allWindowAnimationsInflateAndTheSpringCanOvershoot() {
+    @Test fun allWindowAnimationsInflateAndPageMotionStaysSubtle() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         for (id in listOf(R.anim.activity_open_enter, R.anim.activity_open_exit,
             R.anim.activity_close_enter, R.anim.activity_close_exit, R.anim.dialog_enter, R.anim.dialog_exit)) {
             assertNotNull(android.view.animation.AnimationUtils.loadAnimation(context, id))
+        }
+        for (id in listOf(R.anim.activity_open_enter, R.anim.activity_open_exit,
+            R.anim.activity_close_enter, R.anim.activity_close_exit)) {
+            val animation = AnimationUtils.loadAnimation(context, id) as android.view.animation.AnimationSet
+            assertTrue("Page transitions must not have a long settling tail", animation.computeDurationHint() <= 500L)
+            val slide = animation.animations.filterIsInstance<android.view.animation.TranslateAnimation>().single()
+            slide.initialize(1000, 1000, 1000, 1000)
+            slide.startTime = 0L
+            for (time in listOf(0L, slide.duration)) {
+                val frame = android.view.animation.Transformation()
+                slide.getTransformation(time, frame)
+                val matrix = FloatArray(9)
+                frame.matrix.getValues(matrix)
+                assertTrue("A page must not travel across most of the screen",
+                    kotlin.math.abs(matrix[android.graphics.Matrix.MTRANS_X]) <= 300f)
+            }
         }
         // Robolectric 4.12 substitutes a LinearInterpolator for every resource. Invoke
         // the framework loader directly so this verifies our actual XML spring path.
@@ -60,7 +76,11 @@ class MaterialNavigationTest {
         assertTrue(spring is PathInterpolator)
         assertEquals(0f, spring.getInterpolation(0f), 0f)
         assertEquals(1f, spring.getInterpolation(1f), 0f)
-        assertTrue((1..99).any { spring.getInterpolation(it / 100f) > 1f })
+        val samples = (1..999).map { spring.getInterpolation(it / 1000f) }
+        assertTrue("Keep a small spring rebound", samples.any { it > 1f })
+        assertTrue("The rebound must stay subtle", samples.maxOrNull()!! <= 1.025f)
+        assertTrue("Most motion should complete early", spring.getInterpolation(.3f) > .85f)
+        assertEquals("The final frames must be nearly settled", 1f, spring.getInterpolation(.9f), .002f)
     }
 
     @Test fun overviewDoesNotCreateAnyDetailControls() {

@@ -1,5 +1,5 @@
 <set xmlns:android="http://schemas.android.com/apk/res/android" android:shareInterpolator="false">
-    <translate android:fromXDelta="0" android:toXDelta="75%p" android:duration="650" android:interpolator="@interpolator/agora_spring" />
-    <scale android:fromXScale="1" android:toXScale="0.94" android:fromYScale="1" android:toYScale="0.94" android:pivotX="50%" android:pivotY="50%" android:duration="650" android:interpolator="@interpolator/agora_spring" />
-    <alpha android:fromAlpha="1" android:toAlpha="0" android:duration="300" />
+    <translate android:fromXDelta="0" android:toXDelta="8%p" android:duration="220" android:interpolator="@android:interpolator/fast_out_slow_in" />
+    <scale android:fromXScale="1" android:toXScale="0.99" android:fromYScale="1" android:toYScale="0.99" android:pivotX="50%" android:pivotY="50%" android:duration="220" android:interpolator="@android:interpolator/fast_out_slow_in" />
+    <alpha android:fromAlpha="1" android:toAlpha="0" android:duration="180" android:interpolator="@android:interpolator/linear" />
 </set>
