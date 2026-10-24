@@ -56,7 +56,7 @@ class LyricColorPickerDialogTest {
 
     @Test fun paletteSelectionStaysLocalUntilApplyAndCancelDoesNotSave() {
         preferences().edit().clear().putString(LyricsOverlayService.PREF_LYRIC_COLOR_COMPACT, "#111111").commit()
-        val controller = Robolectric.buildActivity(SettingsActivity::class.java).create()
+        val controller = Robolectric.buildActivity(SettingsActivity::class.java, SettingsActivity.intent(ApplicationProvider.getApplicationContext(), SettingsActivity.Section.OVERLAY)).create()
         try {
             val activity = controller.get()
             var dialog = open(activity)
@@ -87,7 +87,7 @@ class LyricColorPickerDialogTest {
 
     @Test fun invalidHexDisablesApplyWithoutClosingTheDialog() {
         preferences().edit().clear().putString(LyricsOverlayService.PREF_LYRIC_COLOR_COMPACT, "#FFFFFF").commit()
-        val controller = Robolectric.buildActivity(SettingsActivity::class.java).create()
+        val controller = Robolectric.buildActivity(SettingsActivity::class.java, SettingsActivity.intent(ApplicationProvider.getApplicationContext(), SettingsActivity.Section.OVERLAY)).create()
         try {
             val dialog = open(controller.get())
             val input = dialog.findViewById<TextInputEditText>(R.id.color_hex_input)!!
@@ -110,7 +110,7 @@ class LyricColorPickerDialogTest {
         for (night in listOf(false, true)) {
             RuntimeEnvironment.setQualifiers("w320dp-h640dp${if (night) "-night" else "-notnight"}")
             preferences().edit().clear().commit()
-            val controller = Robolectric.buildActivity(SettingsActivity::class.java).create()
+            val controller = Robolectric.buildActivity(SettingsActivity::class.java, SettingsActivity.intent(ApplicationProvider.getApplicationContext(), SettingsActivity.Section.OVERLAY)).create()
             try {
                 val activity = controller.get()
                 val dialog = open(activity)
@@ -149,7 +149,7 @@ class LyricColorPickerDialogTest {
     @Test fun openPaletteRetainsAnInvalidDraftWhenThemeChanges() {
         RuntimeEnvironment.setQualifiers("w320dp-h640dp-notnight")
         preferences().edit().clear().putString(LyricsOverlayService.PREF_LYRIC_COLOR_COMPACT, "#FFFFFF").commit()
-        val controller = Robolectric.buildActivity(SettingsActivity::class.java).create().start().visible()
+        val controller = Robolectric.buildActivity(SettingsActivity::class.java, SettingsActivity.intent(ApplicationProvider.getApplicationContext(), SettingsActivity.Section.OVERLAY)).create().start().visible()
         try {
             val activity = controller.get()
             val original = open(activity)

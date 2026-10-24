@@ -13,13 +13,30 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28], qualifiers = "w320dp-h640dp")
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class MaterialNavigationTest {
     private fun descendants(view: View): Sequence<View> = sequence {
         yield(view)
         if (view is ViewGroup) for (i in 0 until view.childCount) yieldAll(descendants(view.getChildAt(i)))
+    }
+
+    private fun preview(activity: SettingsActivity, name: String) {
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        val density = root.resources.displayMetrics.density
+        root.measure(View.MeasureSpec.makeMeasureSpec((320 * density).toInt(), View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec((640 * density).toInt(), View.MeasureSpec.EXACTLY))
+        root.layout(0, 0, root.measuredWidth, root.measuredHeight)
+        root.viewTreeObserver.dispatchOnPreDraw()
+        val bitmap = android.graphics.Bitmap.createBitmap(root.width, root.height, android.graphics.Bitmap.Config.ARGB_8888)
+        root.draw(android.graphics.Canvas(bitmap))
+        val output = java.io.File("build/reports/material-ui/$name.png")
+        output.parentFile.mkdirs()
+        output.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        bitmap.recycle()
     }
 
     @Test fun allWindowAnimationsInflateAndTheSpringCanOvershoot() {
@@ -40,6 +57,7 @@ class MaterialNavigationTest {
             val content = controller.get().findViewById<ViewGroup>(android.R.id.content)
             assertFalse(descendants(content).any { it is Slider || it is HomeMotionPreview || it is CompactLyricsView })
             assertTrue(descendants(content).count() < 100)
+            preview(controller.get(), "settings-overview")
         } finally { controller.destroy() }
     }
 
@@ -55,6 +73,7 @@ class MaterialNavigationTest {
                     assertTrue(descendants(content).any { it is MaterialCardView })
                     if (section != SettingsActivity.Section.MOTION) assertFalse(descendants(content).any { it is HomeMotionPreview })
                     if (section != SettingsActivity.Section.OVERLAY) assertNull(controller.get().findViewById<View>(R.id.seek_font_weight))
+                    preview(controller.get(), "category-${section.name.lowercase()}-${if (night) "dark" else "light"}")
                 } finally { controller.destroy() }
             }
         }
