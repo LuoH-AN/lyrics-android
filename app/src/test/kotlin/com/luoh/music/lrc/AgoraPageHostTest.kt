@@ -91,6 +91,9 @@ class AgoraPageHostTest {
             assertEquals(host.width, target.width)
             assertEquals(host.width, (target.getChildAt(0)).width)
             assertTrue(old.consumesInput)
+            frames(2) // Let ViewRoot attach the newly mounted content before View.post(PerformClick).
+            assertTrue("The actual window must attach the button before testing its click", button.isAttachedToWindow)
+            assertTrue("Touch is tested during entrance, not after settling", host.isTransitioning)
             click(host, host.width * .9f, host.height * .5f)
             click(host, host.width * .1f, host.height * .5f)
             shadowOf(Looper.getMainLooper()).idle() // View posts its PerformClick after ACTION_UP.
