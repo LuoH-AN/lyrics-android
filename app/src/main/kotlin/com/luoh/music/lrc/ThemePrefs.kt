@@ -1,10 +1,12 @@
 package com.luoh.music.lrc
 
 import android.app.Activity
+import android.graphics.Color
+import android.os.Build
 import android.content.res.Configuration
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.core.content.ContextCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.WindowCompat
 
 /** 主题偏好：跟随系统 / 亮 / 暗。 */
 object ThemePrefs {
@@ -26,10 +28,15 @@ object ThemePrefs {
     }
 
     fun updateSystemBars(activity: Activity) {
+        WindowCompat.setDecorFitsSystemWindows(activity.window, false)
         val night = activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
             Configuration.UI_MODE_NIGHT_YES
-        activity.window.statusBarColor = ContextCompat.getColor(activity, R.color.status_bar)
-        activity.window.navigationBarColor = ContextCompat.getColor(activity, R.color.nav_bar)
+        activity.window.statusBarColor = Color.TRANSPARENT
+        activity.window.navigationBarColor = Color.TRANSPARENT
+        if (Build.VERSION.SDK_INT >= 29) {
+            activity.window.isStatusBarContrastEnforced = false
+            activity.window.isNavigationBarContrastEnforced = false
+        }
         WindowInsetsControllerCompat(activity.window, activity.window.decorView).apply {
             isAppearanceLightStatusBars = !night
             isAppearanceLightNavigationBars = !night

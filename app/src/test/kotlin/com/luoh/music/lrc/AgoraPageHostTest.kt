@@ -309,6 +309,7 @@ class AgoraPageHostTest {
             val activity = controller.get()
             val root = activity.findViewById<ViewGroup>(android.R.id.content)
             activity.pageNavigator.open(Intent(activity, LyricSourceManagerActivity::class.java))
+            layout(root)
             val listPage = activity.pageNavigator.currentPage!!
             val search = descendants(listPage.pageRoot)
                 .filterIsInstance<com.google.android.material.textfield.TextInputLayout>().single().editText!!

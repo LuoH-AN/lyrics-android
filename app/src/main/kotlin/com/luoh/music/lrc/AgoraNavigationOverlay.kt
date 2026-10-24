@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.view.View
 import android.widget.FrameLayout
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -21,7 +22,11 @@ internal class AgoraNavigationOverlay(context: Context, onDismiss: () -> Unit) :
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
         setOnClickListener { onDismiss() }
     }
-    private val surface = AgoraPageSurface(context).apply { addView(host, LayoutParams(-1, -1)) }
+    // Agora's Surface surrounds the transition host. Its background stays put during inner navigation.
+    private val surface = AgoraPageSurface(context).apply {
+        setBackgroundColor(ContextCompat.getColor(context, R.color.app_bg))
+        addView(host, LayoutParams(-1, -1))
+    }
     private val offset = Animatable(0f)
     private val pageAlpha = Animatable(1f)
     private val scale = Animatable(1f)
@@ -30,7 +35,10 @@ internal class AgoraNavigationOverlay(context: Context, onDismiss: () -> Unit) :
     var closing = false
         private set
 
-    init { addView(scrim, LayoutParams(-1, -1)); addView(surface, LayoutParams(-1, -1)); clipChildren = true }
+    init {
+        addView(scrim, LayoutParams(-1, -1)); addView(surface, LayoutParams(-1, -1)); clipChildren = true
+        runtime.onPolicyChanged = ::render
+    }
 
     fun enter(animate: Boolean = true) {
         closing = false
@@ -43,7 +51,6 @@ internal class AgoraNavigationOverlay(context: Context, onDismiss: () -> Unit) :
             scrimAlpha.snapTo(if (animate) 0f else .45f)
             render()
             if (!animate) return@start
-            awaitAgoraDraw()
             if (spatial) {
                 listOf(
                     launch { animateAgora(scrimAlpha, .45f, tween(300, delayMillis = 50), ::render) },
@@ -85,12 +92,14 @@ internal class AgoraNavigationOverlay(context: Context, onDismiss: () -> Unit) :
         }
     }
     private fun render() {
-        surface.translationX = (width * offset.value).roundToInt().toFloat()
+        val direction = if (layoutDirection == LAYOUT_DIRECTION_RTL) -1 else 1
+        surface.translationX = if (runtime.allowSpatialMotion) direction * (width * offset.value).roundToInt().toFloat() else 0f
         surface.alpha = pageAlpha.value.coerceIn(0f, 1f)
-        surface.scaleX = scale.value
-        surface.scaleY = scale.value
+        surface.scaleX = if (runtime.allowSpatialMotion) scale.value else 1f
+        surface.scaleY = surface.scaleX
         scrim.alpha = scrimAlpha.value.coerceIn(0f, .45f)
     }
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) { super.onSizeChanged(w, h, oldw, oldh); render() }
     fun dispose() { runtime.dispose(); host.dispose() }
+    fun refreshTheme() { surface.setBackgroundColor(ContextCompat.getColor(context, R.color.app_bg)) }
 }

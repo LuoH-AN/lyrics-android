@@ -26,7 +26,7 @@ internal class AgoraPageSurface(context: Context) : FrameLayout(context) {
 
 /** Native View port of Agora's ui/settings/SettingsAnimations.kt GuardedAnimatedContent. */
 class AgoraPageHost(context: Context) : FrameLayout(context) {
-    private class Slot(val surface: View, incoming: Boolean, val spatial: Boolean) {
+    private class Slot(val surface: View, incoming: Boolean, spatial: Boolean) {
         val enter = Animatable(if (incoming && spatial) 0f else 1f)
         val exit = Animatable(0f)
         val alpha = Animatable(if (incoming) 0f else 1f)
@@ -43,7 +43,10 @@ class AgoraPageHost(context: Context) : FrameLayout(context) {
     val isTransitioning: Boolean get() = slots.any { it.outgoing }
     val pageCount: Int get() = slots.size
 
-    init { clipChildren = true; clipToPadding = true }
+    init {
+        clipChildren = true; clipToPadding = true
+        runtime.onPolicyChanged = ::render
+    }
 
     fun show(surface: View, forward: Boolean, animate: Boolean = true) {
         generation++
@@ -73,7 +76,6 @@ class AgoraPageHost(context: Context) : FrameLayout(context) {
             }
             render()
             runtime.start {
-                awaitAgoraDraw()
                 if (token != generation) return@start
                 if (spatial) {
                     listOf(
@@ -109,14 +111,14 @@ class AgoraPageHost(context: Context) : FrameLayout(context) {
     }
 
     private fun render() {
-        val sign = if (forward) 1f else -1f
+        val sign = (if (forward) 1f else -1f) * (if (layoutDirection == LAYOUT_DIRECTION_RTL) -1f else 1f)
         slots.forEach { slot ->
-            val x = if (!slot.spatial) 0f else if (slot.outgoing) -sign * width * .75f * slot.exit.value
+            val x = if (!runtime.allowSpatialMotion) 0f else if (slot.outgoing) -sign * width * .75f * slot.exit.value
                 else sign * width * .75f * (1f - slot.enter.value)
             slot.surface.translationX = x.roundToInt().toFloat()
             slot.surface.alpha = slot.alpha.value.coerceIn(0f, 1f)
-            slot.surface.scaleX = slot.scale.value
-            slot.surface.scaleY = slot.scale.value
+            slot.surface.scaleX = if (runtime.allowSpatialMotion) slot.scale.value else 1f
+            slot.surface.scaleY = slot.surface.scaleX
         }
     }
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) { super.onSizeChanged(w, h, oldw, oldh); render() }

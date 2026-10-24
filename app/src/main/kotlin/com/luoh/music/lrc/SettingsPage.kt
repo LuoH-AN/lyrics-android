@@ -16,7 +16,6 @@ import android.provider.Settings
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.google.android.material.appbar.CollapsingToolbarLayout
 import android.widget.Toast
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -24,7 +23,6 @@ import androidx.core.graphics.ColorUtils
 import androidx.core.widget.NestedScrollView
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
-import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.materialswitch.MaterialSwitch
@@ -110,7 +108,6 @@ class SettingsPage : NativePage() {
     private var appliedNightMode = Configuration.UI_MODE_NIGHT_UNDEFINED
     private var pendingThemeScrollY: Int? = null
     private var pendingThemeFocusId = View.NO_ID
-    private var pendingHeaderOffset = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -129,7 +126,6 @@ class SettingsPage : NativePage() {
         if (pendingThemeScrollY == null) {
             pendingThemeScrollY = findViewById<NestedScrollView>(R.id.settings_scroll).scrollY
             pendingThemeFocusId = currentFocus?.id ?: View.NO_ID
-            pendingHeaderOffset = findViewById<View>(R.id.settings_appbar).top
         }
         val colorDraft = colorPicker?.takeIf { it.isShowing }?.draft
         colorPicker?.dismiss()
@@ -144,10 +140,6 @@ class SettingsPage : NativePage() {
         themeTransition.finish {
             if (pendingThemeFocusId != View.NO_ID) findViewById<View>(pendingThemeFocusId)?.requestFocus()
             findViewById<NestedScrollView>(R.id.settings_scroll).scrollTo(0, pendingThemeScrollY ?: 0)
-            val appBar = findViewById<com.google.android.material.appbar.AppBarLayout>(R.id.settings_appbar)
-            val params = appBar.layoutParams as androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
-            (params.behavior as? com.google.android.material.appbar.AppBarLayout.Behavior)?.setTopAndBottomOffset(pendingHeaderOffset)
-            (appBar.parent as androidx.coordinatorlayout.widget.CoordinatorLayout).dispatchDependentViewsChanged(appBar)
             pendingThemeScrollY = null
             pendingThemeFocusId = View.NO_ID
             pendingHeaderOffset = 0
@@ -164,8 +156,10 @@ class SettingsPage : NativePage() {
     private fun bindContent() {
         setContentView(R.layout.activity_settings)
         val content = findViewById<LinearLayout>(R.id.settings_content)
-        findViewById<MaterialToolbar>(R.id.settings_toolbar).setNavigationOnClickListener { finish() }
-        findViewById<CollapsingToolbarLayout>(R.id.settings_header).title = section?.title ?: "设置"
+        (pageRoot.getChildAt(0) as AgoraSettingsScaffold).apply {
+            title = section?.title ?: "设置"
+            onBack = { finish() }
+        }
         if (section == null) {
             fun label(title: String) = NativeUi.text(uiContext, title, 13f).apply {
                 setTextColor(AccentPrefs.accent(uiContext))

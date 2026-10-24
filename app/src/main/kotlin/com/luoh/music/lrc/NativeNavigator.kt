@@ -22,6 +22,10 @@ class NativeNavigator(
     state: Bundle? = null
 ) {
     private val stack = mutableListOf<Bundle>()
+    // Agora retains scroll by route path for the lifetime of an open settings session.
+    private val sessionScroll = object : LinkedHashMap<String, Bundle>(16, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bundle>?) = size > 64
+    }
     private val pages = mutableMapOf<View, NativePage>()
     private var overlay: AgoraNavigationOverlay? = null
     private var standaloneHost: AgoraPageHost? = null
@@ -44,6 +48,10 @@ class NativeNavigator(
         if (restored.isNotEmpty()) activity.supportFragmentManager.beginTransaction().apply {
             restored.forEach { remove(it) }
         }.commitNow()
+        state?.getParcelableArrayList<Bundle>("scroll_session")?.forEach { entry ->
+            val path = entry.getString("path") ?: return@forEach
+            entry.getBundle("scroll")?.let { sessionScroll[path] = it }
+        }
         state?.getParcelableArrayList<Bundle>("stack")?.let { stack.addAll(it) }
         if (stack.isNotEmpty()) {
             ensureHost()
@@ -57,9 +65,12 @@ class NativeNavigator(
         val type = intent.component?.className ?: return false
         if (type !in destinationTypes) return false
         if (activity.supportFragmentManager.isStateSaved || overlay?.closing == true) return true
-        currentPage?.let { stack.last().putBundle("scroll", it.captureScroll()) }
+        retainCurrentScroll()
         val first = stack.isEmpty()
         val destination = Bundle().apply { putString("type", type); putBundle("args", intent.extras ?: Bundle()) }
+        val route = routeKey(destination)
+        destination.putString("path", (stack.lastOrNull()?.getString("path").orEmpty()) + "${route.length}:$route")
+        destination.getString("path")?.let { sessionScroll[it] }?.let { destination.putBundle("scroll", it) }
         stack.add(destination)
         if (first) onPresentationChanged(true)
         ensureHost()
@@ -72,27 +83,46 @@ class NativeNavigator(
     fun back() {
         if (overlay?.closing == true || stack.isEmpty() || activity.supportFragmentManager.isStateSaved) return
         if (stack.size > 1) {
-            currentPage?.let { stack.last().putBundle("scroll", it.captureScroll()) }
+            retainCurrentScroll()
             stack.removeAt(stack.lastIndex)
             show(stack.last(), forward = false)
-        } else if (overlaysHome) {
-            overlay?.exit {
-                clearPages()
-                overlay?.let(parent::removeView)
-                overlay?.dispose(); overlay = null
-                stack.clear()
-                backCallback.isEnabled = false
-                parent.getChildAt(0)?.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
-                onPresentationChanged(false)
-            }
-        } else activity.finish()
+        } else if (overlaysHome) dismissOverlay() else activity.finish()
+    }
+
+    private fun dismissOverlay() {
+        if (overlay?.closing == true || activity.supportFragmentManager.isStateSaved) return
+        overlay?.exit {
+            clearPages()
+            overlay?.let(parent::removeView)
+            overlay?.dispose(); overlay = null
+            stack.clear()
+            sessionScroll.clear()
+            backCallback.isEnabled = false
+            parent.getChildAt(0)?.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
+            onPresentationChanged(false)
+        }
+    }
+
+    private fun routeKey(destination: Bundle): String {
+        val args = destination.getBundle("args") ?: Bundle()
+        return destination.getString("type").orEmpty() + args.keySet().sorted().joinToString("") { key ->
+            val value = args.get(key)?.toString().orEmpty()
+            "${key.length}:$key${value.length}:$value"
+        }
+    }
+
+    private fun retainCurrentScroll() {
+        val destination = stack.lastOrNull() ?: return
+        val scroll = currentPage?.captureScroll() ?: return
+        destination.putBundle("scroll", scroll)
+        destination.getString("path")?.let { sessionScroll[it] = scroll }
     }
 
     private fun ensureHost() {
         if (host != null) return
         if (overlaysHome) {
             parent.getChildAt(0)?.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
-            overlay = AgoraNavigationOverlay(activity) { back() }.also { parent.addView(it, ViewGroup.LayoutParams(-1, -1)) }
+            overlay = AgoraNavigationOverlay(activity) { dismissOverlay() }.also { parent.addView(it, ViewGroup.LayoutParams(-1, -1)) }
         } else standaloneHost = AgoraPageHost(activity).also { parent.addView(it, ViewGroup.LayoutParams(-1, -1)) }
         host!!.onDiscard = { surface ->
             pages.remove(surface)?.let { page ->
@@ -121,11 +151,18 @@ class NativeNavigator(
             stack.last().putBundle("scroll", page.captureScroll())
             stack.last().putParcelable("saved", activity.supportFragmentManager.saveFragmentInstanceState(page))
         }
-        return Bundle().apply { putParcelableArrayList("stack", ArrayList(stack)) }
+        retainCurrentScroll()
+        return Bundle().apply {
+            putParcelableArrayList("stack", ArrayList(stack))
+            putParcelableArrayList("scroll_session", ArrayList(sessionScroll.map { (path, scroll) ->
+                Bundle().apply { putString("path", path); putBundle("scroll", scroll) }
+            }))
+        }
     }
 
     /** Settings preserves its theme draft itself; other pages are recreated in place with saved state. */
     fun refreshTheme() {
+        overlay?.refreshTheme()
         if (currentPage == null || currentPage is SettingsPage || activity.supportFragmentManager.isStateSaved) return
         currentPage?.let {
             stack.last().putBundle("scroll", it.captureScroll())
@@ -168,6 +205,7 @@ open class NativeNavigationActivity : AppCompatActivity(), NativeNavigatorOwner 
     override fun onCreate(state: Bundle?) {
         ThemePrefs.apply(getSharedPreferences(ThemePrefs.PREFS, Context.MODE_PRIVATE).getString(ThemePrefs.KEY, ThemePrefs.FOLLOW))
         super.onCreate(state)
+        ThemePrefs.updateSystemBars(this)
         pageNavigator = NativeNavigator(this, findViewById(android.R.id.content), false, state?.getBundle("navigation"))
         if (!pageNavigator.isOpen) pageNavigator.open(Intent(this, javaClass).putExtras(intent.extras ?: Bundle()))
     }

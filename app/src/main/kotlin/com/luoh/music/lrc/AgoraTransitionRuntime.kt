@@ -6,7 +6,6 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.view.Choreographer
-import android.view.View
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.AnimationVector1D
@@ -15,15 +14,12 @@ import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.spring
 import androidx.compose.runtime.BroadcastFrameClock
 import androidx.compose.ui.MotionDurationScale
-import androidx.core.view.doOnPreDraw
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
 
 internal typealias AgoraFloat = Animatable<Float, AnimationVector1D>
 
@@ -57,8 +53,17 @@ internal class AgoraTransitionRuntime(context: Context) {
     private fun readDurationScale() = Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
         .coerceAtLeast(0f)
     private var cachedDurationScale = readDurationScale()
+    var allowSpatialMotion = allowAgoraSpatialMotion(context)
+        private set
+    var onPolicyChanged: () -> Unit = {}
+    private val scaleKeys = listOf(Settings.Global.ANIMATOR_DURATION_SCALE,
+        Settings.Global.TRANSITION_ANIMATION_SCALE, Settings.Global.WINDOW_ANIMATION_SCALE)
     private val scaleObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
-        override fun onChange(selfChange: Boolean) { cachedDurationScale = readDurationScale() }
+        override fun onChange(selfChange: Boolean) {
+            cachedDurationScale = readDurationScale()
+            allowSpatialMotion = scaleKeys.none { Settings.Global.getFloat(resolver, it, 1f) == 0f }
+            onPolicyChanged()
+        }
     }
     private val durationScale = object : MotionDurationScale {
         override val scaleFactor: Float get() = cachedDurationScale
@@ -66,12 +71,13 @@ internal class AgoraTransitionRuntime(context: Context) {
     private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob() + clock + durationScale)
     private var transition: Job? = null
 
-    init { resolver.registerContentObserver(Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE), false, scaleObserver) }
+    init { scaleKeys.forEach { resolver.registerContentObserver(Settings.Global.getUriFor(it), false, scaleObserver) } }
 
     fun start(block: suspend CoroutineScope.() -> Unit) {
         cancel()
         if (!disposed) {
             cachedDurationScale = readDurationScale()
+            allowSpatialMotion = scaleKeys.none { Settings.Global.getFloat(resolver, it, 1f) == 0f }
             transition = scope.launch(block = block)
         }
     }
@@ -94,10 +100,4 @@ internal suspend fun animateAgora(
     render: () -> Unit
 ) {
     value.animateTo(target, animationSpec = spec) { render() }
-}
-
-/** Geometry comes from the first draw; cancellation also removes its pending listener. */
-internal suspend fun View.awaitAgoraDraw() = suspendCancellableCoroutine<Unit> { continuation ->
-    val listener = doOnPreDraw { if (continuation.isActive) continuation.resume(Unit) }
-    continuation.invokeOnCancellation { listener.removeListener() }
 }

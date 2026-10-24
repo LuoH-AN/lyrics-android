@@ -106,7 +106,7 @@ class MaterialNavigationTest {
                 View.MeasureSpec.makeMeasureSpec((640 * density).toInt(), View.MeasureSpec.EXACTLY))
             root.layout(0, 0, root.measuredWidth, root.measuredHeight)
             root.viewTreeObserver.dispatchOnPreDraw()
-            assertEquals(1000, list.adapter!!.itemCount)
+            assertEquals("One scrolling header plus the data rows", 1001, list.adapter!!.itemCount)
             assertTrue("The list must display cells", created > 0)
             assertTrue("Offscreen records must not inflate", created < 20)
         } finally { controller.stop().destroy() }

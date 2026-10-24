@@ -11,16 +11,28 @@ import android.widget.FrameLayout
 import androidx.activity.OnBackPressedDispatcher
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.NestedScrollView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.appbar.AppBarLayout
-import androidx.coordinatorlayout.widget.CoordinatorLayout
 
 /** A destination owns its controls, jobs and back actions, independently of other visible pages. */
 abstract class NativePage : Fragment() {
     val uiContext: AppCompatActivity by lazy { requireActivity() as AppCompatActivity }
     val intent: Intent get() = Intent().putExtras(arguments ?: Bundle())
-    val pageRoot: FrameLayout by lazy { FrameLayout(uiContext) }
+    val pageRoot: FrameLayout by lazy {
+        FrameLayout(uiContext).apply {
+            ViewCompat.setOnApplyWindowInsetsListener(this) { _, insets ->
+                // The scrolling scaffold places its header under the status strip itself.
+                // Simple form pages need safe content bounds inside their full-screen surface.
+                val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+                if (getChildAt(0) is AgoraSettingsScaffold) setPadding(0, 0, 0, 0)
+                else setPadding(bars.left, bars.top, bars.right,
+                    maxOf(bars.bottom, insets.getInsets(WindowInsetsCompat.Type.ime()).bottom))
+                insets
+            }
+        }
+    }
     val onBackPressedDispatcher = OnBackPressedDispatcher { finish() }
     val contentResolver get() = uiContext.contentResolver
     val cacheDir get() = uiContext.cacheDir
@@ -41,6 +53,7 @@ abstract class NativePage : Fragment() {
     fun setContentView(view: View) {
         pageRoot.removeAllViews()
         pageRoot.addView(view, FrameLayout.LayoutParams(-1, -1))
+        ViewCompat.requestApplyInsets(pageRoot)
     }
     @Suppress("UNCHECKED_CAST")
     fun <T> findViewById(id: Int): T = pageRoot.findViewById<View>(id) as T
@@ -56,7 +69,6 @@ abstract class NativePage : Fragment() {
             when (view) {
                 is NestedScrollView -> state.putInt("$path/y", view.scrollY)
                 is RecyclerView -> state.putParcelable("$path/list", view.layoutManager?.onSaveInstanceState())
-                is AppBarLayout -> state.putInt("$path/header", view.top)
             }
         }
     }
@@ -65,12 +77,6 @@ abstract class NativePage : Fragment() {
             when (view) {
                 is NestedScrollView -> view.scrollTo(0, state.getInt("$path/y"))
                 is RecyclerView -> view.layoutManager?.onRestoreInstanceState(state.getParcelable<Parcelable>("$path/list"))
-                is AppBarLayout -> {
-                    val parent = view.parent as? CoordinatorLayout
-                    val behavior = (view.layoutParams as? CoordinatorLayout.LayoutParams)?.behavior as? AppBarLayout.Behavior
-                    behavior?.setTopAndBottomOffset(state.getInt("$path/header"))
-                    parent?.dispatchDependentViewsChanged(view)
-                }
             }
         }
     }

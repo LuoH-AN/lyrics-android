@@ -26,6 +26,8 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.textview.MaterialTextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -144,7 +146,14 @@ class MainActivity : AppCompatActivity(), NativeNavigatorOwner {
         // 主题先于 setContentView
         ThemePrefs.apply(appPrefs.getString(ThemePrefs.KEY, ThemePrefs.FOLLOW))
         super.onCreate(savedInstanceState)
+        ThemePrefs.updateSystemBars(this)
         setContentView(R.layout.activity_main)
+        // Only home content is inset. The navigation overlay fills the whole window above it.
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById<ViewGroup>(android.R.id.content).getChildAt(0)) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
 
         home = findViewById(R.id.lyric_home)
         home.actions = HomeActions()

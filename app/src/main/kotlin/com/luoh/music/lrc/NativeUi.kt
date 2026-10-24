@@ -14,11 +14,9 @@ import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.widget.NestedScrollView
-import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.appbar.AppBarLayout
-import com.google.android.material.appbar.CollapsingToolbarLayout
 import com.google.android.material.shape.ShapeAppearanceModel
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
@@ -129,77 +127,44 @@ object NativeUi {
         return content
     }
 
-    fun listScreen(page: NativePage, title: String, header: View? = null): RecyclerView = RecyclerView(page.uiContext).apply {
-        val context = page.uiContext
-        layoutManager = LinearLayoutManager(context)
-        itemAnimator = null
-        clipToPadding = false
-        setPadding(dp(context, 24), dp(context, 12), dp(context, 24), dp(context, 32))
-        val list = this
-        val body = if (header == null) list else column(context, 0).apply {
-            addView(header)
-            addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
-        }
-        scaffold(context, title, body, { page.onBackPressedDispatcher.onBackPressed() }, page::setContentView)
-    }
+    fun listScreen(page: NativePage, title: String, header: View? = null): RecyclerView =
+        createListScreen(page.uiContext, title, header, { page.onBackPressedDispatcher.onBackPressed() }, page::setContentView)
 
-    fun listScreen(activity: AppCompatActivity, title: String, header: View? = null): RecyclerView = RecyclerView(activity).apply {
-        layoutManager = LinearLayoutManager(activity)
-        itemAnimator = null
-        clipToPadding = false
-        setPadding(dp(activity, 24), dp(activity, 12), dp(activity, 24), dp(activity, 32))
-        val list = this
-        val body = if (header == null) list else column(activity, 0).apply {
-            addView(header)
-            addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
+    fun listScreen(activity: AppCompatActivity, title: String, header: View? = null): RecyclerView =
+        createListScreen(activity, title, header, { activity.onBackPressedDispatcher.onBackPressed() }, activity::setContentView)
+
+    private fun createListScreen(context: Context, title: String, header: View?, onBack: () -> Unit,
+                                 mount: (View) -> Unit): RecyclerView {
+        val list = RecyclerView(context).apply {
+            layoutManager = LinearLayoutManager(context)
+            itemAnimator = null
+            clipToPadding = false
         }
-        scaffold(activity, title, body) { activity.onBackPressedDispatcher.onBackPressed() }
+        mount(AgoraSettingsScaffold(context).apply {
+            this.title = title
+            this.onBack = onBack
+            setList(list, header)
+        })
+        return list
     }
 
     private fun scaffold(activity: AppCompatActivity, title: String, body: View, onBack: () -> Unit) {
         scaffold(activity, title, body, onBack, activity::setContentView)
     }
 
-    private fun scaffold(activity: Context, title: String, body: View, onBack: () -> Unit, mount: (View) -> Unit) {
-        val root = CoordinatorLayout(activity).apply {
-            setBackgroundColor(ContextCompat.getColor(activity, R.color.app_bg))
-        }
-        val appBar = AppBarLayout(activity).apply {
-            setBackgroundColor(ContextCompat.getColor(activity, R.color.app_bg))
-            elevation = 0f
-            stateListAnimator = null
-        }
-        val collapsing = CollapsingToolbarLayout(activity).apply {
+    private fun scaffold(context: Context, title: String, body: View, onBack: () -> Unit, mount: (View) -> Unit) {
+        mount(AgoraSettingsScaffold(context).apply {
             this.title = title
-            minimumHeight = dp(activity, 64)
-            setExpandedTitleTextAppearance(R.style.AgoraExpandedTitle)
-            setCollapsedTitleTextAppearance(R.style.AgoraCollapsedTitle)
-            setExpandedTitleColor(ContextCompat.getColor(activity, R.color.text_primary))
-            setCollapsedTitleTextColor(ContextCompat.getColor(activity, R.color.text_primary))
-            expandedTitleGravity = Gravity.START or Gravity.BOTTOM
-            collapsedTitleGravity = Gravity.START or Gravity.CENTER_VERTICAL
-            setExpandedTitleMargin(dp(activity, 24), 0, dp(activity, 24), dp(activity, 24))
-            setContentScrimColor(ContextCompat.getColor(activity, R.color.app_bg))
-            addView(toolbar(activity, title, onBack), CollapsingToolbarLayout.LayoutParams(-1, dp(activity, 64)).apply {
-                collapseMode = CollapsingToolbarLayout.LayoutParams.COLLAPSE_MODE_PIN
-            })
-        }
-        appBar.addView(collapsing, AppBarLayout.LayoutParams(-1, dp(activity, 154)).apply {
-            scrollFlags = AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL or AppBarLayout.LayoutParams.SCROLL_FLAG_EXIT_UNTIL_COLLAPSED
+            this.onBack = onBack
+            setColumn(body as NestedScrollView)
         })
-        root.addView(appBar, CoordinatorLayout.LayoutParams(-1, -2))
-        root.addView(body, CoordinatorLayout.LayoutParams(-1, -1).apply {
-            behavior = AppBarLayout.ScrollingViewBehavior()
-        })
-        mount(root)
-        if (activity is AppCompatActivity) ThemePrefs.updateSystemBars(activity)
     }
 
     /** Only visible rows are created; list data and lyric summaries are prepared off the UI thread. */
     fun <T> items(list: RecyclerView, values: List<T>, create: (Context) -> View,
                   retainScroll: Boolean = true, bind: (View, T) -> Unit) {
         val scrollState = if (retainScroll) list.layoutManager?.onSaveInstanceState() else null
-        list.adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+        val adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
             override fun getItemCount() = values.size
             override fun onCreateViewHolder(parent: ViewGroup, type: Int): RecyclerView.ViewHolder =
                 object : RecyclerView.ViewHolder(create(parent.context).apply {
@@ -207,6 +172,8 @@ object NativeUi {
                 }) {}
             override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) = bind(holder.itemView, values[position])
         }
+        val header = list.getTag(R.id.agora_list_header) as? AgoraSettingsScaffold.HeaderAdapter
+        list.adapter = if (header == null) adapter else ConcatAdapter(header, adapter)
         if (scrollState != null) list.layoutManager?.onRestoreInstanceState(scrollState)
         else if (!retainScroll) list.scrollToPosition(0)
     }
