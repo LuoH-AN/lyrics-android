@@ -22,8 +22,8 @@ android {
         applicationId = "com.luoh.music.lrc"
         minSdk = 26
         targetSdk = 34
-        versionCode = 19
-        versionName = "1.0.8"
+        versionCode = 20
+        versionName = "1.1.0"
 
         // Public APK targets modern Android phones. Keeping only 64-bit ARM
         // avoids packaging three unused copies of ML Kit's native translator.
