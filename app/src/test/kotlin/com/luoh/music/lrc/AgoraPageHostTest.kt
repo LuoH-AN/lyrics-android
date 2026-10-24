@@ -18,6 +18,7 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import org.robolectric.annotation.LooperMode
 import org.robolectric.shadows.ShadowChoreographer
 import java.time.Duration
@@ -25,6 +26,7 @@ import java.time.Duration
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28], qualifiers = "w320dp-h640dp")
 @LooperMode(LooperMode.Mode.PAUSED)
+@GraphicsMode(GraphicsMode.Mode.NATIVE) // Exercise actual RenderNode z-order and transformed hit testing.
 class AgoraPageHostTest {
     @Before fun deterministicFrames() {
         val app = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.app.Application>()
@@ -77,6 +79,9 @@ class AgoraPageHostTest {
             assertEquals(host.width * .75f, target.translationX, 1f)
             assertEquals(.94f, target.scaleX, .0001f)
             assertEquals(0f, target.alpha, 0f)
+            assertEquals("Target must draw and receive input above the shield", 2f, target.z, 0f)
+            assertEquals(host.width, target.width)
+            assertEquals(host.width, (target.getChildAt(0)).width)
             assertTrue(old.consumesInput)
             click(host, host.width * .9f, host.height * .5f)
             click(host, host.width * .1f, host.height * .5f)
