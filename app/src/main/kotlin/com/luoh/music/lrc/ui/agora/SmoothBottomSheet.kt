@@ -132,6 +132,8 @@ internal fun SmoothBottomSheet(
         )
     }
 
+    val dialogWindowRef = remember { mutableStateOf<android.view.Window?>(null) }
+
     fun animateTo(target: SmoothBottomSheetValue) {
         state.snapJob?.cancel()
         state.snapJob = coroutineScope.launch {
@@ -142,7 +144,12 @@ internal fun SmoothBottomSheet(
             }
             state.rawFraction = state.visualFraction.value
             state.value = target
-            if (target == SmoothBottomSheetValue.Hidden) currentOnDismissRequest()
+            if (target == SmoothBottomSheetValue.Hidden) {
+                // Disposal can cancel snapshotFlow before it publishes the last frame.
+                // Clear dim synchronously so no platform backdrop survives the Compose sheet.
+                dialogWindowRef.value?.setDimAmount(0f)
+                currentOnDismissRequest()
+            }
         }
     }
 
@@ -257,7 +264,6 @@ internal fun SmoothBottomSheet(
         }
     }
 
-    val dialogWindowRef = remember { mutableStateOf<android.view.Window?>(null) }
     LaunchedEffect(dialogWindowRef.value) {
         val window = dialogWindowRef.value ?: return@LaunchedEffect
         snapshotFlow { state.visualFraction.value }
@@ -284,6 +290,7 @@ internal fun SmoothBottomSheet(
         ),
     ) {
         DialogWindowEdgeToEdge()
+        DialogWindowNoSystemAnimation()
         val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
         SideEffect { dialogWindowRef.value = dialogWindow }
 

@@ -7,7 +7,7 @@
 
 ## 原源码复用
 
-`app/src/main/kotlin/com/luoh/music/lrc/ui/agora/` 保留 Agora 的设置外层宿主、内页过渡、滚动恢复、单标题 scaffold、分组行、SmoothBottomSheet、菜单、配色与字体源码；仅调整包名、资源和应用业务接线。该目录包含上游 GPL-3.0 许可副本。主题额外支持本应用已有的自定义色种，仍使用原件的 Tonal Spot 算法生成完整 ColorScheme。
+`app/src/main/kotlin/com/luoh/music/lrc/ui/agora/` 保留 Agora 的设置外层宿主、内页过渡、滚动恢复、单标题 scaffold、分组行、SmoothBottomSheet、菜单、配色与字体源码；调整包名、资源和应用业务接线；弹窗关闭时额外同步清零 dim，并禁用独立的平台窗口动画，避免最后一帧更新被销毁取消而残留遮罩。该目录包含上游 GPL-3.0 许可副本。主题额外支持本应用已有的自定义色种，仍使用原件的 Tonal Spot 算法生成完整 ColorScheme。
 
 页面入口统一使用 ComponentActivity.setContent。首页播放器、权限页、逐字歌词、更多面板、八类设置、翻译/API 配置、同步记忆、歌词来源及版本、自定义歌词列表与编辑、隐私页全部使用 Compose。内部导航无需切换 Activity，外部系统入口映射为同一目的地模型。
 

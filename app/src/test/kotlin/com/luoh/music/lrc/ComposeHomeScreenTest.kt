@@ -140,8 +140,9 @@ class ComposeHomeScreenTest {
             compose.onNodeWithText("更多").assertDoesNotExist()
             previousDialog = dialog
         }
-        // After cancellation/reopen cycles a selected action still runs exactly once, after exit.
+        // Let entrance measure the lazy rows before pausing to test interrupted dismissal.
         compose.onNodeWithContentDescription("更多").performTouchInput { click() }
+        compose.onNodeWithText("添加自定义歌词").assertExists()
         compose.mainClock.autoAdvance = false
         repeat(2) { compose.onNodeWithText("添加自定义歌词").performTouchInput { click() } }
         compose.runOnIdle { assertTrue(actions.calls.isEmpty()) }
