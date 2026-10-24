@@ -143,7 +143,9 @@ class AgoraSettingsScaffold @JvmOverloads constructor(
             topMargin = statusTop + dp(12)
             val contentWidth = minOf((width - safeLeft - safeRight).coerceAtLeast(0), dp(840))
             val outerSpace = (width - safeLeft - safeRight - contentWidth) / 2
-            marginStart = (if (layoutDirection == LAYOUT_DIRECTION_RTL) safeRight else safeLeft) + outerSpace + dp(16)
+            val direction = this@AgoraSettingsScaffold.layoutDirection
+            marginStart = (if (direction == LAYOUT_DIRECTION_RTL) safeRight else safeLeft) + outerSpace + dp(16)
+            resolveLayoutDirection(direction)
         }
         bar.forceLayout()
         bar.layout(0, 0, width, statusTop + dp(64))
