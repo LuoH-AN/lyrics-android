@@ -1,5 +1,7 @@
 # Agora 导航独立源码审计
 
+> 历史审计：以下内容针对旧 View 实现。当前应用页面已迁移 Compose；现行结构见 [Compose 迁移说明](agora-compose-migration.md)。
+
 审计日期：2026-10-24。先阅读 Agora，再阅读目标实现；未查看图片，未使用现有测试通过结果证明视觉一致。本报告描述的是下面两个固定提交的实现，后续修复应与该基线区分。
 
 - 参考：[newo-ether/Agora，239eaa93](https://github.com/newo-ether/Agora/tree/239eaa93a08412f79495d711ed3b05f495f0127e)，本地 `/data/data/com.termux/files/home/projects/.reference-agora`。
