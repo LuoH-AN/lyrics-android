@@ -92,7 +92,7 @@ object NativeUi {
         layoutParams = LinearLayout.LayoutParams(-1, -2)
     }
 
-    fun toolbar(activity: AppCompatActivity, title: String, onBack: () -> Unit): MaterialToolbar = MaterialToolbar(activity).apply {
+    fun toolbar(activity: Context, title: String, onBack: () -> Unit): MaterialToolbar = MaterialToolbar(activity).apply {
         this.title = title
         setNavigationIcon(R.drawable.ic_native_back)
         navigationContentDescription = "返回"
@@ -118,6 +118,31 @@ object NativeUi {
         return content
     }
 
+    fun screen(page: NativePage, title: String, onBack: () -> Unit = { page.finish() }): LinearLayout {
+        val context = page.uiContext
+        val content = column(context, 24)
+        scaffold(context, title, NestedScrollView(context).apply {
+            isFillViewport = true
+            overScrollMode = View.OVER_SCROLL_NEVER
+            addView(content)
+        }, onBack, page::setContentView)
+        return content
+    }
+
+    fun listScreen(page: NativePage, title: String, header: View? = null): RecyclerView = RecyclerView(page.uiContext).apply {
+        val context = page.uiContext
+        layoutManager = LinearLayoutManager(context)
+        itemAnimator = null
+        clipToPadding = false
+        setPadding(dp(context, 24), dp(context, 12), dp(context, 24), dp(context, 32))
+        val list = this
+        val body = if (header == null) list else column(context, 0).apply {
+            addView(header)
+            addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
+        }
+        scaffold(context, title, body, { page.onBackPressedDispatcher.onBackPressed() }, page::setContentView)
+    }
+
     fun listScreen(activity: AppCompatActivity, title: String, header: View? = null): RecyclerView = RecyclerView(activity).apply {
         layoutManager = LinearLayoutManager(activity)
         itemAnimator = null
@@ -132,6 +157,10 @@ object NativeUi {
     }
 
     private fun scaffold(activity: AppCompatActivity, title: String, body: View, onBack: () -> Unit) {
+        scaffold(activity, title, body, onBack, activity::setContentView)
+    }
+
+    private fun scaffold(activity: Context, title: String, body: View, onBack: () -> Unit, mount: (View) -> Unit) {
         val root = CoordinatorLayout(activity).apply {
             setBackgroundColor(ContextCompat.getColor(activity, R.color.app_bg))
         }
@@ -162,8 +191,8 @@ object NativeUi {
         root.addView(body, CoordinatorLayout.LayoutParams(-1, -1).apply {
             behavior = AppBarLayout.ScrollingViewBehavior()
         })
-        activity.setContentView(root)
-        ThemePrefs.updateSystemBars(activity)
+        mount(root)
+        if (activity is AppCompatActivity) ThemePrefs.updateSystemBars(activity)
     }
 
     /** Only visible rows are created; list data and lyric summaries are prepared off the UI thread. */

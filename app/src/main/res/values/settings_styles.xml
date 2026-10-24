@@ -115,12 +115,6 @@
     <style name="MaterialSheetCorners" parent=""><item name="cornerSizeBottomLeft">0dp</item><item name="cornerSizeBottomRight">0dp</item></style>
     <style name="AgoraExpandedTitle" parent="TextAppearance.Material3.HeadlineLarge"><item name="android:fontFamily">@font/app_font</item><item name="android:textStyle">bold</item><item name="android:textSize">33sp</item></style>
     <style name="AgoraCollapsedTitle" parent="TextAppearance.Material3.TitleLarge"><item name="android:fontFamily">@font/app_font</item><item name="android:textStyle">bold</item><item name="android:textSize">22sp</item></style>
-    <style name="MaterialActivityAnimation" parent="@android:style/Animation.Activity">
-        <item name="android:activityOpenEnterAnimation">@anim/activity_open_enter</item>
-        <item name="android:activityOpenExitAnimation">@anim/activity_open_exit</item>
-        <item name="android:activityCloseEnterAnimation">@anim/activity_close_enter</item>
-        <item name="android:activityCloseExitAnimation">@anim/activity_close_exit</item>
-    </style>
     <style name="MaterialDialogAnimation">
         <item name="android:windowEnterAnimation">@anim/dialog_enter</item>
         <item name="android:windowExitAnimation">@anim/dialog_exit</item>

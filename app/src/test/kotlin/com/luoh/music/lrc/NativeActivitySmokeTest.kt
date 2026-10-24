@@ -25,7 +25,7 @@ class NativeActivitySmokeTest {
     }
 
     private fun <T : Activity> opensNatively(type: Class<T>, needsForm: Boolean = false) {
-        val controller = Robolectric.buildActivity(type).create()
+        val controller = Robolectric.buildActivity(type).create().start()
         try {
             val content = controller.get().findViewById<ViewGroup>(android.R.id.content)
             assertTrue("${type.simpleName} must create its content", content.childCount > 0)
@@ -39,19 +39,19 @@ class NativeActivitySmokeTest {
     @Test fun homeOpensNatively() = opensNatively(MainActivity::class.java)
     @Test fun settingsOpenNatively() = opensNatively(SettingsActivity::class.java)
     @Test fun privacyInformationOpensWithoutBrowser() {
-        val controller = Robolectric.buildActivity(SettingsActivity::class.java).create()
+        val controller = Robolectric.buildActivity(SettingsActivity::class.java).create().start()
         try {
             val activity = controller.get()
             activity.findViewById<View>(R.id.cell_privacy).performClick()
-            val intent = org.robolectric.Shadows.shadowOf(activity).nextStartedActivity
-            org.junit.Assert.assertEquals(PrivacyActivity::class.java.name, intent.component?.className)
+            org.junit.Assert.assertNull(org.robolectric.Shadows.shadowOf(activity).nextStartedActivity)
+            org.junit.Assert.assertTrue(activity.pageNavigator.currentPage is PrivacyPage)
         } finally {
             controller.destroy()
         }
     }
 
     @Test fun privacyPageKeepsFullDisclosure() {
-        val controller = Robolectric.buildActivity(PrivacyActivity::class.java).create()
+        val controller = Robolectric.buildActivity(PrivacyActivity::class.java).create().start()
         try {
             val content = controller.get().findViewById<ViewGroup>(android.R.id.content)
             val text = views(content).filterIsInstance<android.widget.TextView>()

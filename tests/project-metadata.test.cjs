@@ -10,11 +10,11 @@ assert.ok(code > 13, 'versionCode must upgrade the published 1.0.2 build');
 assert.ok(gradle.includes('applicationId = "com.luoh.music.lrc"'));
 
 const layout = read('app/src/main/res/layout/settings_about.xml');
-const activity = read(base + 'SettingsActivity.kt');
+const activity = read(base + 'SettingsPage.kt');
 assert.ok(layout.includes('cell_maintainer') && layout.includes('维护者 · LuoH-AN'));
 assert.ok(activity.includes('openUrl("https://github.com/LuoH-AN")'));
 assert.ok(activity.includes('openUrl("https://github.com/LuoH-AN/lyrics-android")'));
-assert.ok(read(base + 'PrivacyActivity.kt').includes('R.string.privacy_summary'), 'privacy information must be available offline');
+assert.ok(read(base + 'PrivacyPage.kt').includes('R.string.privacy_summary'), 'privacy information must be available offline');
 assert.ok(activity.includes('PrivacyActivity::class.java'), 'settings must open the offline privacy page');
 assert.ok(read('app/src/main/res/values/strings.xml').includes('name="privacy_summary"'));
 assert.doesNotMatch(activity, /PRIVACY\.md|LuoH-AN\/desktop-lyrics/);

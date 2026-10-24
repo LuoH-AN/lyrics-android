@@ -56,7 +56,6 @@
         <item name="shapeAppearanceSmallComponent">@style/MaterialShapeSmall</item>
         <item name="shapeAppearanceMediumComponent">@style/NativeShapeCard</item>
         <item name="shapeAppearanceLargeComponent">@style/MaterialShapeLarge</item>
-        <item name="android:windowAnimationStyle">@style/MaterialActivityAnimation</item>
     </style>
 
     <style name="ThemeOverlay.DesktopLyrics.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">

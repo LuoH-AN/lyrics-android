@@ -38,7 +38,8 @@ import org.json.JSONObject
  * Native Material home page. This activity owns MediaSession, lyric retrieval/cache and permissions;
  * HomeLyricsView owns the native player controls, timed lyric rendering and more menu.
  */
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), NativeNavigatorOwner {
+    override lateinit var pageNavigator: NativeNavigator
 
     private lateinit var home: HomeLyricsView
     private lateinit var gate: View
@@ -153,6 +154,12 @@ class MainActivity : AppCompatActivity() {
         gateStatus = findViewById(R.id.gate_status)
         appliedNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         themeTransition = ThemeTransition(findViewById(android.R.id.content))
+        pageNavigator = NativeNavigator(this, findViewById(android.R.id.content), true, savedInstanceState?.getBundle("navigation"))
+        pageNavigator.onPresentationChanged = { open ->
+            homeForeground = !open
+            home.setActive(!open)
+            if (!open) { updateGate(); pushSnapshot(); refreshLyricsSettings() }
+        }
         ThemePrefs.updateSystemBars(this)
         applyGateTheme(gate)
 
@@ -188,6 +195,16 @@ class MainActivity : AppCompatActivity() {
         applyGateTheme(gate)
         ThemePrefs.updateSystemBars(this)
         themeTransition.finish()
+        pageNavigator.refreshTheme()
+    }
+
+    override fun startActivity(intent: Intent) {
+        if (!::pageNavigator.isInitialized || !pageNavigator.open(intent)) super.startActivity(intent)
+    }
+
+    override fun onSaveInstanceState(state: Bundle) {
+        state.putBundle("navigation", pageNavigator.saveState())
+        super.onSaveInstanceState(state)
     }
 
     private fun applyGateTheme(view: View) {
@@ -225,11 +242,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        homeForeground = true
+        homeForeground = !pageNavigator.isOpen
         ThemePrefs.apply(appPrefs.getString(ThemePrefs.KEY, ThemePrefs.FOLLOW))
         home.applyTheme()
         applyGateTheme(gate)
-        home.setActive(true)
+        home.setActive(!pageNavigator.isOpen)
         updateGate()
         startSessionMonitor()
         mainHandler.post(progressTick)
@@ -248,6 +265,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        if (::pageNavigator.isInitialized) pageNavigator.dispose()
         if (::themeTransition.isInitialized) themeTransition.dispose()
         homeTranslation.cancel()
         translationScope.coroutineContext[Job]?.cancel()

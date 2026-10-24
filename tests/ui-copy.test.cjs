@@ -54,7 +54,7 @@ checkCopy(base + 'LyricSourceManagerActivity.kt', [
   '自定义歌词、翻译语言包和同步设置都会保留。',
 ]);
 
-checkCopy(base + 'LyricOffsetMemoryActivity.kt', [
+checkCopy(base + 'LyricOffsetMemoryPage.kt', [
   '每首歌、每个歌词源独立保存。删除后恢复原始同步时间。',
 ], [
   '同步记忆',
@@ -64,7 +64,7 @@ checkCopy(base + 'LyricOffsetMemoryActivity.kt', [
   '所有歌曲和歌词源都会恢复原始同步时间，此操作无法撤销。',
 ]);
 
-checkCopy(base + 'TranslationSettingsActivity.kt', [
+checkCopy(base + 'TranslationSettingsPage.kt', [
   '双语只控制显示；需要机翻时，请选择下面的补充方式。',
   '平台译文优先，只在缺少译文时补充。译文会缓存到本机。',
   '点击对应方式立即应用；平台自带译文始终优先。',
@@ -109,7 +109,7 @@ assert.doesNotMatch(picker, /slider\.Slider|seek_color_|拖动 RGB/);
 for (const id of ['color_picker_preview', 'color_palette', 'color_hex_field', 'color_hex_input']) {
   assert.ok(picker.includes(`@+id/${id}`), `color picker must include ${id}`);
 }
-const settings = fs.readFileSync(base + 'SettingsActivity.kt', 'utf8');
+const settings = fs.readFileSync(base + 'SettingsPage.kt', 'utf8');
 assert.doesNotMatch(settings, /lyricOffsetScope|lyric_offset_scope/);
 assert.ok(settings.includes('OverlayAppearance.percentToWeight(value.toInt())'));
 assert.ok(settings.includes('OverlayAppearance.weightToPercent(fontWeight())'));

@@ -13,13 +13,21 @@
 | `ui/settings/SettingsAnimations.kt` | 采用参考的前后方向与弹簧结构；按体验反馈收敛为 25% 进入、8% 退出的横移，0.98→1 的进入缩放；进入弹簧阻尼 0.78、刚度 500、450ms，220ms 淡入与 180ms 淡出；导航立即创建目标页面，不等待动效结束 |
 | `ui/components/SmoothBottomSheet.kt` | 面板弹簧阻尼 0.9、刚度 350；28dp 顶角、最大宽度 640dp、最大高度 94%、0.32 遮罩；Material 负责拖动、返回和点外部关闭 |
 | `ui/components/AgoraOptionHighlight.kt` | 面板选项采用透明底、24dp 涟漪高亮，图标与文案对齐 |
-| `ui/motion/AgoraMotionPolicy.kt` | 关闭系统动效时取消面板空间移动；窗口转场遵循系统动画设置 |
+| `ui/motion/AgoraMotionPolicy.kt` | 关闭系统动效时取消面板空间移动；导航保留交叉淡入淡出 |
 
 参考的设计规则以原生 Android Views 实现。歌词逐字绘制、播放时钟、同步偏移和翻译规则保留；播放控制栏使用相同的表面、字体和颜色角色。
 
 “更多”面板的遮罩绘制在同一视图层，透明度逐帧跟随面板的可见比例。关闭时面板离开屏幕便立即移除弹窗，不等待弹簧尾部收敛，也不叠加系统窗口遮罩的延迟退场。
 
-页面切换以淡入淡出和小幅位移为主：旧页面快速淡出，进入页面保留约 2% 的曲线回弹；横向越过目标的位置约为屏宽的 0.5%。旧页面退出采用单调缓动，避免前后页面同时大幅弹动。窗口转场不是手指驱动的导航手势，实际触摸响应与帧率仍须在真机验证。
+页面切换依据同一参考版本的实际导航源码，使用同一个窗口内的 Fragment / View 容器，不再用 Activity XML 动画或采样插值曲线。
+
+- `SettingsOverlayHost.kt`：主页进入设置等顶层功能时保留主页；新覆盖层从屏宽 25% 处、0.92 倍缩放进入，位移和缩放使用阻尼 0.5 / 刚度 200 的实时弹簧，透明度在 300ms 内淡入；独立遮罩为 0.45，延迟 50ms 后在 300ms 内淡入。退出在 400ms 内使用 FastOutSlowIn 缓动移至屏外、缩至 0.94 并同步淡出遮罩和内容。
+- `ui/settings/SettingsAnimations.kt` / `GuardedAnimatedContent`：分类与子页面共用双页面容器。新页以 75% 屏宽位移、0.94 倍缩放进入；新页透明度用 300ms 默认 tween，旧页透明度、两页位移与缩放使用阻尼 0.5 / 刚度 200、可见阈值 0.001 的弹簧。绘制时夹紧透明度、位移取整。初始页面不播放入口动画。
+- 新页立即接收触摸；旧页拦截子控件触摸，位于两页之间的透明屏障防止裸露区域点穿。连续导航取消上一轮动画，只留下当前新旧两页，动画全部结束再移除旧页、把新页归位。
+- 导航栈只保留目的地和滚动位置，页面控件按需重建；页面有独立 Fragment 生命周期，退出预览停止、移除后任务取消。Activity 保留为系统和悬浮窗的入口，应用内部不再逐页启动 Activity。
+- 系统任一动画比例为零时取消空间移动与缩放，保留两页 300ms 交叉淡入淡出。这里实现的是 Agora 的点击触发、可中断导航，不增加源码没有提供的手指拖动导航。
+
+原文：[覆盖层](https://github.com/newo-ether/Agora/blob/239eaa93a08412f79495d711ed3b05f495f0127e/app/src/main/java/com/newoether/agora/SettingsOverlayHost.kt)、[页面切换](https://github.com/newo-ether/Agora/blob/239eaa93a08412f79495d711ed3b05f495f0127e/app/src/main/java/com/newoether/agora/ui/settings/SettingsAnimations.kt)、[导航状态](https://github.com/newo-ether/Agora/blob/239eaa93a08412f79495d711ed3b05f495f0127e/app/src/main/java/com/newoether/agora/ui/settings/SettingsScreen.kt)、[滚动保留](https://github.com/newo-ether/Agora/blob/239eaa93a08412f79495d711ed3b05f495f0127e/app/src/main/java/com/newoether/agora/ui/settings/SettingsScrollRetention.kt)。
 
 ## 页面结构与性能
 

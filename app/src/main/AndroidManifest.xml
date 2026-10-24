@@ -29,14 +29,14 @@
         </activity>
 
         <activity android:name=".SettingsActivity" android:exported="false" android:configChanges="uiMode" />
-        <activity android:name=".TranslationSettingsActivity" android:exported="false" />
-        <activity android:name=".ApiProfileManagerActivity" android:exported="false" />
-        <activity android:name=".LyricOffsetMemoryActivity" android:exported="false" />
-        <activity android:name=".LyricSourceManagerActivity" android:exported="false" />
-        <activity android:name=".PrivacyActivity" android:exported="false" />
-        <activity android:name=".CustomLyricsManagerActivity" android:exported="false" />
+        <activity android:name=".TranslationSettingsActivity" android:exported="false" android:configChanges="uiMode" />
+        <activity android:name=".ApiProfileManagerActivity" android:exported="false" android:configChanges="uiMode" />
+        <activity android:name=".LyricOffsetMemoryActivity" android:exported="false" android:configChanges="uiMode" />
+        <activity android:name=".LyricSourceManagerActivity" android:exported="false" android:configChanges="uiMode" />
+        <activity android:name=".PrivacyActivity" android:exported="false" android:configChanges="uiMode" />
+        <activity android:name=".CustomLyricsManagerActivity" android:exported="false" android:configChanges="uiMode" />
         <activity android:name=".CustomLyricsEditActivity" android:exported="false"
-            android:taskAffinity="" android:excludeFromRecents="true" />
+            android:taskAffinity="" android:excludeFromRecents="true" android:configChanges="uiMode" />
         <service
             android:name=".MediaListenerService"
             android:exported="true"
