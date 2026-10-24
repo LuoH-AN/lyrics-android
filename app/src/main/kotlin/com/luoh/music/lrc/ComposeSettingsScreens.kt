@@ -210,7 +210,7 @@ private fun SettingsNavigationItem(
 @Composable
 private fun SettingsSwitchItem(
     title: String,
-    summary: String,
+    summary: String?,
     icon: ImageVector,
     checked: Boolean,
     enabled: Boolean = true,
@@ -218,7 +218,7 @@ private fun SettingsSwitchItem(
 ) {
     SettingsItem(
         headlineContent = { Text(title) },
-        supportingContent = { Text(summary) },
+        supportingContent = summary?.let { { Text(it) } },
         leadingContent = { SettingsLeadingIcon(icon) },
         trailingContent = { Switch(checked = checked, onCheckedChange = null, enabled = enabled) },
         modifier = Modifier.alpha(if (enabled) 1f else 0.38f)
@@ -690,7 +690,7 @@ private fun HomeAlignmentSettings(context: Context, revision: Int) {
         HomeLyricsPrefs.saveAppearance(context, change(HomeLyricsPrefs.appearance(context)))
     }
     SettingsGroup(title = "背景", items = listOf({
-        SettingsSwitchItem("封面模糊背景", "封面铺满、模糊压暗，播放时轻微移动", Icons.Default.BlurOn, albumBackground) {
+        SettingsSwitchItem("封面模糊背景", null, Icons.Default.BlurOn, albumBackground) {
             HomeLyricsPrefs.saveAlbumBackground(context, it)
         }
     }))

@@ -38,7 +38,7 @@ internal fun prepareHomeAlbumBackground(cover: Bitmap?): Bitmap? {
     var thumbnail: Bitmap? = null
     var software: Bitmap? = null
     return try {
-        val ratio = min(1f, 160f / max(cover.width, cover.height))
+        val ratio = min(1f, 240f / max(cover.width, cover.height))
         val width = (cover.width * ratio).roundToInt().coerceAtLeast(1)
         val height = (cover.height * ratio).roundToInt().coerceAtLeast(1)
         val scaled = Bitmap.createScaledBitmap(cover, width, height, true)
@@ -49,7 +49,7 @@ internal fun prepareHomeAlbumBackground(cover: Bitmap?): Bitmap? {
         val pixels = IntArray(width * height)
         readable.getPixels(pixels, 0, width, 0, 0, width, height)
         val scratch = IntArray(pixels.size)
-        val radius = (min(width, height) / 16).coerceIn(1, 10)
+        val radius = (min(width, height) / 32).coerceIn(1, 7)
         // Three box passes approximate a Gaussian without filtering a full-screen bitmap every frame.
         repeat(3) {
             blurAlbumAxis(pixels, scratch, width, height, radius, horizontal = true)
