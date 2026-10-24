@@ -10,7 +10,7 @@
 | `ui/theme/Type.kt` | 同一 MiOutfit 可变字体；正文 16sp、说明 13sp、列表标题 19sp、展开页标题 33sp、收起标题 22sp |
 | `ui/settings/SettingsScreen.kt` | 24dp 内容边距；组标题为 primary 色；组内 2dp 间距，外角 24dp、内角 5dp；无堆叠阴影 |
 | `ui/settings/SettingsScaffold.kt` | 154dp 展开标题区收缩到 64dp；标题随滚动收起；原生 CollapsingToolbarLayout 复用一套标题绘制 |
-| `ui/settings/SettingsAnimations.kt` | 采用参考的前后方向与弹簧结构；按体验反馈收敛为 25% 进入、8% 退出的横移，0.98→1 的进入缩放；进入弹簧阻尼 0.78、刚度 500、450ms，220ms 淡入与 180ms 淡出；导航立即创建目标页面，不等待动效结束 |
+| `ui/settings/SettingsAnimations.kt` | 同窗口双页面切换；75% 屏宽位移、0.94→1 入场缩放；直接使用 Compose `DampingRatioLowBouncy`（0.75）和 `StiffnessLow`（200），新页 300ms 淡入，旧页弹簧淡出；新页在切换中可点击，旧页及裸露区域拦截触摸 |
 | `ui/components/SmoothBottomSheet.kt` | 面板弹簧阻尼 0.9、刚度 350；28dp 顶角、最大宽度 640dp、最大高度 94%、0.32 遮罩；Material 负责拖动、返回和点外部关闭 |
 | `ui/components/AgoraOptionHighlight.kt` | 面板选项采用透明底、24dp 涟漪高亮，图标与文案对齐 |
 | `ui/motion/AgoraMotionPolicy.kt` | 关闭系统动效时取消面板空间移动；导航保留交叉淡入淡出 |
