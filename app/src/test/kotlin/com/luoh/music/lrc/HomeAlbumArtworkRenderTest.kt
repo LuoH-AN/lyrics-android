@@ -65,22 +65,26 @@ class HomeAlbumArtworkRenderTest {
         repeat(28) { frame ->
             compose.mainClock.advanceTimeBy(40)
             compose.waitForIdle()
-            for (color in pixels(root)) {
+            val colors = pixels(root)
+            for (color in colors) {
                 val energy = AndroidColor.red(color) + AndroidColor.green(color)
                 assertTrue("Cover opacity must stay full during frame $frame: $energy", energy in 253..257)
                 assertEquals(255, AndroidColor.alpha(color))
             }
+            if (frame == 3) assertTrue("The fade must render both covers before completing",
+                colors.all { AndroidColor.red(it) > 0 && AndroidColor.green(it) > 0 })
             // A new song can arrive before the previous fade finishes.
             if (frame == 4) compose.runOnIdle { artwork = red }
         }
         assertTrue(pixels(root).all { it == AndroidColor.RED })
         compose.runOnIdle { artwork = green; allowFade = false }
-        compose.mainClock.advanceTimeByFrame()
-        compose.waitForIdle()
-        assertTrue(pixels(root).all { it == AndroidColor.GREEN })
+        // Applying the input runs the effect; a subsequent frame draws its state changes.
+        repeat(3) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
+        assertTrue("Disabled fades must show the new cover immediately",
+            pixels(root).all { it == AndroidColor.GREEN })
         compose.runOnIdle { artwork = null }
-        compose.mainClock.advanceTimeByFrame()
-        compose.waitForIdle()
-        assertTrue(pixels(root).all { it == AndroidColor.BLACK })
+        repeat(3) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
+        assertTrue("Missing artwork must restore the page background",
+            pixels(root).all { it == AndroidColor.BLACK })
     }
 }
