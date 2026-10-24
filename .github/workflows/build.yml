@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,12 +34,12 @@ jobs:
       - name: Run regression tests
         run: node tests/run.cjs
 
-      - name: Test native lyric logic and build debug APK
+      - name: Test Compose UI and lyric logic, build debug APK
         run: |
           chmod +x gradlew
           ./gradlew testDebugUnitTest assembleDebug --stacktrace
 
-      - name: Upload native UI test reports and previews
+      - name: Upload Compose and domain test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:

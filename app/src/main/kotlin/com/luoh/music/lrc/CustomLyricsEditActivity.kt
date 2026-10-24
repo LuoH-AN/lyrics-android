@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 
 /** Android entry point; in-app navigation uses the shared page host. */
-class CustomLyricsEditActivity : NativeNavigationActivity() {
+class CustomLyricsEditActivity : ComposeNavigationActivity() {
     companion object {
         private const val EXTRA_ID = "custom_lyrics_id"
         private const val EXTRA_TITLE = "custom_lyrics_title"

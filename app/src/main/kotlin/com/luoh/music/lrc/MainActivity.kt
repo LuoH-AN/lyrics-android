@@ -5,8 +5,6 @@ import android.content.BroadcastReceiver
 import android.content.IntentFilter
 import android.content.Context
 import android.content.Intent
-import android.content.res.ColorStateList
-import android.content.res.Configuration
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
@@ -17,17 +15,19 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
-import android.view.View
-import android.view.ViewGroup
 import android.graphics.Bitmap
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import com.google.android.material.button.MaterialButton
-import com.google.android.material.textview.MaterialTextView
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
+import com.luoh.music.lrc.ui.agora.SettingsOverlayHost
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,18 +36,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
-/**
- * Native Material home page. This activity owns MediaSession, lyric retrieval/cache and permissions;
- * HomeLyricsView owns the native player controls, timed lyric rendering and more menu.
- */
-class MainActivity : AppCompatActivity(), NativeNavigatorOwner {
-    override lateinit var pageNavigator: NativeNavigator
-
-    private lateinit var home: HomeLyricsView
-    private lateinit var gate: View
-    private lateinit var gateStatus: MaterialTextView
-    private lateinit var themeTransition: ThemeTransition
-    private var appliedNightMode = Configuration.UI_MODE_NIGHT_UNDEFINED
+/** MediaSession, lyric retrieval and permission owner; pages are rendered entirely in Compose. */
+class MainActivity : ComponentActivity() {
+    private lateinit var pageNavigator: ComposeNavigator
+    private val home = HomePresentationState()
     private val overlayStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) = updateOverlayState()
     }
@@ -143,68 +135,31 @@ class MainActivity : AppCompatActivity(), NativeNavigatorOwner {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // 主题先于 setContentView
-        ThemePrefs.apply(appPrefs.getString(ThemePrefs.KEY, ThemePrefs.FOLLOW))
         super.onCreate(savedInstanceState)
-        ThemePrefs.updateSystemBars(this)
-        setContentView(R.layout.activity_main)
-        // Only home content is inset. The navigation overlay fills the whole window above it.
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById<ViewGroup>(android.R.id.content).getChildAt(0)) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
-            insets
-        }
-
-        home = findViewById(R.id.lyric_home)
+        enableEdgeToEdge()
         home.actions = HomeActions()
         home.setAlignment(HomeLyricsPrefs.alignment(this))
         home.onTranslationSettings = { startActivity(Intent(this, TranslationSettingsActivity::class.java)) }
-        gate = findViewById(R.id.gate_overlay)
-        gateStatus = findViewById(R.id.gate_status)
-        appliedNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-        themeTransition = ThemeTransition(findViewById(android.R.id.content))
-        pageNavigator = NativeNavigator(this, findViewById(android.R.id.content), true, savedInstanceState?.getBundle("navigation"))
+        pageNavigator = ComposeNavigator(savedInstanceState?.getBundle("navigation"))
         pageNavigator.onPresentationChanged = { open ->
             homeForeground = !open
             home.setActive(!open)
             if (!open) { updateGate(); pushSnapshot(); refreshLyricsSettings() }
         }
-        ThemePrefs.updateSystemBars(this)
-        applyGateTheme(gate)
-
-        // 权限浮层按钮
-        findViewById<MaterialButton>(R.id.gate_listener).setOnClickListener {
-            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        }
-        findViewById<MaterialButton>(R.id.gate_overlay_perm).setOnClickListener {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                startActivity(
-                    Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        android.net.Uri.parse("package:$packageName")
-                    )
-                )
+        setContent {
+            LyricsComposeTheme {
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    Box(Modifier.fillMaxSize()) {
+                        ComposeHomeScreen(home,
+                            onListenerPermission = { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
+                            onOverlayPermission = { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName"))) },
+                            onStartOverlay = ::tryStartOverlay)
+                        SettingsOverlayHost(pageNavigator.isOpen, pageNavigator::dismiss,
+                            onExitFinished = pageNavigator::onExitFinished) { pageNavigator.Content() }
+                    }
+                }
             }
         }
-        findViewById<MaterialButton>(R.id.gate_start).setOnClickListener { tryStartOverlay() }
-        findViewById<MaterialButton>(R.id.gate_settings_link).setOnClickListener { openSettings() }
-    }
-
-    override fun onConfigurationChanged(newConfig: Configuration) {
-        val night = newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK
-        if (night == appliedNightMode || !::themeTransition.isInitialized) {
-            super.onConfigurationChanged(newConfig)
-            return
-        }
-        themeTransition.capture()
-        appliedNightMode = night
-        super.onConfigurationChanged(newConfig)
-        theme.applyStyle(R.style.Theme_DesktopLyrics, true)
-        home.applyTheme()
-        applyGateTheme(gate)
-        ThemePrefs.updateSystemBars(this)
-        themeTransition.finish()
-        pageNavigator.refreshTheme()
     }
 
     override fun startActivity(intent: Intent) {
@@ -214,26 +169,6 @@ class MainActivity : AppCompatActivity(), NativeNavigatorOwner {
     override fun onSaveInstanceState(state: Bundle) {
         state.putBundle("navigation", pageNavigator.saveState())
         super.onSaveInstanceState(state)
-    }
-
-    private fun applyGateTheme(view: View) {
-        when (view) {
-            is MaterialButton -> {
-                val primary = view.id == R.id.gate_start
-                view.setTextColor(if (primary) AccentPrefs.onAccent(this) else ContextCompat.getColor(this, when {
-                    view.id == R.id.gate_settings_link -> R.color.text_secondary
-                    else -> R.color.text_primary
-                }))
-                view.backgroundTintList = ColorStateList.valueOf(
-                    if (primary) AccentPrefs.accent(this) else android.graphics.Color.TRANSPARENT)
-                view.strokeColor = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.app_line))
-                view.rippleColor = ContextCompat.getColorStateList(this, R.color.native_ripple)
-            }
-            is MaterialTextView -> view.setTextColor(ContextCompat.getColor(this,
-                if (view.id == R.id.gate_status) R.color.text_secondary else R.color.text_primary))
-        }
-        if (view === gate) view.setBackgroundColor(ContextCompat.getColor(this, R.color.app_bg))
-        if (view is ViewGroup) for (index in 0 until view.childCount) applyGateTheme(view.getChildAt(index))
     }
 
     override fun onStart() {
@@ -252,9 +187,6 @@ class MainActivity : AppCompatActivity(), NativeNavigatorOwner {
     override fun onResume() {
         super.onResume()
         homeForeground = !pageNavigator.isOpen
-        ThemePrefs.apply(appPrefs.getString(ThemePrefs.KEY, ThemePrefs.FOLLOW))
-        home.applyTheme()
-        applyGateTheme(gate)
         home.setActive(!pageNavigator.isOpen)
         updateGate()
         startSessionMonitor()
@@ -274,8 +206,6 @@ class MainActivity : AppCompatActivity(), NativeNavigatorOwner {
     }
 
     override fun onDestroy() {
-        if (::pageNavigator.isInitialized) pageNavigator.dispose()
-        if (::themeTransition.isInitialized) themeTransition.dispose()
         homeTranslation.cancel()
         translationScope.coroutineContext[Job]?.cancel()
         ioScope.coroutineContext[Job]?.cancel()
@@ -297,17 +227,10 @@ class MainActivity : AppCompatActivity(), NativeNavigatorOwner {
         updateOverlayState()
         val listenerOk = hasListener()
         val overlayOk = hasOverlay()
-        // 只要有通知使用权就能读歌显示歌词页；两者都齐才能开悬浮窗
-        if (listenerOk) {
-            gate.visibility = View.GONE
-        } else {
-            gate.visibility = View.VISIBLE
-            gateStatus.text = when {
-                !listenerOk && !overlayOk -> "通知使用权用于获取正在播放的歌曲，不读取聊天通知正文。\n开启桌面歌词还需悬浮窗权限；授权后点底部中控台的歌词图标即可开启。"
-                !listenerOk -> "通知使用权用于获取正在播放的歌曲，不读取聊天通知正文。"
-                else -> "准备就绪"
-            }
-        }
+        home.gateVisible = !listenerOk
+        home.gateStatus = if (!overlayOk) {
+            "通知使用权用于获取正在播放的歌曲，不读取聊天通知正文。\n开启桌面歌词还需悬浮窗权限。"
+        } else "通知使用权用于获取正在播放的歌曲，不读取聊天通知正文。"
     }
 
     private fun tryStartOverlay() {
@@ -432,7 +355,7 @@ class MainActivity : AppCompatActivity(), NativeNavigatorOwner {
         val c = controller
         if (c == null) {
             clearTrackState()
-            home.setSnapshot(HomeLyricsView.Snapshot())
+            home.setSnapshot(HomePresentationState.Snapshot())
             return
         }
         val md = c.metadata
@@ -475,7 +398,7 @@ class MainActivity : AppCompatActivity(), NativeNavigatorOwner {
         val canPrev = actions and PlaybackState.ACTION_SKIP_TO_PREVIOUS != 0L
         val canNext = actions and PlaybackState.ACTION_SKIP_TO_NEXT != 0L
         home.setSnapshot(
-            HomeLyricsView.Snapshot(title, artist, cover, positionOf(pb, duration),
+            HomePresentationState.Snapshot(title, artist, cover, positionOf(pb, duration),
                 duration.coerceAtLeast(0L), playing, pb?.playbackSpeed ?: 1f, canPrev, canNext),
             forcePosition = trackChanged
         )
@@ -737,8 +660,8 @@ class MainActivity : AppCompatActivity(), NativeNavigatorOwner {
         }
     }
 
-    // ---------- Native player actions ----------
-    private inner class HomeActions : HomeLyricsView.Actions {
+    // ---------- Player actions ----------
+    private inner class HomeActions : HomePresentationState.Actions {
         override fun toggleOverlay() {
             if (LyricsOverlayService.isRunning) {
                 stopService(Intent(this@MainActivity, LyricsOverlayService::class.java))
@@ -810,17 +733,14 @@ class MainActivity : AppCompatActivity(), NativeNavigatorOwner {
     }
 
     private fun writeLrcExport(uri: android.net.Uri, content: String) {
-        // 选择器打开期间进程被杀会丢掉 pending 内容，此时按保存失败处理，不写空文件
-        val saved = content.isNotBlank() && runCatching {
-            contentResolver.openOutputStream(uri, "wt")?.use { output ->
-                output.write(content.toByteArray(Charsets.UTF_8))
-            } != null
-        }.getOrDefault(false)
-        Toast.makeText(
-            this,
-            if (saved) "已保存 .lrc 歌词文件" else "保存失败，请重试",
-            Toast.LENGTH_SHORT
-        ).show()
+        ioScope.launch {
+            val saved = content.isNotBlank() && runCatching {
+                contentResolver.openOutputStream(uri, "wt")?.use { it.write(content.toByteArray(Charsets.UTF_8)) } != null
+            }.getOrDefault(false)
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@MainActivity, if (saved) "已保存 .lrc 歌词文件" else "保存失败，请重试", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     companion object {

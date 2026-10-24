@@ -4,6 +4,7 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 val signingPropertiesFile = rootProject.file("keystore.properties")
@@ -15,7 +16,7 @@ val signingProperties = Properties().apply {
 
 android {
     namespace = "com.luoh.music.lrc"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.luoh.music.lrc"
@@ -79,6 +80,8 @@ android {
         }
     }
 
+    buildFeatures { compose = true }
+
     kotlinOptions {
         jvmTarget = "17"
     }
@@ -87,12 +90,19 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("androidx.recyclerview:recyclerview:1.3.2")
-    implementation("androidx.dynamicanimation:dynamicanimation:1.0.0")
-    // Navigation uses Agora's actual Animatable/spring/tween engine; no Compose UI migration needed.
-    implementation("androidx.compose.animation:animation-core:1.6.1")
-    implementation("androidx.compose.runtime:runtime:1.6.1")
-    implementation("androidx.compose.ui:ui:1.6.1")
+    implementation(platform("androidx.compose:compose-bom:2026.05.01"))
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.animation:animation")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended:1.7.8")
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.activity:activity-compose:1.12.4")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
+    implementation("com.materialkolor:material-color-utilities:4.1.1")
+    debugImplementation("androidx.compose.ui:ui-tooling")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.lifecycle:lifecycle-service:2.7.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
@@ -101,5 +111,5 @@ dependencies {
     implementation("com.google.mlkit:language-id:17.0.6")
     testImplementation("junit:junit:4.13.2")
     testImplementation("androidx.test:core:1.5.0")
-    testImplementation("org.robolectric:robolectric:4.12.2")
+    testImplementation("org.robolectric:robolectric:4.16.1")
 }

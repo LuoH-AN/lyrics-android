@@ -9,13 +9,13 @@ assert.match(version, /^\d+\.\d+\.\d+$/, 'stable version must be x.y.z');
 assert.ok(code > 13, 'versionCode must upgrade the published 1.0.2 build');
 assert.ok(gradle.includes('applicationId = "com.luoh.music.lrc"'));
 
-const layout = read('app/src/main/res/layout/settings_about.xml');
-const activity = read(base + 'SettingsPage.kt');
-assert.ok(layout.includes('cell_maintainer') && layout.includes('维护者 · LuoH-AN'));
-assert.ok(activity.includes('openUrl("https://github.com/LuoH-AN")'));
-assert.ok(activity.includes('openUrl("https://github.com/LuoH-AN/lyrics-android")'));
-assert.ok(read(base + 'PrivacyPage.kt').includes('R.string.privacy_summary'), 'privacy information must be available offline');
-assert.ok(activity.includes('PrivacyActivity::class.java'), 'settings must open the offline privacy page');
+const activity = read(base + 'ComposeSettingsScreens.kt');
+const library = read(base + 'ComposeLibraryScreens.kt');
+assert.ok(activity.includes('维护者 · LuoH-AN'));
+assert.ok(activity.includes('"https://github.com/LuoH-AN"'));
+assert.ok(activity.includes('"https://github.com/LuoH-AN/lyrics-android"'));
+assert.ok(library.includes('R.string.privacy_summary'), 'privacy information must be available offline');
+assert.match(activity, /ComposeRoute\("privacy"\)/, 'settings must open the offline Compose privacy page');
 assert.ok(read('app/src/main/res/values/strings.xml').includes('name="privacy_summary"'));
 assert.doesNotMatch(activity, /PRIVACY\.md|LuoH-AN\/desktop-lyrics/);
 

@@ -9,7 +9,7 @@
 
 </div>
 
-让歌词跟着音乐，出现在你想看的地方。通过原生 Material 界面和可拖动的桌面歌词，同步显示正在播放的歌词；支持逐字高亮、双语显示、自定义歌词，以及字号、颜色和背景调整。不需要额外账号，配合你常用的音乐播放器即可使用。
+让歌词跟着音乐，出现在你想看的地方。通过 Jetpack Compose Material 界面和可拖动的桌面歌词，同步显示正在播放的歌词；支持逐字高亮、双语显示、自定义歌词，以及字号、颜色和背景调整。不需要额外账号，配合你常用的音乐播放器即可使用。
 
 <p align="center">
   <img src="https://i.luoh.org/file/wZxhwij4.webp" width="23%" alt="桌面歌词应用预览 1">
@@ -32,4 +32,6 @@
 
 社区：[LINUX DO](https://linux.do/)。
 
-新增内容采用 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/deed.zh-hans) 协议（署名、非商业使用）；上游及第三方代码保留原有声明。
+Compose 页面组件参考并移植自 [Agora](https://github.com/newo-ether/Agora)，保留其 [GPL-3.0 许可](app/src/main/kotlin/com/luoh/music/lrc/ui/agora/LICENSE)；迁移说明见 [Agora Compose 页面迁移](docs/agora-compose-migration.md)。
+
+其余新增内容采用 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/deed.zh-hans) 协议（署名、非商业使用）；上游及第三方代码保留原有声明。

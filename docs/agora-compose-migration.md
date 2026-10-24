@@ -1,0 +1,25 @@
+# Agora Compose 页面迁移
+
+参考仓库：https://github.com/newo-ether/Agora
+参考提交：239eaa93a08412f79495d711ed3b05f495f0127e
+
+本次在 main 将应用页面迁为 Jetpack Compose。旧 NativePage、View 导航宿主、XML 页面、标题适配器和自行驱动的页面动画已移除。MainActivity 保留 MediaSession、歌词检索、缓存、翻译、导出及权限业务；页面由 Compose 状态驱动。系统浮窗继续由 WindowManager 服务提供，其隐藏 WebView 负责现有歌词匹配引擎，不作为应用页面。
+
+## 原源码复用
+
+`app/src/main/kotlin/com/luoh/music/lrc/ui/agora/` 保留 Agora 的设置外层宿主、内页过渡、滚动恢复、单标题 scaffold、分组行、SmoothBottomSheet、菜单、配色与字体源码；仅调整包名、资源和应用业务接线。该目录包含上游 GPL-3.0 许可副本。主题额外支持本应用已有的自定义色种，仍使用原件的 Tonal Spot 算法生成完整 ColorScheme。
+
+页面入口统一使用 ComponentActivity.setContent。首页播放器、权限页、逐字歌词、更多面板、八类设置、翻译/API 配置、同步记忆、歌词来源及版本、自定义歌词列表与编辑、隐私页全部使用 Compose。内部导航无需切换 Activity，外部系统入口映射为同一目的地模型。
+
+## 交互和性能
+
+- 外层采用原文 SettingsOverlayHost，首页持续留在 composition 中；页面由不透明 Surface 承载。
+- 内页采用原文 GuardedAnimatedContent，当前目的地可接受输入，退出页面屏蔽输入，连续导航由 Compose 取消和接续动画。
+- 滚动标题沿原文 66dp 轨迹，scroll owner 仅在设置会话内保留；退出页面不覆盖返回页的位置。
+- 宽屏采用原件 840dp 阈值、400dp 左栏、右栏 16dp 边距与 840dp 内容上限。分类切换 Crossfade 250ms，子页单独进入过渡宿主。
+- 更多菜单采用原文 SmoothBottomSheet，不使用 ModalBottomSheet 替代。锚点为 0/.45/.94，弹簧为 .9/350，窗口 dim 随面板高度同步变化。
+- 网络、文件解码、歌词解析和动态列表数据处理放在 IO 上。退出的管理/编辑页取消业务协程，避免继续发布结果。主页逐字进度由 monotonic LyricClock 驱动，帧更新仅触发活跃歌词绘制；页面遮挡或后台时停止帧循环。
+
+## 验证边界
+
+CI 编译和 Robolectric Compose 交互测试验证源码接入、导航输入、滚动恢复及业务回归。旧 View UI 测试已替换，歌词/浮窗引擎的有效回归仍保留。没有设备侧帧时间或启动耗时测量，不以测试通过声称与 Agora 的主观流畅度完全一致。

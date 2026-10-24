@@ -1,11 +1,9 @@
 package com.luoh.music.lrc
 
 import android.content.Context
-import android.content.res.ColorStateList
 import android.graphics.Color
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
-import com.google.android.material.button.MaterialButton
 
 /**
  * App accent color. The default is Agora's FOREST / Tonal Spot primary;
@@ -65,24 +63,6 @@ object AccentPrefs {
         val pill = Color.rgb(12, 12, 14)
         return if (ColorUtils.calculateContrast(custom, pill) >= LARGE_TEXT_CONTRAST_THRESHOLD) custom
         else Color.WHITE
-    }
-
-    fun styleSegment(context: Context, button: MaterialButton) {
-        val states = arrayOf(
-            intArrayOf(android.R.attr.state_enabled, android.R.attr.state_checked),
-            intArrayOf(android.R.attr.state_enabled),
-            intArrayOf()
-        )
-        button.backgroundTintList = ColorStateList(states, intArrayOf(
-            accent(context),
-            ContextCompat.getColor(context, R.color.app_surface_container),
-            ContextCompat.getColor(context, R.color.app_line_soft)
-        ))
-        button.setTextColor(ColorStateList(states, intArrayOf(
-            onAccent(context),
-            ContextCompat.getColor(context, R.color.text_primary),
-            ContextCompat.getColor(context, R.color.text_tertiary)
-        )))
     }
 
     private fun contrastOn(color: Int): Int =

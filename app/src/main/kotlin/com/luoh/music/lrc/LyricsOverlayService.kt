@@ -1111,7 +1111,7 @@ class LyricsOverlayService : Service() {
     }
 
     private fun chromeButton(icon: Int, description: String, action: () -> Unit): MaterialButton =
-        NativeUi.iconButton(uiContext, icon, description, action).apply {
+        OverlayControls.iconButton(uiContext, icon, description, action).apply {
             backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
             iconTint = ColorStateList.valueOf(Color.WHITE)
             rippleColor = ColorStateList.valueOf(Color.argb(40, 255, 255, 255))

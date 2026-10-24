@@ -86,7 +86,7 @@ assert.ok(!service.includes('revealCompactControls('));
 assert.ok(service.includes('if (positionLocked) return true'));
 assert.ok(service.includes('LinearLayout.LayoutParams(dp(48), dp(48))'));
 assert.ok(service.includes('CompactLyricsView(uiContext)'), 'visible lyrics must use the native renderer');
-assert.ok(service.includes('NativeUi.iconButton(uiContext'), 'overlay chrome must use Material buttons');
+assert.ok(service.includes('OverlayControls.iconButton(uiContext'), 'overlay chrome must use the service-only Material controls');
 assert.ok(!/addView\((?:player|webView)\b/.test(service), 'matching WebView must never enter the visible overlay hierarchy');
 assert.ok(!service.includes('webView?.post {'), 'unattached engines must use the main Handler rather than View.post');
 console.log('PASS: compact context bounds, translation rows, plain-lyric context, empty sizing state, minimal native controls');
