@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.FrameRateCategory
+import androidx.compose.ui.preferredFrameRate
 import com.luoh.music.lrc.ui.agora.SettingsOverlayHost
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -146,7 +148,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             LyricsComposeTheme {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.fillMaxSize().preferredFrameRate(FrameRateCategory.High)) {
                         ComposeHomeScreen(home,
                             onListenerPermission = { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
                             onOverlayPermission = { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName"))) },

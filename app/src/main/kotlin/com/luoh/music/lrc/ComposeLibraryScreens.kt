@@ -9,6 +9,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,13 +25,11 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,6 +40,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextRange
@@ -176,6 +177,30 @@ private fun LibraryLazyGroupItem(index: Int, count: Int, content: @Composable ()
         modifier = Modifier.fillMaxWidth().padding(bottom = if (index == count - 1) 24.dp else 2.dp), content = content)
 }
 
+private val translationModes = listOf("off" to "关闭", "offline" to "离线机翻", "api" to "自定义 API")
+
+@Composable
+private fun LibraryGroupTitle(title: String) {
+    Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
+}
+
+@Composable
+private fun TranslationModeDialog(mode: String, dismiss: () -> Unit, select: (String) -> Unit) {
+    AlertDialog(onDismissRequest = dismiss, title = { Text("选择补充翻译方式") }, text = {
+        Column {
+            translationModes.forEach { (value, label) ->
+                SettingsItem(
+                    modifier = Modifier.testTag("translation-mode-$value")
+                        .selectable(selected = mode == value, role = Role.RadioButton, onClick = { select(value) }),
+                    headlineContent = { Text(label) },
+                    leadingContent = { RadioButton(selected = mode == value, onClick = null) },
+                )
+            }
+        }
+    }, confirmButton = {}, dismissButton = { TextButton(onClick = dismiss) { Text("取消") } })
+}
+
 private fun Context.translationPrefs() = getSharedPreferences("supplement_translation", Context.MODE_PRIVATE)
 
 /** One-time migration keeps older API credentials usable without retaining their old UI. */
@@ -197,15 +222,15 @@ private fun ensureTranslationProfile(context: Context): String {
     return TranslationApiProfiles.find(context, prefs.getString("active_api_profile", null)).id
 }
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack: () -> Unit) {
     val context = LocalContext.current.applicationContext
     val prefs = remember(context) { context.translationPrefs() }
-    val revision = preferenceRevision(prefs)
+    val revision = preferenceRevision(prefs, setOf("mode", "last_status", "last_track"))
+    val profileRevision = preferenceRevision(prefs, setOf("custom_api_profiles", "deleted_api_profiles", "api_profile_labels", "active_api_profile"))
     val scope = rememberLibraryScope()
     val active = LocalSettingsScrollRetentionActive.current
-    var profileId by rememberSaveable { mutableStateOf(TranslationApiProfiles.find(context, prefs.getString("active_api_profile", null)).id) }
+    var profileId by rememberSaveable { mutableStateOf("") }
     var endpoint by rememberSaveable(profileId) { mutableStateOf("") }
     var model by rememberSaveable(profileId) { mutableStateOf("") }
     // Encrypted credentials are read on IO, never stored in the activity's saved-state bundle.
@@ -215,6 +240,7 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
     var verifying by remember { mutableStateOf(false) }
     var verifyJob by remember { mutableStateOf<Job?>(null) }
     var profileMenu by remember { mutableStateOf(false) }
+    var modeMenu by remember { mutableStateOf(false) }
     var confirmation by remember { mutableStateOf<LibraryConfirmation?>(null) }
     var search by rememberSaveable { mutableStateOf("") }
     var downloaded by remember { mutableStateOf(emptySet<String>()) }
@@ -222,19 +248,21 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
     var elapsed by remember { mutableStateOf(0L) }
     var modelsBusy by remember { mutableStateOf(false) }
     var modelRefresh by remember { mutableIntStateOf(0) }
-    val manager = remember { RemoteModelManager.getInstance() }
+    val manager by remember { lazy { RemoteModelManager.getInstance() } }
     val mode = remember(revision) { prefs.getString("mode", "off").orEmpty() }
-    val profiles = remember(revision) { TranslationApiProfiles.all(context) }
-    val profile = profiles.find { it.id == profileId } ?: TranslationApiProfiles.find(context, profileId)
+    var profiles by remember { mutableStateOf(emptyList<TranslationApiProfile>()) }
+    var profileMigrationReady by remember { mutableStateOf(false) }
+    val profile = profiles.find { it.id == profileId } ?: TranslationApiProfile("none", "正在读取 API 配置…", "", "")
     val lastStatus = remember(revision) {
         val value = prefs.getString("last_status", "").orEmpty()
         val track = prefs.getString("last_track", "").orEmpty()
         if (value.isBlank() || track.isBlank()) value else "《$track》 · $value"
     }
-    val languages = remember { (listOf("en", "ja", "ko", "zh") + TranslateLanguage.getAllLanguages()
-        .filter { it !in setOf("en", "ja", "ko", "zh") }
-        .sortedBy { Locale.forLanguageTag(it).getDisplayLanguage(Locale.SIMPLIFIED_CHINESE) }) }
-    fun languageTitle(code: String) = Locale.forLanguageTag(code).getDisplayLanguage(Locale.SIMPLIFIED_CHINESE) + " · $code"
+    var languages by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
+    val filteredLanguages = remember(languages, search) {
+        if (search.isBlank()) languages.take(4) else languages.filter { it.second.contains(search.trim(), true) }
+    }
+    fun languageTitle(code: String) = languages.firstOrNull { it.first == code }?.second ?: code
     fun needed(code: String) = setOf(code, "zh").filter { it != "en" }
     fun saveDraft(id: String = profileId, address: String = endpoint, modelName: String = model, secret: String = apiKey) {
         prefs.edit().putString(TranslationApiProfiles.endpointKey(id), address.trim())
@@ -242,6 +270,7 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
         if (secret.isNotBlank()) SecretStorage(context, id).save(secret.trim())
     }
     fun applyMode(value: String) {
+        if (value != "api") { verifyJob?.cancel(); verifying = false }
         prefs.edit().putString("mode", value).putString("language", "auto").apply()
         LyricsOverlayService.instance?.refreshSupplementTranslation()
         status = when (value) {
@@ -272,7 +301,9 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
             try {
                 val conditions = DownloadConditions.Builder().apply { if (wifi) requireWifi() }.build()
                 withTimeout(120_000) {
-                    Tasks.whenAll(needed(code).map { manager.download(TranslateRemoteModel.Builder(it).build(), conditions) }).await()
+                    withContext(Dispatchers.IO) {
+                        Tasks.whenAll(needed(code).map { manager.download(TranslateRemoteModel.Builder(it).build(), conditions) }).await()
+                    }
                 }
                 status = "语言包已就绪，可以立即使用离线机翻"
                 LyricsOverlayService.instance?.refreshSupplementTranslation()
@@ -284,36 +315,55 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
         }
     }
     LaunchedEffect(active) {
-        if (!active) return@LaunchedEffect
-        try {
-            val migrated = withContext(Dispatchers.IO) { ensureTranslationProfile(context) }
-            if (migrated != profileId) profileId = migrated
-        } catch (error: CancellationException) { throw error }
+        if (!active || profileMigrationReady) return@LaunchedEffect
+        try { withContext(Dispatchers.IO) { ensureTranslationProfile(context) } }
+        catch (error: CancellationException) { throw error }
         catch (error: Exception) { status = "旧配置读取失败，请重新填写 API 配置" }
+        profileMigrationReady = true
     }
-    LaunchedEffect(profileId, active) {
-        if (!active) return@LaunchedEffect
+    LaunchedEffect(profileRevision, active, profileMigrationReady) {
+        if (!active || !profileMigrationReady) return@LaunchedEffect
+        val values = withContext(Dispatchers.IO) {
+            val all = TranslationApiProfiles.all(context)
+            val selected = prefs.getString("active_api_profile", null)
+            all to (all.firstOrNull { it.id == selected }?.id ?: all.firstOrNull()?.id ?: "none")
+        }
+        profiles = values.first
+        if (profileId != values.second) {
+            verifyJob?.cancel(); verifying = false; profileId = values.second
+        }
+    }
+    LaunchedEffect(profileId, mode, active) {
+        if (!active || mode != "api" || profileId.isBlank() || profileLoaded) return@LaunchedEffect
         val id = profileId
         val values = withContext(Dispatchers.IO) {
             val resolved = TranslationApiProfiles.find(context, id)
             Triple(prefs.getString(TranslationApiProfiles.endpointKey(id), resolved.defaultEndpoint).orEmpty(),
                 prefs.getString(TranslationApiProfiles.modelKey(id), resolved.defaultModel).orEmpty(), SecretStorage(context, id).read())
         }
-        // Draft fields survive configuration changes; initial persisted data only fills empty drafts.
         if (endpoint.isEmpty()) endpoint = values.first
         if (model.isEmpty()) model = values.second
         apiKey = values.third; profileLoaded = true
     }
-    LaunchedEffect(revision, active) {
-        if (!active) return@LaunchedEffect
-        val selected = TranslationApiProfiles.find(context, prefs.getString("active_api_profile", null)).id
-        if (selected != profileId) { verifyJob?.cancel(); verifying = false; profileId = selected }
+    LaunchedEffect(mode, active) {
+        if (!active || mode != "offline" || languages.isNotEmpty()) return@LaunchedEffect
+        languages = withContext(Dispatchers.IO) {
+            val common = listOf("en", "ja", "ko", "zh")
+            val titles = TranslateLanguage.getAllLanguages().associateWith {
+                Locale.forLanguageTag(it).getDisplayLanguage(Locale.SIMPLIFIED_CHINESE) + " · $it"
+            }
+            (common + titles.keys.filter { it !in common }.sortedBy { titles[it] })
+                .map { it to (titles[it] ?: it) }
+        }
     }
-    LaunchedEffect(modelRefresh, active) {
-        if (!active) return@LaunchedEffect
+    LaunchedEffect(modelRefresh, mode, active) {
+        if (!active || mode != "offline") return@LaunchedEffect
         modelsBusy = true
-        try { downloaded = manager.getDownloadedModels(TranslateRemoteModel::class.java).await().map { it.language }.toSet() }
-        catch (error: CancellationException) { throw error }
+        try {
+            downloaded = withContext(Dispatchers.IO) {
+                manager.getDownloadedModels(TranslateRemoteModel::class.java).await().map { it.language }.toSet()
+            }
+        } catch (error: CancellationException) { throw error }
         catch (error: Exception) { status = "暂时无法读取语言包状态" }
         finally { modelsBusy = false }
     }
@@ -328,31 +378,42 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
         if (lastStatus.isNotBlank()) item(key = "last-status") { LibraryStatus(lastStatus) }
         item(key = "mode") {
             SettingsGroup("翻译方式", items = listOf({
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(16.dp)) {
-                    listOf("off" to "关闭", "offline" to "离线机翻", "api" to "自定义 API").forEachIndexed { index, pair ->
-                        SegmentedButton(selected = mode == pair.first, onClick = { applyMode(pair.first) },
-                            shape = SegmentedButtonDefaults.itemShape(index, 3)) { Text(pair.second) }
-                    }
-                }
+                SettingsItem(
+                    modifier = Modifier.clickable { modeMenu = true },
+                    headlineContent = { Text("补充翻译方式") },
+                    supportingContent = { Text(translationModes.firstOrNull { it.first == mode }?.second ?: "关闭") },
+                )
             }))
         }
-        if (mode == "api") item(key = "api") {
-            SettingsGroup("翻译 API", items = listOf({
-                Column {
+        if (mode == "api") {
+            item(key = "api-title") { LibraryGroupTitle("翻译 API") }
+            item(key = "api-profile", contentType = "setting") {
+                LibraryLazyGroupItem(0, 6) {
                     SettingsItem(modifier = Modifier.clickable(enabled = profileLoaded) { profileMenu = true },
                         headlineContent = { Text(profile.label) }, supportingContent = { Text("选择服务或管理 API 配置") })
-                    LibraryField("HTTPS 服务地址", endpoint, { endpoint = it }, profileLoaded && !verifying)
-                    LibraryField("模型名称", model, { model = it }, profileLoaded && !verifying)
-                    LibraryField("API Key", apiKey, { apiKey = it }, profileLoaded && !verifying, secret = true)
-                    LibraryAction("删除已保存的密钥", profileLoaded && !verifying) {
-                        val id = profileId
-                        confirmation = LibraryConfirmation("删除已保存的密钥？", "只删除当前配置的本机密钥，地址和模型仍会保留。", "删除密钥") {
-                            scope.launch {
-                                withContext(Dispatchers.IO) { SecretStorage(context, id).save("") }
-                                if (profileId == id) { apiKey = ""; status = "已删除当前服务保存的 API Key" }
-                            }
+                }
+            }
+            item(key = "api-endpoint", contentType = "field") { LibraryLazyGroupItem(1, 6) {
+                LibraryField("HTTPS 服务地址", endpoint, { endpoint = it }, profileLoaded && !verifying)
+            } }
+            item(key = "api-model", contentType = "field") { LibraryLazyGroupItem(2, 6) {
+                LibraryField("模型名称", model, { model = it }, profileLoaded && !verifying)
+            } }
+            item(key = "api-key", contentType = "field") { LibraryLazyGroupItem(3, 6) {
+                LibraryField("API Key", apiKey, { apiKey = it }, profileLoaded && !verifying, secret = true)
+            } }
+            item(key = "api-delete", contentType = "action") { LibraryLazyGroupItem(4, 6) {
+                LibraryAction("删除已保存的密钥", profileLoaded && !verifying) {
+                    val id = profileId
+                    confirmation = LibraryConfirmation("删除已保存的密钥？", "只删除当前配置的本机密钥，地址和模型仍会保留。", "删除密钥") {
+                        scope.launch {
+                            withContext(Dispatchers.IO) { SecretStorage(context, id).save("") }
+                            if (profileId == id) { apiKey = ""; status = "已删除当前服务保存的 API Key" }
                         }
                     }
+                }
+            } }
+            item(key = "api-confirm", contentType = "action") { LibraryLazyGroupItem(5, 6) {
                     Button(enabled = profileLoaded && !verifying, modifier = Modifier.fillMaxWidth().padding(16.dp), onClick = {
                         val id = profileId; val address = endpoint.trim(); val modelName = model.trim(); val secret = apiKey.trim()
                         if (!address.startsWith("https://") || modelName.isBlank() || secret.isBlank()) {
@@ -373,8 +434,7 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
                             }
                         }
                     }) { Text(if (verifying) "正在验证 API…" else "确认配置并验证连通性") }
-                }
-            }))
+            } }
         }
         if (mode == "offline") {
             item(key = "offline-tools") {
@@ -397,13 +457,13 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
                     }
                 }))
             }
-            val filtered = if (search.isBlank()) languages.take(4) else languages.filter { languageTitle(it).contains(search.trim(), true) }
-            itemsIndexed(filtered, key = { _, code -> "language-$code" }) { index, code ->
+            itemsIndexed(filteredLanguages, key = { _, language -> "language-${language.first}" }, contentType = { _, _ -> "language" }) { index, language ->
+                val (code, title) = language
                 val ready = downloaded.containsAll(needed(code))
                 val hasModel = code in downloaded || (code == "en" && "zh" in downloaded)
                 val inProgress = code in downloading
-                LibraryLazyGroupItem(index, filtered.size) {
-                    SettingsItem(headlineContent = { Text(languageTitle(code)) },
+                LibraryLazyGroupItem(index, filteredLanguages.size) {
+                    SettingsItem(headlineContent = { Text(title) },
                         supportingContent = { Text(when { inProgress -> "下载中…"; ready -> "已下载"; hasModel -> "缺中文模型"; else -> "未下载" }) },
                         trailingContent = {
                             TextButton(enabled = !inProgress, onClick = {
@@ -413,7 +473,7 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
                                         "删除共用中文模型后，所有离线中文翻译都需要重新下载。已缓存译文仍会保留。"
                                         else "删除 ${languageTitle(code)} 语言包？已缓存译文仍会保留。", "确认删除") {
                                         scope.launch {
-                                            try { manager.deleteDownloadedModel(TranslateRemoteModel.Builder(removable).build()).await(); status = "语言包已删除"; modelRefresh++ }
+                                            try { withContext(Dispatchers.IO) { manager.deleteDownloadedModel(TranslateRemoteModel.Builder(removable).build()).await() }; status = "语言包已删除"; modelRefresh++ }
                                             catch (error: CancellationException) { throw error }
                                             catch (error: Exception) { status = "删除失败，请停止离线翻译后重试" }
                                         }
@@ -425,6 +485,10 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
             }
         }
         if (status.isNotBlank()) item(key = "status") { LibraryStatus(status) }
+    }
+    if (modeMenu && active) TranslationModeDialog(mode, { modeMenu = false }) { selected ->
+        modeMenu = false
+        applyMode(selected)
     }
     if (profileMenu && active) AlertDialog(onDismissRequest = { profileMenu = false }, title = { Text("选择翻译 API") },
         text = {
@@ -452,7 +516,7 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
         confirmButton = { TextButton(onClick = { confirmation = null; downloadDialog.accept() }) { Text("仅 Wi-Fi 下载") } },
         dismissButton = { Row {
             TextButton(onClick = {
-                val code = languages.firstOrNull { downloadDialog.title == "下载 ${languageTitle(it)}" }
+                val code = languages.firstOrNull { downloadDialog.title == "下载 ${it.second}" }?.first
                 confirmation = null; if (code != null) downloadLanguage(code, false)
             }) { Text("允许当前网络") }
             TextButton(onClick = { confirmation = null }) { Text("取消") }
@@ -464,7 +528,8 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
 private fun ApiProfilesComposeScreen(onBack: () -> Unit) {
     val context = LocalContext.current.applicationContext
     val prefs = remember(context) { context.translationPrefs() }
-    val revision = preferenceRevision(prefs)
+    val revision = preferenceRevision(prefs, setOf("custom_api_profiles", "deleted_api_profiles", "api_profile_labels", "active_api_profile"))
+    val active = LocalSettingsScrollRetentionActive.current
     val scope = rememberLibraryScope()
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     var name by rememberSaveable { mutableStateOf("") }
@@ -474,7 +539,10 @@ private fun ApiProfilesComposeScreen(onBack: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var status by rememberSaveable { mutableStateOf("填写完整后保存；密钥会加密保存在本机。") }
     var confirmation by remember { mutableStateOf<LibraryConfirmation?>(null) }
-    val profiles = remember(revision) { TranslationApiProfiles.all(context) }
+    var profiles by remember { mutableStateOf(emptyList<TranslationApiProfile>()) }
+    LaunchedEffect(revision, active) {
+        if (active) profiles = withContext(Dispatchers.IO) { TranslationApiProfiles.all(context) }
+    }
     val activeId = remember(revision) { prefs.getString("active_api_profile", "").orEmpty() }
     fun clearEditor() { editingId = null; name = ""; endpoint = ""; model = ""; key = "" }
     fun edit(profile: TranslationApiProfile) {
@@ -531,7 +599,7 @@ private fun ApiProfilesComposeScreen(onBack: () -> Unit) {
             }))
         }
         if (profiles.isEmpty()) item(key = "empty") { LibraryStatus("还没有 API 配置，请在上方添加") }
-        itemsIndexed(profiles, key = { _, profile -> "profile-${profile.id}" }) { index, profile ->
+        itemsIndexed(profiles, key = { _, profile -> "profile-${profile.id}" }, contentType = { _, _ -> "profile" }) { index, profile ->
             LibraryLazyGroupItem(index, profiles.size) {
                 SettingsItem(modifier = Modifier.clickable(enabled = !busy) { edit(profile) }, headlineContent = { Text(profile.label) },
                     supportingContent = { Text(if (profile.id == activeId) "使用中 · 点击编辑" else "点击编辑") },
@@ -608,7 +676,7 @@ private fun OffsetMemoriesComposeScreen(onBack: () -> Unit) {
                 }
             }))
         }
-        itemsIndexed(entries, key = { _, entry -> entry.id }) { index, entry ->
+        itemsIndexed(entries, key = { _, entry -> entry.id }, contentType = { _, _ -> "offset" }) { index, entry ->
             LibraryLazyGroupItem(index, entries.size) {
                 SettingsItem(headlineContent = { Text(entry.title.ifBlank { "未知歌曲" }) },
                     supportingContent = { Text(listOf(entry.artist, "${entry.source.ifBlank { "歌词源" }} · ${LyricSyncText.format(entry.offsetMs)}").filter { it.isNotBlank() }.joinToString("\n")) },
@@ -660,6 +728,16 @@ private fun sourceVersions(entry: JSONObject): List<ComposeSourceVersion> {
     }
 }
 
+@Immutable
+private data class ComposeSourceRow(val key: String, val title: String, val artist: String, val source: String)
+private data class SourcePageSnapshot(
+    val entries: List<JSONObject> = emptyList(),
+    val selected: JSONObject? = null,
+    val versions: List<ComposeSourceVersion> = emptyList(),
+    val rows: List<ComposeSourceRow> = emptyList(),
+    val songCount: Int = 0,
+)
+
 @Composable
 private fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute) -> Unit, onBack: () -> Unit) {
     val context = LocalContext.current.applicationContext
@@ -669,23 +747,28 @@ private fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute)
     val active = LocalSettingsScrollRetentionActive.current
     val selectedKey = route.id.takeIf { it.isNotBlank() }
     var query by rememberSaveable(route.id) { mutableStateOf(route.category) }
-    var entries by remember { mutableStateOf(emptyList<JSONObject>()) }
-    var filtered by remember { mutableStateOf(emptyList<JSONObject>()) }
-    var versions by remember { mutableStateOf(emptyList<ComposeSourceVersion>()) }
+    var snapshot by remember { mutableStateOf(SourcePageSnapshot()) }
+    val entries = snapshot.entries
+    val filtered = snapshot.rows
+    val versions = snapshot.versions
     var loaded by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var message by rememberSaveable(route.id) { mutableStateOf("") }
     var confirmation by remember { mutableStateOf<LibraryConfirmation?>(null) }
-    val entry = entries.find { it.optString("key") == selectedKey }
+    val entry = snapshot.selected
     LaunchedEffect(revision, route.id, query, active) {
         if (!active) return@LaunchedEffect
         if (query.isNotBlank() && selectedKey == null) delay(120)
         val values = withContext(Dispatchers.IO) {
             val values = readSourceEntries(prefs)
-            Triple(values, values.find { it.optString("key") == selectedKey }?.let(::sourceVersions).orEmpty(),
-                values.asReversed().filter { (it.optString("title") + " " + it.optString("artist")).contains(query.trim(), true) })
+            val selected = values.find { it.optString("key") == selectedKey }
+            val rows = values.asReversed().map {
+                ComposeSourceRow(it.optString("key"), it.optString("title").ifBlank { "未知歌曲" }, it.optString("artist"), it.optString("source"))
+            }.filter { (it.title + " " + it.artist).contains(query.trim(), true) }
+            SourcePageSnapshot(values, selected, selected?.let(::sourceVersions).orEmpty(), rows,
+                values.map { it.optString("title") + "\u0000" + it.optString("artist") }.distinct().size)
         }
-        entries = values.first; versions = values.second; filtered = values.third; loaded = true
+        snapshot = values; loaded = true
     }
     fun update(key: String, change: (JSONObject) -> Unit) {
         busy = true
@@ -734,12 +817,12 @@ private fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute)
         if (selectedKey == null) {
             item(key = "search") { LibraryField("搜索已记录的歌名或歌手", query, { query = it }) }
             if (filtered.isEmpty()) item(key = "empty") { LibraryStatus(if (!loaded) "正在读取…" else if (entries.isEmpty()) "暂无重匹配记录" else "没有符合搜索条件的歌曲") }
-            itemsIndexed(filtered, key = { _, item -> item.optString("key") }) { index, item ->
+            itemsIndexed(filtered, key = { _, item -> item.key }, contentType = { _, _ -> "source" }) { index, item ->
                 LibraryLazyGroupItem(index, filtered.size) {
-                    SettingsItem(modifier = Modifier.clickable { onNavigate(ComposeRoute("sources", id = item.optString("key"))) },
-                        headlineContent = { Text(item.optString("title").ifBlank { "未知歌曲" }) },
-                        supportingContent = { Text(item.optString("artist") + "\n" + item.optString("source")) },
-                        trailingContent = { TextButton(onClick = { onNavigate(ComposeRoute("sources", id = item.optString("key"))) }) { Text("查看版本") } })
+                    SettingsItem(modifier = Modifier.clickable { onNavigate(ComposeRoute("sources", id = item.key)) },
+                        headlineContent = { Text(item.title.ifBlank { "未知歌曲" }) },
+                        supportingContent = { Text(item.artist + "\n" + item.source) },
+                        trailingContent = { TextButton(onClick = { onNavigate(ComposeRoute("sources", id = item.key)) }) { Text("查看版本") } })
                 }
             }
             item(key = "cache") {
@@ -747,7 +830,7 @@ private fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute)
                     Column {
                         SettingsItem(headlineContent = { Text("已记录 ${entries.size} 个来源") })
                         LibraryAction("清除匹配记录与缓存…", !busy) {
-                            val count = entries.map { it.optString("title") + "\u0000" + it.optString("artist") }.distinct().size
+                            val count = snapshot.songCount
                             confirmation = LibraryConfirmation("清除匹配记录与缓存？", "将清除 $count 首歌曲的匹配记录（包括手动选定的版本与历史版本），以及主页缓存的歌词。此操作无法撤销。\n\n自定义歌词、翻译语言包和同步设置都会保留。", "确认清除") {
                                 scope.launch {
                                     withContext(Dispatchers.IO) {
@@ -775,7 +858,7 @@ private fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute)
                     }
                 }))
             }
-            items(versions, key = { it.id }) { version ->
+            items(versions, key = { it.id }, contentType = { "version" }) { version ->
                 SettingsGroup(if (version.current) "当前选择" else "候选版本", items = listOf({
                     Column {
                         SettingsItem(headlineContent = { Text(version.title) }, supportingContent = { Text(version.artist + "\n" + version.summary) })
@@ -805,7 +888,8 @@ private fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute)
     LibraryConfirmationDialog(confirmation) { confirmation = null }
 }
 
-private data class ComposeCustomEntry(val entry: CustomLyricsStore.Entry, val summary: String)
+@Immutable
+private data class ComposeCustomEntry(val id: String, val title: String, val artist: String, val summary: String)
 
 @Composable
 private fun CustomLibraryComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack: () -> Unit) {
@@ -824,7 +908,7 @@ private fun CustomLibraryComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBac
             val timeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
             CustomLyricsStore.all(context).map { entry ->
                 val parsed = CustomLyricsStore.parse(entry.lyrics)
-                ComposeCustomEntry(entry, "${parsed.lineCount} 行歌词${if (parsed.translationCount > 0) " · 含译文" else ""} · ${timeFormat.format(Date(entry.updatedAt))}")
+                ComposeCustomEntry(entry.id, entry.title, entry.artist, "${parsed.lineCount} 行歌词${if (parsed.translationCount > 0) " · 含译文" else ""} · ${timeFormat.format(Date(entry.updatedAt))}")
             } to NowPlaying.current(context)
         }
         entries = values.first; playing = values.second; loaded = true
@@ -843,8 +927,8 @@ private fun CustomLibraryComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBac
             }))
         }
         if (entries.isEmpty()) item(key = "empty") { LibraryStatus(if (loaded) "还没有自定义歌词" else "正在读取…") }
-        itemsIndexed(entries, key = { _, item -> item.entry.id }) { index, item ->
-            val entry = item.entry
+        itemsIndexed(entries, key = { _, item -> item.id }, contentType = { _, _ -> "custom-lyric" }) { index, item ->
+            val entry = item
             LibraryLazyGroupItem(index, entries.size) {
                 Column {
                     SettingsItem(modifier = Modifier.clickable { onNavigate(ComposeRoute("editor", id = entry.id)) },

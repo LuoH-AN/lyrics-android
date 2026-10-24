@@ -21,6 +21,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.FrameRateCategory
+import androidx.compose.ui.preferredFrameRate
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
@@ -256,7 +258,7 @@ open class ComposeNavigationActivity : ComponentActivity() {
         navigator=ComposeNavigator(savedInstanceState?.getBundle("navigation"),routeForIntent(intent) ?: ComposeRoute("settings"))
         setContent {
             LyricsComposeTheme {
-                Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) {
+                Surface(Modifier.fillMaxSize().preferredFrameRate(FrameRateCategory.High),color=MaterialTheme.colorScheme.background) {
                     SettingsOverlayHost(navigator.isOpen,navigator::dismiss,onExitFinished={navigator.onExitFinished();if(!navigator.isOpen) finish()}) { navigator.Content() }
                 }
             }
