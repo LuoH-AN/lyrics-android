@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.Check
@@ -197,7 +196,6 @@ private fun SettingsNavigationItem(
         headlineContent = { Text(title) },
         supportingContent = summary?.let { { Text(it) } },
         leadingContent = { SettingsLeadingIcon(icon) },
-        trailingContent = { Icon(Icons.AutoMirrored.Filled.ArrowForward, null, modifier = Modifier.size(20.dp)) },
         modifier = Modifier.clickable(enabled = enabled, onClick = onClick),
     )
 }

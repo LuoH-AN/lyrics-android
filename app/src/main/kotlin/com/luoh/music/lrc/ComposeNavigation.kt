@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -136,7 +135,7 @@ private fun Destination(route:ComposeRoute,onNavigate:(ComposeRoute)->Unit,onBac
 private fun CategoryRow(category:SettingsCategory,modifier:Modifier = Modifier,selected:Boolean=false) {
     val color by animateColorAsState(if(selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface, tween(250),label="settingsSelection")
     Surface(color=color,modifier=modifier.fillMaxWidth(),shape=RoundedCornerShape(24.dp)) {
-        SettingsItem(headlineContent={Text(category.title)},supportingContent={Text(category.summary)},leadingContent={Icon(category.icon,null)},trailingContent={Icon(Icons.AutoMirrored.Filled.ArrowForward,null)})
+        SettingsItem(headlineContent={Text(category.title)},supportingContent={Text(category.summary)},leadingContent={Icon(category.icon,null)})
     }
 }
 
