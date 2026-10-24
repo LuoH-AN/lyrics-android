@@ -15,6 +15,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -754,7 +755,12 @@ private fun HomeLyricRow(
             this.alpha = alpha
             transformOrigin = origin
             translationY = if (motion.stagger && allowMotion) (scrollVelocity.value * lagSeconds).coerceIn(-48.dp.toPx(), 48.dp.toPx()) else 0f
-        }.blur(depth.dp).clickable(enabled = timed, onClick = onClick).padding(vertical = 10.dp),
+        }.blur(depth.dp).clickable(
+            enabled = timed,
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            onClick = onClick,
+        ).padding(vertical = 10.dp),
     ) {
         val primary = if (translationMode == LyricsOverlayService.TRANSLATION_TRANSLATED && line.translation.isNotBlank()) line.translation else line.text
         KaraokeLyricText(primary, line, position, index < focused, index == focused,
