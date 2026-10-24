@@ -4,18 +4,11 @@
 
 ## 组件与样式
 
-- 应用主题：Material 3 DayNight，默认主调沿用原有黑白灰；用户可在「应用外观 › 主调颜色」中选择自定义强调色，应用到播放键、当前歌词行、进度条与选中态，并按对比度自动选择前景色。不启用动态彩色主题。
-- 按钮、图标、分段选择：MaterialButton / MaterialButtonToggleGroup。
-- 导航、弹窗和底部菜单：MaterialToolbar / MaterialAlertDialogBuilder / BottomSheetDialog。
-- 设置开关、字号和粗细滑杆：MaterialSwitch / Slider；粗细以默认 100% 显示，保留原有字重存储。
-- 歌词调色：可点选色板、HEX 输入与实时预览，不使用 RGB 滑杆。
-- 表单和分组：TextInputLayout + TextInputEditText / MaterialCardView。
-- 歌词、说明文字和封面：MaterialTextView（含原生逐字绘制）/ ShapeableImageView。
-- Android 的布局容器和滚动容器继续用于排版；Material 没有现成的逐字歌词组件，因此歌词排版使用原生自定义文本视图。
+设计以 [Agora 源码](https://github.com/newo-ether/Agora) 为准，具体映射见 [设计系统](../design-system.md)。默认使用 FOREST / Tonal Spot 的完整浅深色调色板、MiOutfit 字体、24/5dp 分组圆角、滚动收缩标题与弹簧面板。
 
-中控台歌词图标与右侧更多图标使用相同的图标尺寸、48dp 点击区域和垂直对齐。图标无边框，未开启时背景透明，已开启时只有低透明度的单色底色。开关状态以服务回报为准，不在请求授权时提前亮起。
+设置页分为轻量分类入口和 8 个按需加载的分类；自定义歌词、同步记忆和歌词源列表使用 RecyclerView 复用可见行。按钮、开关、滑杆、输入框、弹窗与拖动行为均由原生 Material 组件承接。
 
-颜色选择器把等分布局与圆形外观分开：外层负责分配空间，内层固定等宽等高。开关使用 Material 的圆形滑块；轨道仍是胶囊形。
+主页中控图标保留 48dp 点击区域，悬浮窗选中态以服务回报为准。歌词颜色选择保留等宽等高的圆形色板。主题切换仅淡入新内容，不再创建全屏截图。
 
 ## 歌词与生命周期
 

@@ -22,6 +22,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.widget.NestedScrollView
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.charset.Charset
@@ -35,6 +41,8 @@ class CustomLyricsEditActivity : AppCompatActivity() {
     private lateinit var status: TextView
     private var editingId: String? = null
     private var savedSnapshot = ""
+    private var statusJob: Job? = null
+    private var saving = false
 
     private val importLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) importFile(uri)
@@ -120,6 +128,7 @@ class CustomLyricsEditActivity : AppCompatActivity() {
         listOf(titleField.text, artistField.text, lyricsField.text).joinToString("\u0000")
 
     private fun updateStatus() {
+        statusJob?.cancel()
         val raw = lyricsField.text.toString()
         if (raw.isBlank()) {
             status.text = "粘贴、输入或导入 LRC 歌词"
@@ -131,17 +140,22 @@ class CustomLyricsEditActivity : AppCompatActivity() {
             status.text = "歌词太长，请删减到 ${CustomLyricsStore.MAX_LENGTH / 1000}K 字符以内"
             return
         }
-        val parsed = CustomLyricsStore.parse(raw)
-        status.text = if (parsed.lineCount == 0) {
-            "没有识别到带时间轴的歌词行"
-        } else buildString {
-            append("识别到 ${parsed.lineCount} 行歌词")
-            if (parsed.translationCount > 0) append(" · ${parsed.translationCount} 行译文")
-            if (parsed.ignoredCount > 0) append(" · ${parsed.ignoredCount} 行没有时间轴，已忽略")
+        statusJob = lifecycleScope.launch {
+            delay(120)
+            val parsed = withContext(Dispatchers.IO) { CustomLyricsStore.parse(raw) }
+            if (lyricsField.text.toString() != raw) return@launch
+            status.text = if (parsed.lineCount == 0) {
+                "没有识别到带时间轴的歌词行"
+            } else buildString {
+                append("识别到 ${parsed.lineCount} 行歌词")
+                if (parsed.translationCount > 0) append(" · ${parsed.translationCount} 行译文")
+                if (parsed.ignoredCount > 0) append(" · ${parsed.ignoredCount} 行没有时间轴，已忽略")
+            }
         }
     }
 
     private fun save() {
+        if (saving) return
         val title = titleField.text.toString().trim()
         val artist = artistField.text.toString().trim()
         val raw = lyricsField.text.toString().trim()
@@ -154,18 +168,31 @@ class CustomLyricsEditActivity : AppCompatActivity() {
             toast("歌词太长，请删减后再保存")
             return
         }
-        val parsed = CustomLyricsStore.parse(raw)
-        if (parsed.lineCount == 0) {
-            toast("没有识别到带时间轴的歌词行，格式示例：[01:23.45]歌词")
-            return
+        saving = true
+        listOf(titleField, artistField, lyricsField).forEach { it.isEnabled = false }
+        lifecycleScope.launch {
+            try {
+                val parsed = withContext(Dispatchers.IO) {
+                    CustomLyricsStore.parse(raw).also {
+                        if (it.lineCount > 0) CustomLyricsStore.save(this@CustomLyricsEditActivity, title, artist, raw, editingId)
+                    }
+                }
+                if (parsed.lineCount == 0) {
+                    toast("没有识别到带时间轴的歌词行，格式示例：[01:23.45]歌词")
+                    return@launch
+                }
+                LyricsOverlayService.instance?.reloadCustomLyrics()
+                toast("已保存 · ${parsed.lineCount} 行歌词")
+                finish()
+            } finally {
+                saving = false
+                listOf(titleField, artistField, lyricsField).forEach { it.isEnabled = true }
+            }
         }
-        CustomLyricsStore.save(this, title, artist, raw, editingId)
-        LyricsOverlayService.instance?.reloadCustomLyrics()
-        toast("已保存 · ${parsed.lineCount} 行歌词")
-        finish()
     }
 
     private fun leave() {
+        if (saving) return
         if (snapshot() == savedSnapshot) {
             finish()
             return
@@ -202,6 +229,8 @@ class CustomLyricsEditActivity : AppCompatActivity() {
     }
 
     private fun importFile(uri: Uri) {
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
         val text = runCatching {
             contentResolver.openInputStream(uri)?.use { input ->
                 val output = ByteArrayOutputStream()
@@ -215,14 +244,18 @@ class CustomLyricsEditActivity : AppCompatActivity() {
                 decodeText(output.toByteArray())
             }
         }.getOrNull()
-        if (text.isNullOrBlank()) {
-            toast("无法读取这个文件，请确认是文本格式的 LRC 歌词")
-            return
+                text?.let { it to CustomLyricsStore.parse(it) }
+            }
+            val text = result?.first
+            if (text.isNullOrBlank()) {
+                toast("无法读取这个文件，请确认是文本格式的 LRC 歌词")
+                return@launch
+            }
+            lyricsField.setText(text.trim())
+            fillFromTags(text)
+            val parsed = requireNotNull(result).second
+            toast(if (parsed.lineCount > 0) "已导入 ${parsed.lineCount} 行歌词" else "文件里没有识别到带时间轴的歌词行")
         }
-        lyricsField.setText(text.trim())
-        fillFromTags(text)
-        val parsed = CustomLyricsStore.parse(text)
-        toast(if (parsed.lineCount > 0) "已导入 ${parsed.lineCount} 行歌词" else "文件里没有识别到带时间轴的歌词行")
     }
 
     /** 歌名、歌手还空着时，用 LRC 里的 [ti:] / [ar:] 标签补上。 */

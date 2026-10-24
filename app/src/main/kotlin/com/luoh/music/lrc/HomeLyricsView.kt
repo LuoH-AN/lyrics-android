@@ -134,7 +134,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     }
     private val empty = label("暂未播放", 22f).apply {
         id = R.id.home_empty
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        typeface = AppTypography.medium(context)
         gravity = Gravity.CENTER
         ViewCompat.setAccessibilityLiveRegion(this, ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE)
     }
@@ -184,7 +184,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     }
     private val song = label("暂未播放", 20f).apply {
         id = R.id.home_song
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        typeface = AppTypography.medium(context)
         maxLines = 2
         ellipsize = TextUtils.TruncateAt.END
     }
@@ -417,6 +417,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     }
 
     fun setLyrics(value: LyricDocument, isCustom: Boolean = false) {
+        if (document == value && custom == isCustom && lyricStatus != "loading") return
         document = value
         custom = isCustom
         lyricStatus = if (value.lines.isEmpty()) "empty" else "ready"
@@ -470,6 +471,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
     }
 
     fun setLyricOffset(offsetMs: Int) {
+        if (lyricOffsetMs == offsetMs.toLong()) return
         lyricOffsetMs = offsetMs.toLong()
         activeIndex = -2
         renderFrame()
@@ -607,7 +609,7 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         document.lines.forEach { line ->
             val row = LyricLineView(context).apply {
                 textSize = if (resources.configuration.screenWidthDp < 360) 26f else 30f
-                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                typeface = AppTypography.medium(context)
                 isSingleLine = false
                 setHorizontallyScrolling(false)
                 maxLines = Int.MAX_VALUE
@@ -722,15 +724,15 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
 
     private fun showMore() {
         menu?.dismiss()
-        val dialog = BottomSheetDialog(context)
+        val dialog = AgoraBottomSheetDialog(context)
         val content = LinearLayout(dialog.context).apply {
             id = R.id.home_more_sheet
             orientation = VERTICAL
             setPadding(dp(20), 0, dp(20), dp(20))
         }
         content.addView(BottomSheetDragHandleView(dialog.context), LayoutParams(LayoutParams.MATCH_PARENT, dp(48)))
-        content.addView(label("更多", 24f).apply {
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        content.addView(label("更多", 19f).apply {
+            typeface = AppTypography.bold(context)
             setTextColor(color(R.color.text_primary))
         })
         content.addView(label(snapshot.track.ifBlank { "歌词与显示设置" }, 13f).apply {
@@ -750,12 +752,12 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
                 iconPadding = dp(12)
                 iconGravity = MaterialButton.ICON_GRAVITY_START
                 iconTint = ColorStateList.valueOf(color(R.color.text_primary))
-                backgroundTintList = ColorStateList.valueOf(color(R.color.app_surface_container))
+                backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
                 setTextColor(color(R.color.text_primary))
                 setPaddingRelative(dp(16), dp(10), dp(16), dp(10))
                 strokeWidth = 0
                 minHeight = dp(56)
-                cornerRadius = dp(16)
+                cornerRadius = dp(24)
                 setOnClickListener { dialog.dismiss(); callback() }
             }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(8) })
         }
@@ -782,10 +784,16 @@ class HomeLyricsView @JvmOverloads constructor(context: Context, attrs: Attribut
         })
         dialog.setOnDismissListener { if (menu === dialog) menu = null }
         menu = dialog
+        dialog.behavior.apply {
+            isFitToContents = true
+            skipCollapsed = true
+            maxWidth = dp(640)
+            maxHeight = (resources.displayMetrics.heightPixels * .94f).toInt()
+            state = BottomSheetBehavior.STATE_EXPANDED
+        }
         dialog.show()
         dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.backgroundTintList =
-            ColorStateList.valueOf(color(R.color.app_surface))
-        dialog.behavior.state = BottomSheetBehavior.STATE_EXPANDED
+            ColorStateList.valueOf(color(R.color.app_surface_container))
     }
 
     private fun iconButton(iconRes: Int, description: String) = MaterialButton(context).apply {

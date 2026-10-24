@@ -1,0 +1,46 @@
+<?xml version='1.0' encoding='utf-8'?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+    <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="0dp" app:cardElevation="0dp" app:strokeWidth="0dp" app:cardBackgroundColor="@color/app_surface" app:shapeAppearance="@style/SettingsRowFirst">
+        <com.luoh.music.lrc.HomeMotionPreview android:id="@+id/home_motion_preview" android:layout_width="match_parent" android:layout_height="176dp" android:layout_marginStart="16dp" android:layout_marginTop="14dp" android:layout_marginEnd="16dp" android:layout_marginBottom="10dp" />
+    </com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" app:cardElevation="0dp" app:strokeWidth="0dp" app:cardBackgroundColor="@color/app_surface" app:shapeAppearance="@style/SettingsRowMiddle">
+        <LinearLayout style="@style/CellColumn">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+                <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="缓动滚动" />
+                <com.google.android.material.textview.MaterialTextView android:id="@+id/home_motion_scroll_value" style="@style/CellValue" android:text="900ms" />
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/home_motion_scroll_easing" style="@style/SettingsSwitch" android:layout_marginStart="8dp" />
+            </LinearLayout>
+            <com.google.android.material.slider.Slider android:id="@+id/home_motion_scroll_duration" style="@style/SettingsSlider" android:contentDescription="切行滚动时长" android:valueFrom="300" android:valueTo="1500" android:value="900" android:stepSize="50" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" app:cardElevation="0dp" app:strokeWidth="0dp" app:cardBackgroundColor="@color/app_surface" app:shapeAppearance="@style/SettingsRowMiddle">
+        <LinearLayout style="@style/CellColumn">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+                <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="逐行错位" />
+                <com.google.android.material.textview.MaterialTextView android:id="@+id/home_motion_stagger_value" style="@style/CellValue" android:text="40ms" />
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/home_motion_stagger" style="@style/SettingsSwitch" android:layout_marginStart="8dp" />
+            </LinearLayout>
+            <com.google.android.material.slider.Slider android:id="@+id/home_motion_stagger_delay" style="@style/SettingsSlider" android:contentDescription="逐行错位延迟" android:valueFrom="0" android:valueTo="120" android:value="40" android:stepSize="10" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" app:cardElevation="0dp" app:strokeWidth="0dp" app:cardBackgroundColor="@color/app_surface" app:shapeAppearance="@style/SettingsRowMiddle">
+        <LinearLayout style="@style/CellColumn">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+                <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="行间缩放" />
+                <com.google.android.material.textview.MaterialTextView android:id="@+id/home_motion_scale_value" style="@style/CellValue" android:text="100%" />
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/home_motion_scale" style="@style/SettingsSwitch" android:layout_marginStart="8dp" />
+            </LinearLayout>
+            <com.google.android.material.slider.Slider android:id="@+id/home_motion_scale_strength" style="@style/SettingsSlider" android:contentDescription="行间缩放强度" android:valueFrom="0" android:valueTo="200" android:value="100" android:stepSize="5" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" app:cardElevation="0dp" app:strokeWidth="0dp" app:cardBackgroundColor="@color/app_surface" app:shapeAppearance="@style/SettingsRowLast">
+        <LinearLayout style="@style/CellColumn">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+                <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="远景模糊" />
+                <com.google.android.material.textview.MaterialTextView android:id="@+id/home_motion_blur_value" style="@style/CellValue" android:text="100%" />
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/home_motion_depth_blur" style="@style/SettingsSwitch" android:layout_marginStart="8dp" />
+            </LinearLayout>
+            <com.google.android.material.slider.Slider android:id="@+id/home_motion_blur_strength" style="@style/SettingsSlider" android:contentDescription="远景模糊强度" android:valueFrom="0" android:valueTo="200" android:value="100" android:stepSize="5" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+</LinearLayout>

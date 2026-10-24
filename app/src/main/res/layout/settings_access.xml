@@ -1,0 +1,23 @@
+<?xml version='1.0' encoding='utf-8'?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+    <com.google.android.material.card.MaterialCardView android:id="@+id/cell_overlay_toggle" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="0dp" app:cardElevation="0dp" app:strokeWidth="0dp" app:cardBackgroundColor="@color/app_surface" app:shapeAppearance="@style/SettingsRowFirst">
+        <LinearLayout style="@style/Cell">
+            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="桌面歌词" />
+            <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/overlay_toggle" style="@style/SettingsSwitch" android:contentDescription="开启或关闭桌面歌词" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.card.MaterialCardView android:id="@+id/cell_listener_permission" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" app:cardElevation="0dp" app:strokeWidth="0dp" app:cardBackgroundColor="@color/app_surface" app:shapeAppearance="@style/SettingsRowMiddle">
+        <LinearLayout style="@style/Cell">
+            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="通知使用权" />
+            <com.google.android.material.textview.MaterialTextView android:id="@+id/listener_permission_state" style="@style/CellValue" android:text="去开启" />
+            <com.google.android.material.textview.MaterialTextView style="@style/Chevron" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.card.MaterialCardView android:id="@+id/cell_overlay_permission" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" app:cardElevation="0dp" app:strokeWidth="0dp" app:cardBackgroundColor="@color/app_surface" app:shapeAppearance="@style/SettingsRowLast">
+        <LinearLayout style="@style/Cell">
+            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="悬浮窗权限" />
+            <com.google.android.material.textview.MaterialTextView android:id="@+id/overlay_permission_state" style="@style/CellValue" android:text="去开启" />
+            <com.google.android.material.textview.MaterialTextView style="@style/Chevron" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+</LinearLayout>

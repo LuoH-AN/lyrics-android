@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='utf-8'?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+    <com.google.android.material.card.MaterialCardView android:id="@+id/cell_check_update" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="0dp" app:cardElevation="0dp" app:strokeWidth="0dp" app:cardBackgroundColor="@color/app_surface" app:shapeAppearance="@style/SettingsRowFirst">
+        <LinearLayout style="@style/Cell">
+            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="检查更新" />
+            <com.google.android.material.textview.MaterialTextView android:id="@+id/version_value" style="@style/CellValue" />
+            <com.google.android.material.textview.MaterialTextView style="@style/Chevron" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.card.MaterialCardView android:id="@+id/cell_maintainer" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" app:cardElevation="0dp" app:strokeWidth="0dp" app:cardBackgroundColor="@color/app_surface" app:shapeAppearance="@style/SettingsRowMiddle">
+        <LinearLayout style="@style/Cell">
+            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="维护者 · LuoH-AN" />
+            <com.google.android.material.textview.MaterialTextView style="@style/Chevron" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.card.MaterialCardView android:id="@+id/cell_github" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" app:cardElevation="0dp" app:strokeWidth="0dp" app:cardBackgroundColor="@color/app_surface" app:shapeAppearance="@style/SettingsRowMiddle">
+        <LinearLayout style="@style/Cell">
+            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="项目主页 · GitHub" />
+            <com.google.android.material.textview.MaterialTextView style="@style/Chevron" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.card.MaterialCardView android:id="@+id/cell_privacy" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" app:cardElevation="0dp" app:strokeWidth="0dp" app:cardBackgroundColor="@color/app_surface" app:shapeAppearance="@style/SettingsRowLast">
+        <LinearLayout style="@style/Cell">
+            <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="隐私说明" />
+            <com.google.android.material.textview.MaterialTextView style="@style/Chevron" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+</LinearLayout>

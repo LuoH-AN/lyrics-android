@@ -8,8 +8,8 @@ import androidx.core.graphics.ColorUtils
 import com.google.android.material.button.MaterialButton
 
 /**
- * App accent color. The default is the original monochrome accent (black in light,
- * white in dark); users may choose a custom color in 设置 › 应用外观 › 主调颜色.
+ * App accent color. The default is Agora's FOREST / Tonal Spot primary;
+ * users may choose a custom color in 设置 › 应用外观 › 主调颜色.
  */
 object AccentPrefs {
     const val KEY = "accent_color"
@@ -33,7 +33,7 @@ object AccentPrefs {
         prefs(context).edit().remove(KEY).apply()
     }
 
-    /** Main accent: custom color, or the original black/white accent. */
+    /** Main accent: custom color, or the FOREST primary for the active theme. */
     fun accent(context: Context): Int = customColor(context)
         ?: ContextCompat.getColor(context, R.color.accent)
 

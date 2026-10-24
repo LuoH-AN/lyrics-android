@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.DesktopLyrics" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/app_font</item>
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:statusBarColor">@color/status_bar</item>
         <item name="android:navigationBarColor">@color/nav_bar</item>
@@ -12,19 +12,34 @@
         <item name="android:colorAccent">@color/accent</item>
         <item name="colorPrimary">@color/accent</item>
         <item name="colorOnPrimary">@color/text_on_accent</item>
-        <item name="colorPrimaryContainer">@color/app_surface_container</item>
-        <item name="colorOnPrimaryContainer">@color/text_primary</item>
-        <item name="colorSecondary">@color/accent</item>
-        <item name="colorOnSecondary">@color/text_on_accent</item>
-        <item name="colorSecondaryContainer">@color/app_surface_container</item>
-        <item name="colorOnSecondaryContainer">@color/text_primary</item>
-        <item name="colorTertiary">@color/accent</item>
-        <item name="colorSurface">@color/app_surface</item>
+        <item name="colorPrimaryContainer">@color/primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/on_primary_container</item>
+        <item name="colorSecondary">@color/secondary</item>
+        <item name="colorOnSecondary">@color/on_secondary</item>
+        <item name="colorSecondaryContainer">@color/secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/on_secondary_container</item>
+        <item name="colorTertiary">@color/tertiary</item>
+        <item name="colorOnTertiary">@color/on_tertiary</item>
+        <item name="colorTertiaryContainer">@color/tertiary_container</item>
+        <item name="colorOnTertiaryContainer">@color/on_tertiary_container</item>
+        <item name="colorError">@color/error</item>
+        <item name="colorOnError">@color/on_error</item>
+        <item name="colorErrorContainer">@color/error_container</item>
+        <item name="colorOnErrorContainer">@color/on_error_container</item>
+        <item name="colorSurface">@color/app_bg</item>
+        <item name="colorSurfaceContainerLowest">@color/surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/app_surface</item>
+        <item name="colorSurfaceContainer">@color/app_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/app_surface_high</item>
+        <item name="colorSurfaceContainerHighest">@color/app_surface_highest</item>
+        <item name="colorSurfaceDim">@color/surface_dim</item>
+        <item name="colorSurfaceBright">@color/surface_bright</item>
         <item name="colorOnSurface">@color/text_primary</item>
         <item name="colorSurfaceVariant">@color/app_surface_container</item>
         <item name="colorOnSurfaceVariant">@color/text_secondary</item>
-        <item name="colorSurfaceInverse">@color/accent</item>
-        <item name="colorOnSurfaceInverse">@color/text_on_accent</item>
+        <item name="colorSurfaceInverse">@color/inverse_surface</item>
+        <item name="colorOnSurfaceInverse">@color/inverse_on_surface</item>
+        <item name="colorPrimaryInverse">@color/inverse_primary</item>
         <item name="colorOutline">@color/app_line</item>
         <item name="colorOutlineVariant">@color/app_line_soft</item>
         <item name="colorControlActivated">@color/control_active</item>
@@ -37,17 +52,34 @@
         <item name="sliderStyle">@style/SettingsSlider</item>
         <item name="toolbarStyle">@style/MaterialToolbarStyle</item>
         <item name="materialAlertDialogTheme">@style/ThemeOverlay.DesktopLyrics.Dialog</item>
+        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.DesktopLyrics.BottomSheet</item>
+        <item name="shapeAppearanceSmallComponent">@style/MaterialShapeSmall</item>
+        <item name="shapeAppearanceMediumComponent">@style/NativeShapeCard</item>
+        <item name="shapeAppearanceLargeComponent">@style/MaterialShapeLarge</item>
+        <item name="android:windowAnimationStyle">@style/MaterialActivityAnimation</item>
     </style>
 
     <style name="ThemeOverlay.DesktopLyrics.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
-        <item name="colorSurface">@color/app_surface</item>
+        <item name="colorSurface">@color/app_surface_high</item>
         <item name="colorOnSurface">@color/text_primary</item>
         <item name="colorOnSurfaceVariant">@color/text_secondary</item>
         <item name="colorPrimary">@color/accent</item>
         <item name="buttonBarPositiveButtonStyle">@style/MaterialDialogAction</item>
         <item name="buttonBarNegativeButtonStyle">@style/MaterialDialogAction</item>
         <item name="buttonBarNeutralButtonStyle">@style/MaterialDialogAction</item>
-        <item name="shapeAppearanceMediumComponent">@style/NativeShapeCard</item>
+        <item name="shapeAppearanceMediumComponent">@style/MaterialShapeLarge</item>
+        <item name="android:windowAnimationStyle">@style/MaterialDialogAnimation</item>
+    </style>
+
+    <style name="ThemeOverlay.DesktopLyrics.BottomSheet" parent="ThemeOverlay.Material3.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/MaterialBottomSheet</item>
+        <item name="android:backgroundDimAmount">0.32</item>
+    </style>
+    <style name="MaterialBottomSheet" parent="Widget.Material3.BottomSheet.Modal">
+        <item name="backgroundTint">@color/app_surface_container</item>
+        <item name="shapeAppearance">@style/MaterialShapeLarge</item>
+        <item name="shapeAppearanceOverlay">@style/MaterialSheetCorners</item>
+        <item name="behavior_skipCollapsed">true</item>
     </style>
 
     <style name="NativeButtonTheme" parent=""><item name="materialButtonStyle">@style/MaterialAction</item></style>

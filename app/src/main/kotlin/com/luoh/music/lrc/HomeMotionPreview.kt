@@ -49,7 +49,7 @@ class HomeMotionPreview @JvmOverloads constructor(
         SAMPLE.forEach { text ->
             val row = LyricLineView(context).apply {
                 textSize = 16f
-                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                typeface = AppTypography.medium(context)
                 setTextColor(ContextCompat.getColor(context, R.color.text_primary))
                 setPaddingRelative(0, dp(6), 0, dp(6))
                 setLineSpacing(0f, 1.2f)

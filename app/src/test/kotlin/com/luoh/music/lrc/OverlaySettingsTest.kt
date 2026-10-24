@@ -63,7 +63,7 @@ class OverlaySettingsTest {
         assertEquals(700, OverlayAppearance.normalizeWeight(651))
         assertEquals(900, OverlayAppearance.normalizeWeight(Int.MAX_VALUE))
         preferences().edit().clear().putInt(LyricsOverlayService.PREF_FONT_WEIGHT, 400).commit()
-        val controller = Robolectric.buildActivity(SettingsActivity::class.java).create()
+        val controller = Robolectric.buildActivity(SettingsActivity::class.java, SettingsActivity.intent(ApplicationProvider.getApplicationContext(), SettingsActivity.Section.OVERLAY)).create()
         try {
             val activity = controller.get()
             val slider = activity.findViewById<Slider>(R.id.seek_font_weight)
@@ -79,7 +79,7 @@ class OverlaySettingsTest {
             assertTrue(texts(preview).isNotEmpty())
             texts(preview).forEach { assertEquals(500, it.typeface.weight) }
         } finally { controller.destroy() }
-        val restored = Robolectric.buildActivity(SettingsActivity::class.java).create()
+        val restored = Robolectric.buildActivity(SettingsActivity::class.java, SettingsActivity.intent(ApplicationProvider.getApplicationContext(), SettingsActivity.Section.OVERLAY)).create()
         try {
             assertEquals(125f, restored.get().findViewById<Slider>(R.id.seek_font_weight).value, 0f)
             assertEquals("125%", restored.get().findViewById<TextView>(R.id.font_weight_value).text.toString())
@@ -88,14 +88,13 @@ class OverlaySettingsTest {
 
     @Test fun synchronizationKeepsItsGuardsWithoutTheHelperLine() {
         preferences().edit().clear().commit()
-        val empty = Robolectric.buildActivity(SettingsActivity::class.java).create()
+        val empty = Robolectric.buildActivity(SettingsActivity::class.java, SettingsActivity.intent(ApplicationProvider.getApplicationContext(), SettingsActivity.Section.SYNC)).create()
         try {
             val activity = empty.get()
             for (id in listOf(R.id.offset_earlier, R.id.offset_later, R.id.offset_reset)) {
                 assertFalse(activity.findViewById<View>(id).isEnabled)
             }
             val labels = texts(activity.findViewById(android.R.id.content)).map { it.text.toString() }
-            assertTrue(labels.containsAll(listOf("上文", "下文")))
             assertFalse(labels.contains("播放一首歌后，可为这首歌单独校准"))
         } finally { empty.destroy() }
 
@@ -105,7 +104,7 @@ class OverlaySettingsTest {
         preferences().edit().putString(LyricsOverlayService.PREF_ACTIVE_LYRIC_IDENTITY, identity)
             .putString(LyricsOverlayService.PREF_ACTIVE_LYRIC_SOURCE, source)
             .putString(LyricsOverlayService.PREF_ACTIVE_LYRIC_TITLE, "Song").commit()
-        val active = Robolectric.buildActivity(SettingsActivity::class.java).create()
+        val active = Robolectric.buildActivity(SettingsActivity::class.java, SettingsActivity.intent(ApplicationProvider.getApplicationContext(), SettingsActivity.Section.SYNC)).create()
         try {
             val activity = active.get()
             assertTrue(activity.findViewById<View>(R.id.offset_earlier).isEnabled)
@@ -123,14 +122,14 @@ class OverlaySettingsTest {
     @Test fun homeMotionSwitchesPersistAcrossSettingsRecreation() {
         ApplicationProvider.getApplicationContext<Context>()
             .getSharedPreferences(HomeMotionPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
-        val first = Robolectric.buildActivity(SettingsActivity::class.java).create().get()
+        val first = Robolectric.buildActivity(SettingsActivity::class.java, SettingsActivity.intent(ApplicationProvider.getApplicationContext(), SettingsActivity.Section.MOTION)).create().get()
         assertTrue(first.motionSwitch(R.id.home_motion_scroll_easing).isChecked)
         assertTrue(first.motionSwitch(R.id.home_motion_stagger).isChecked)
         assertTrue(first.motionSwitch(R.id.home_motion_scale).isChecked)
         assertTrue(first.motionSwitch(R.id.home_motion_depth_blur).isChecked)
         first.motionSwitch(R.id.home_motion_scale).performClick()
         first.motionSwitch(R.id.home_motion_depth_blur).performClick()
-        val restored = Robolectric.buildActivity(SettingsActivity::class.java).create().get()
+        val restored = Robolectric.buildActivity(SettingsActivity::class.java, SettingsActivity.intent(ApplicationProvider.getApplicationContext(), SettingsActivity.Section.MOTION)).create().get()
         assertFalse(restored.motionSwitch(R.id.home_motion_scale).isChecked)
         assertFalse(restored.motionSwitch(R.id.home_motion_depth_blur).isChecked)
         assertTrue(restored.motionSwitch(R.id.home_motion_stagger).isChecked)
@@ -140,7 +139,7 @@ class OverlaySettingsTest {
         val prefs = ApplicationProvider.getApplicationContext<Context>()
             .getSharedPreferences(HomeMotionPrefs.PREFS, Context.MODE_PRIVATE)
         prefs.edit().clear().putString("motion_mode", "reduced").commit()
-        val activity = Robolectric.buildActivity(SettingsActivity::class.java).create().get()
+        val activity = Robolectric.buildActivity(SettingsActivity::class.java, SettingsActivity.intent(ApplicationProvider.getApplicationContext(), SettingsActivity.Section.MOTION)).create().get()
         assertTrue(activity.motionSwitch(R.id.home_motion_scroll_easing).isChecked)
         assertFalse(activity.motionSwitch(R.id.home_motion_stagger).isChecked)
         assertFalse(activity.motionSwitch(R.id.home_motion_scale).isChecked)
@@ -154,7 +153,7 @@ class OverlaySettingsTest {
             context,
             MotionStyle(scrollDurationMs = 500, staggerDelayMs = 90, scalePercent = 60, blurPercent = 40)
         )
-        val activity = Robolectric.buildActivity(SettingsActivity::class.java).create().get()
+        val activity = Robolectric.buildActivity(SettingsActivity::class.java, SettingsActivity.intent(ApplicationProvider.getApplicationContext(), SettingsActivity.Section.MOTION)).create().get()
         assertEquals(500f, activity.findViewById<Slider>(R.id.home_motion_scroll_duration).value, .001f)
         assertEquals(90f, activity.findViewById<Slider>(R.id.home_motion_stagger_delay).value, .001f)
         assertEquals(60f, activity.findViewById<Slider>(R.id.home_motion_scale_strength).value, .001f)
@@ -168,19 +167,19 @@ class OverlaySettingsTest {
     @Test fun turningOffAnEffectDisablesItsSliderAndPersists() {
         ApplicationProvider.getApplicationContext<Context>()
             .getSharedPreferences(HomeMotionPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
-        val activity = Robolectric.buildActivity(SettingsActivity::class.java).create().get()
+        val activity = Robolectric.buildActivity(SettingsActivity::class.java, SettingsActivity.intent(ApplicationProvider.getApplicationContext(), SettingsActivity.Section.MOTION)).create().get()
         val duration = activity.findViewById<Slider>(R.id.home_motion_scroll_duration)
         assertTrue(duration.isEnabled)
         activity.motionSwitch(R.id.home_motion_scroll_easing).performClick()
         assertFalse(activity.motionSwitch(R.id.home_motion_scroll_easing).isChecked)
         assertFalse("关掉效果后对应数值不可调", duration.isEnabled)
-        val restored = Robolectric.buildActivity(SettingsActivity::class.java).create().get()
+        val restored = Robolectric.buildActivity(SettingsActivity::class.java, SettingsActivity.intent(ApplicationProvider.getApplicationContext(), SettingsActivity.Section.MOTION)).create().get()
         assertFalse(restored.motionSwitch(R.id.home_motion_scroll_easing).isChecked)
         assertFalse(restored.findViewById<Slider>(R.id.home_motion_scroll_duration).isEnabled)
     }
 
     @Test fun motionPreviewAndStrengthRangesAreWired() {
-        val activity = Robolectric.buildActivity(SettingsActivity::class.java).create().get()
+        val activity = Robolectric.buildActivity(SettingsActivity::class.java, SettingsActivity.intent(ApplicationProvider.getApplicationContext(), SettingsActivity.Section.MOTION)).create().get()
         assertNotNull(activity.findViewById<HomeMotionPreview>(R.id.home_motion_preview))
         assertEquals(200f, activity.findViewById<Slider>(R.id.home_motion_scale_strength).valueTo, .001f)
         assertEquals(200f, activity.findViewById<Slider>(R.id.home_motion_blur_strength).valueTo, .001f)
@@ -193,19 +192,17 @@ class OverlaySettingsTest {
     private fun SettingsActivity.motionSwitch(id: Int) =
         findViewById<com.google.android.material.materialswitch.MaterialSwitch>(id)
 
-    @Test fun translationModeChangesThePreviewWithoutChangingItsDocument() {
+    @Test fun translationModePersistsForTheSeparatePreviewPage() {
         preferences().edit().clear().commit()
-        val controller = Robolectric.buildActivity(SettingsActivity::class.java).create()
+        val controller = Robolectric.buildActivity(SettingsActivity::class.java, SettingsActivity.intent(ApplicationProvider.getApplicationContext(), SettingsActivity.Section.LYRICS)).create()
         try {
             val activity = controller.get()
-            val preview = activity.findViewById<CompactLyricsView>(R.id.overlay_preview)
-            assertTrue(texts(preview).any { it.text.toString() == "Stay with me" })
-            assertTrue(texts(preview).any { it.text.toString() == "让歌词陪着你" })
             activity.findViewById<View>(R.id.translation_original).performClick()
-            assertFalse(texts(preview).any { it.text.toString() == "让歌词陪着你" })
+            assertEquals(LyricsOverlayService.TRANSLATION_ORIGINAL,
+                preferences().getString(LyricsOverlayService.PREF_TRANSLATION_MODE, ""))
             activity.findViewById<View>(R.id.translation_translated).performClick()
-            assertFalse(texts(preview).any { it.text.toString() == "Stay with me" })
-            assertTrue(texts(preview).any { it.text.toString() == "让歌词陪着你" })
+            assertEquals(LyricsOverlayService.TRANSLATION_TRANSLATED,
+                preferences().getString(LyricsOverlayService.PREF_TRANSLATION_MODE, ""))
         } finally { controller.destroy() }
     }
 
@@ -213,7 +210,7 @@ class OverlaySettingsTest {
         for (night in listOf(false, true)) {
             RuntimeEnvironment.setQualifiers("w320dp-h640dp${if (night) "-night" else "-notnight"}")
             preferences().edit().clear().commit()
-            val controller = Robolectric.buildActivity(SettingsActivity::class.java).create()
+            val controller = Robolectric.buildActivity(SettingsActivity::class.java, SettingsActivity.intent(ApplicationProvider.getApplicationContext(), SettingsActivity.Section.OVERLAY)).create()
             try {
                 val activity = controller.get()
                 val root = activity.findViewById<ViewGroup>(android.R.id.content)
@@ -254,6 +251,7 @@ class OverlaySettingsTest {
                 }
                 controller.configurationChange(config)
                 layout(root)
+                org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(500))
                 assertSame(activity, controller.get())
                 assertSame(home, activity.findViewById<HomeLyricsView>(R.id.lyric_home))
                 assertSame(lyric, texts(home).single { it.text.toString() == "Keep this lyric" })
@@ -264,7 +262,7 @@ class OverlaySettingsTest {
 
     @Test fun settingsThemeChangePreservesActivityScrollAndWeight() {
         preferences().edit().clear().putInt(LyricsOverlayService.PREF_FONT_WEIGHT, 800).commit()
-        val controller = Robolectric.buildActivity(SettingsActivity::class.java).create().start().visible()
+        val controller = Robolectric.buildActivity(SettingsActivity::class.java, SettingsActivity.intent(ApplicationProvider.getApplicationContext(), SettingsActivity.Section.OVERLAY)).create().start().visible()
         try {
             val activity = controller.get()
             val root = activity.findViewById<ViewGroup>(android.R.id.content)
@@ -279,6 +277,7 @@ class OverlaySettingsTest {
                 }
                 controller.configurationChange(config)
                 layout(root)
+                org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(500))
                 assertSame(activity, controller.get())
                 assertEquals(mode, activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
                 assertEquals(scrollY, activity.findViewById<NestedScrollView>(R.id.settings_scroll).scrollY)

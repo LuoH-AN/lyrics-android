@@ -3,7 +3,12 @@ package com.luoh.music.lrc
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.view.Gravity
+import androidx.recyclerview.widget.RecyclerView
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -11,13 +16,14 @@ import org.json.JSONObject
 
 class LyricOffsetMemoryActivity : AppCompatActivity() {
     private val prefs by lazy { getSharedPreferences(LyricsOverlayService.PREFS_NAME, Context.MODE_PRIVATE) }
-    private lateinit var content: LinearLayout
+    private lateinit var content: RecyclerView
+    private var loadJob: Job? = null
 
     private data class Entry(val id: String, val title: String, val artist: String, val source: String, val offsetMs: Int, val updatedAt: Long)
 
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
-        content = NativeUi.screen(this, "同步记忆")
+        content = NativeUi.listScreen(this, "同步记忆")
     }
 
     override fun onResume() {
@@ -26,37 +32,28 @@ class LyricOffsetMemoryActivity : AppCompatActivity() {
     }
 
     private fun render() {
-        content.removeAllViews()
-        val entries = readEntries()
-        if (entries.isEmpty()) {
-            content.addView(NativeUi.card(this).apply {
-                addView(NativeUi.column(context).apply {
-                    addView(NativeUi.text(context, "还没有保存的同步调整", 15f).apply { gravity = Gravity.CENTER })
-                })
-            })
-            return
+        loadJob?.cancel()
+        loadJob = lifecycleScope.launch {
+            val entries = withContext(Dispatchers.IO) { readEntries() }
+            val rows: List<Entry?> = if (entries.isEmpty()) listOf(null) else listOf(null) + entries
+            NativeUi.items(content, rows, { LibraryRow(it) }) { view, entry ->
+                val row = view as LibraryRow
+                if (entry == null) {
+                    if (entries.isEmpty()) row.bind("还没有保存的同步调整")
+                    else row.bind("同步记忆", "已保存 ${entries.size} 条", action = "重置全部同步记忆", onAction = ::showClearDialog)
+                } else row.bind(entry.title.ifBlank { "未知歌曲" }, entry.artist,
+                    "${entry.source.ifBlank { "歌词源" }} · ${LyricSyncText.format(entry.offsetMs)}",
+                    "删除记忆", {
+                        NativeUi.confirm(this@LyricOffsetMemoryActivity, "删除这条同步记忆？",
+                            "《${entry.title}》在 ${entry.source} 的歌词将恢复原始同步时间。", "删除记忆") { delete(entry) }
+                    })
+            }
         }
-        content.addView(NativeUi.button(this, "重置全部同步记忆") { showClearDialog() })
-        entries.forEach { entry ->
-            val body = NativeUi.column(this)
-            body.addView(NativeUi.text(this, entry.title.ifBlank { "未知歌曲" }, 17f).apply {
-                setTextColor(ContextCompat.getColor(context, R.color.text_primary))
-            })
-            if (entry.artist.isNotBlank()) body.addView(NativeUi.text(this, entry.artist, 12f))
-            body.addView(LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, NativeUi.dp(context, 8), 0, 0)
-                addView(NativeUi.text(context, entry.source.ifBlank { "歌词源" }, 12f), LinearLayout.LayoutParams(0, -2, 1f))
-                addView(NativeUi.text(context, LyricSyncText.format(entry.offsetMs), 14f).apply {
-                    setTextColor(ContextCompat.getColor(context, R.color.text_primary))
-                })
-            })
-            body.addView(NativeUi.button(this, "删除这条记忆") {
-                NativeUi.confirm(this, "删除这条同步记忆？", "《${entry.title}》在 ${entry.source} 的歌词将恢复原始同步时间。", "删除记忆") { delete(entry) }
-            })
-            content.addView(NativeUi.card(this).apply { addView(body) })
-        }
+    }
+
+    override fun onPause() {
+        loadJob?.cancel()
+        super.onPause()
     }
 
     private fun readEntries(): List<Entry> {

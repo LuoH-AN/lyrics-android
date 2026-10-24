@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 // Source-boundary checks only; layout and runtime tests run in GitHub CI.
 const base = 'app/src/main/kotlin/com/luoh/music/lrc/';
 function checkCopy(file, removed, kept) {
-  const source = fs.readFileSync(file, 'utf8');
+  const source = Array.isArray(file) ? file.map(name => fs.readFileSync(name, 'utf8')).join('\n') : fs.readFileSync(file, 'utf8');
   for (const text of removed) assert.ok(!source.includes(text), `${file} must remove helper: ${text}`);
   for (const text of kept) assert.ok(source.includes(text), `${file} must preserve UI feedback: ${text}`);
 }
@@ -30,11 +30,11 @@ checkCopy(base + 'CustomLyricsEditActivity.kt', [
 checkCopy(base + 'CustomLyricsManagerActivity.kt', [
   '获取不到歌词时，手动指定一份标准 LRC 时间轴歌词。按歌名+歌手匹配，命中后主页和悬浮窗都直接使用这份。',
 ], [
-  '手动填写歌名新建',
+  '新建自定义歌词',
   '还没有自定义歌词',
-  '已保存 ${entries.size} 份',
+  '已保存 ${saved.size} 份',
   '${parsed.lineCount} 行歌词',
-  ' · 更新于 ${timeFormat.format(Date(entry.updatedAt))}',
+  ' · ${timeFormat.format(Date(entry.updatedAt))}',
   '删除后这首歌会恢复自动匹配。',
 ]);
 
@@ -83,7 +83,7 @@ checkCopy(base + 'TranslationSettingsActivity.kt', [
   '删除已缓存的补充译文，保留 API 配置与下载的语言包。',
 ]);
 
-checkCopy('app/src/main/res/layout/activity_settings.xml', [
+checkCopy(['settings_overlay', 'settings_sync'].map(name => `app/src/main/res/layout/${name}.xml`), [
   '示意背景 · 以下调整只影响桌面上的小歌词窗',
   '前后各可显示 0–2 句，窗口高度自动适应。前后都设为 0 时只保留当前句。',
   '歌词慢了就提前，歌词快了就延后。每首歌、每个歌词源分别记住。',

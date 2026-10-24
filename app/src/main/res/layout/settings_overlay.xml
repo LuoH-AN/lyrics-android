@@ -1,0 +1,80 @@
+<?xml version='1.0' encoding='utf-8'?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+    <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="0dp" app:cardElevation="0dp" app:strokeWidth="0dp" app:cardBackgroundColor="@color/app_surface" app:shapeAppearance="@style/SettingsRowFirst">
+        <LinearLayout style="@style/CellColumn">
+            <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="歌词预览" />
+            <com.luoh.music.lrc.CompactLyricsView android:id="@+id/overlay_preview" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="96dp" android:layout_marginTop="10dp" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" app:cardElevation="0dp" app:strokeWidth="0dp" app:cardBackgroundColor="@color/app_surface" app:shapeAppearance="@style/SettingsRowMiddle">
+        <LinearLayout style="@style/CellColumn">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="歌词字号" />
+                <com.google.android.material.textview.MaterialTextView android:id="@+id/font_size_value" style="@style/CellValue" android:text="100%" />
+            </LinearLayout>
+            <com.google.android.material.slider.Slider android:id="@+id/seek_font_size" style="@style/SettingsSlider" android:contentDescription="悬浮歌词字号" android:valueFrom="35" android:valueTo="150" android:value="100" android:stepSize="1" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" app:cardElevation="0dp" app:strokeWidth="0dp" app:cardBackgroundColor="@color/app_surface" app:shapeAppearance="@style/SettingsRowMiddle">
+        <LinearLayout style="@style/CellColumn">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="歌词粗细" />
+                <com.google.android.material.textview.MaterialTextView android:id="@+id/font_weight_value" style="@style/CellValue" android:text="100%" />
+            </LinearLayout>
+            <com.google.android.material.slider.Slider android:id="@+id/seek_font_weight" style="@style/SettingsSlider" android:contentDescription="悬浮歌词粗细" android:valueFrom="75" android:valueTo="225" android:value="100" android:stepSize="25" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="细" android:textSize="12sp" android:textColor="@color/text_secondary" />
+                <com.google.android.material.textview.MaterialTextView style="@style/CellValue" android:text="粗" android:textSize="12sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" app:cardElevation="0dp" app:strokeWidth="0dp" app:cardBackgroundColor="@color/app_surface" app:shapeAppearance="@style/SettingsRowMiddle">
+        <LinearLayout style="@style/CellColumn">
+            <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="上下文展示" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="64dp" android:gravity="center_vertical" android:orientation="horizontal">
+                <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="上文" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/context_before_less" style="@style/StepButton" android:text="−" android:contentDescription="少显示一句上文" />
+                <com.google.android.material.textview.MaterialTextView android:id="@+id/context_before_value" style="@style/StepValue" android:text="0 句" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/context_before_more" style="@style/StepButton" android:text="＋" android:contentDescription="多显示一句上文" />
+            </LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="64dp" android:gravity="center_vertical" android:orientation="horizontal">
+                <com.google.android.material.textview.MaterialTextView style="@style/CellTitle" android:text="下文" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/context_after_less" style="@style/StepButton" android:text="−" android:contentDescription="少显示一句下文" />
+                <com.google.android.material.textview.MaterialTextView android:id="@+id/context_after_value" style="@style/StepValue" android:text="1 句" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/context_after_more" style="@style/StepButton" android:text="＋" android:contentDescription="多显示一句下文" />
+            </LinearLayout>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" app:cardElevation="0dp" app:strokeWidth="0dp" app:cardBackgroundColor="@color/app_surface" app:shapeAppearance="@style/SettingsRowMiddle">
+        <LinearLayout style="@style/CellColumn">
+            <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="背景" />
+            <com.google.android.material.button.MaterialButtonToggleGroup android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal" app:singleSelection="true" app:selectionRequired="true">
+                <com.google.android.material.button.MaterialButton android:id="@+id/background_mode_transparent" style="@style/SegItem" android:text="透明" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/background_mode_low" style="@style/SegItem" android:text="半透明" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/background_mode_high" style="@style/SegItem" android:text="不透明" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" app:cardElevation="0dp" app:strokeWidth="0dp" app:cardBackgroundColor="@color/app_surface" app:shapeAppearance="@style/SettingsRowLast">
+        <LinearLayout style="@style/CellColumn">
+            <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="歌词颜色" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:orientation="horizontal">
+                <FrameLayout android:layout_width="0dp" android:layout_height="56dp" android:layout_weight="1">
+                    <com.google.android.material.button.MaterialButton android:id="@+id/lyric_color_white" style="@style/Swatch" android:contentDescription="白色歌词" android:checkable="true" app:toggleCheckedStateOnClick="false" app:backgroundTint="#FFFFFF" />
+                </FrameLayout>
+                <FrameLayout android:layout_width="0dp" android:layout_height="56dp" android:layout_weight="1">
+                    <com.google.android.material.button.MaterialButton android:id="@+id/lyric_color_blue" style="@style/Swatch" android:contentDescription="蓝色歌词" android:checkable="true" app:toggleCheckedStateOnClick="false" app:backgroundTint="#9FD8FF" />
+                </FrameLayout>
+                <FrameLayout android:layout_width="0dp" android:layout_height="56dp" android:layout_weight="1">
+                    <com.google.android.material.button.MaterialButton android:id="@+id/lyric_color_black" style="@style/Swatch" android:contentDescription="黑色歌词" android:checkable="true" app:toggleCheckedStateOnClick="false" app:backgroundTint="#111111" />
+                </FrameLayout>
+                <FrameLayout android:layout_width="0dp" android:layout_height="56dp" android:layout_weight="1">
+                    <com.google.android.material.button.MaterialButton android:id="@+id/lyric_color_pink" style="@style/Swatch" android:contentDescription="粉色歌词" android:checkable="true" app:toggleCheckedStateOnClick="false" app:backgroundTint="#FFB6D5" />
+                </FrameLayout>
+                <FrameLayout android:layout_width="0dp" android:layout_height="56dp" android:layout_weight="1">
+                    <com.google.android.material.button.MaterialButton android:id="@+id/lyric_color_custom" style="@style/Swatch" android:contentDescription="自定义歌词颜色" android:checkable="true" app:toggleCheckedStateOnClick="false" app:icon="@drawable/ic_native_add" app:iconTint="@color/text_secondary" />
+                </FrameLayout>
+            </LinearLayout>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+</LinearLayout>

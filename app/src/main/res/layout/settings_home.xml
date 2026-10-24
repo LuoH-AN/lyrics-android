@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='utf-8'?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+    <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="0dp" app:cardElevation="0dp" app:strokeWidth="0dp" app:cardBackgroundColor="@color/app_surface" app:shapeAppearance="@style/SettingsRowSingle">
+        <LinearLayout style="@style/CellColumn">
+            <com.google.android.material.textview.MaterialTextView style="@style/CellColumnLabel" android:text="对齐方式" />
+            <com.google.android.material.button.MaterialButtonToggleGroup android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal" app:singleSelection="true" app:selectionRequired="true">
+                <com.google.android.material.button.MaterialButton android:id="@+id/home_align_left" style="@style/SegItem" android:text="左对齐" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/home_align_center" style="@style/SegItem" android:text="居中" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/home_align_right" style="@style/SegItem" android:text="右对齐" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+</LinearLayout>

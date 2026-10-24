@@ -64,7 +64,7 @@ class ThemeTransitionTest {
 
     private fun finishFrames() = shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(500))
 
-    @Test fun oldFrameCoversNewContentUntilLayoutAndFadeComplete() {
+    @Test fun newContentAppearsImmediatelyAndStateRestoresBeforeFade() {
         transition.capture()
         assertTrue(transition.isRunning)
         replaceContent(Color.BLUE)
@@ -72,7 +72,7 @@ class ThemeTransitionTest {
         var restored = false
         transition.finish { restored = true }
         assertFalse(restored)
-        assertEquals(Color.RED, displayedColor())
+        assertEquals(Color.BLUE, displayedColor())
         assertEquals(1f, root.alpha, 0f)
         root.viewTreeObserver.dispatchOnPreDraw()
         assertTrue(restored)
@@ -82,7 +82,7 @@ class ThemeTransitionTest {
         assertEquals(1f, root.alpha, 0f)
     }
 
-    @Test fun rapidSwitchDiscardsStaleLayoutCallbackAndSnapshot() {
+    @Test fun rapidSwitchDiscardsStaleLayoutCallback() {
         var staleRestores = 0
         var currentRestores = 0
         transition.capture()
@@ -135,7 +135,7 @@ class ThemeTransitionTest {
         assertEquals(1f, root.alpha, 0f)
     }
 
-    @Test fun disablingAnimationsBetweenCaptureAndFirstDrawReleasesSnapshot() {
+    @Test fun disablingAnimationsBetweenCaptureAndFirstDrawRestoresOpacity() {
         transition.dispose()
         var enabled = true
         transition = ThemeTransition(root) { enabled }
@@ -164,7 +164,7 @@ class ThemeTransitionTest {
         assertFalse(transition.isRunning)
     }
 
-    @Test fun detachedRootReleasesSnapshot() {
+    @Test fun detachedRootRestoresOpacity() {
         transition.capture()
         assertTrue(transition.isRunning)
         (root.parent as ViewGroup).removeView(root)

@@ -13,7 +13,9 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.View
+import android.widget.LinearLayout
 import android.widget.TextView
+import com.google.android.material.appbar.CollapsingToolbarLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationManagerCompat
@@ -29,10 +31,31 @@ import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.slider.Slider
 
 /**
- * 独立设置页（黑白灰扁平纯边框分组列表）。
+ * Agora 风格设置入口；每个分类按需创建，避免一次加载整页控件。
  * 承接原 MainActivity 里的全部设置逻辑；主页改为全屏歌词。
  */
 class SettingsActivity : AppCompatActivity() {
+
+    enum class Section(val title: String, val summary: String, val layout: Int, val icon: Int) {
+        ACCESS("桌面歌词", "开关与权限", R.layout.settings_access, R.drawable.ic_home_lyrics),
+        OVERLAY("桌面歌词外观", "字号、字重、上下文与颜色", R.layout.settings_overlay, R.drawable.ic_home_edit),
+        SYNC("歌词同步", "调整时间与管理同步记忆", R.layout.settings_sync, R.drawable.ic_home_refresh),
+        LYRICS("歌词与翻译", "显示方式、自定义歌词与歌词源", R.layout.settings_lyrics, R.drawable.ic_home_translate),
+        APPEARANCE("应用外观", "主题与主调颜色", R.layout.settings_appearance, R.drawable.ic_home_settings),
+        HOME("主页歌词", "歌词对齐方式", R.layout.settings_home, R.drawable.ic_home_music),
+        MOTION("主页歌词动效", "滚动、错位、缩放与模糊", R.layout.settings_motion, R.drawable.ic_home_play),
+        ABOUT("关于", "版本、更新与项目信息", R.layout.settings_about, R.drawable.ic_home_library)
+    }
+
+    companion object {
+        private const val EXTRA_SECTION = "settings_section"
+        fun intent(context: Context, section: Section) = Intent(context, SettingsActivity::class.java)
+            .putExtra(EXTRA_SECTION, section.name)
+    }
+
+    private val section by lazy {
+        intent.getStringExtra(EXTRA_SECTION)?.let { value -> Section.values().firstOrNull { it.name == value } }
+    }
 
     private val overlayPrefs by lazy {
         getSharedPreferences(LyricsOverlayService.PREFS_NAME, Context.MODE_PRIVATE)
@@ -150,197 +173,244 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun bindContent() {
         setContentView(R.layout.activity_settings)
-
+        val content = findViewById<LinearLayout>(R.id.settings_content)
         findViewById<MaterialToolbar>(R.id.settings_toolbar).setNavigationOnClickListener { finish() }
-
-        listenerState = findViewById(R.id.listener_permission_state)
-        overlayState = findViewById(R.id.overlay_permission_state)
-        overlayToggle = findViewById(R.id.overlay_toggle)
-        themeFollow = findViewById(R.id.theme_follow)
-        themeLight = findViewById(R.id.theme_light)
-        themeDark = findViewById(R.id.theme_dark)
-        accentColorValue = findViewById(R.id.accent_color_value)
-        homeAlignLeft = findViewById(R.id.home_align_left)
-        homeAlignCenter = findViewById(R.id.home_align_center)
-        homeAlignRight = findViewById(R.id.home_align_right)
-        motionEasedScroll = findViewById(R.id.home_motion_scroll_easing)
-        motionDuration = findViewById(R.id.home_motion_scroll_duration)
-        motionDurationValue = findViewById(R.id.home_motion_scroll_value)
-        motionStagger = findViewById(R.id.home_motion_stagger)
-        motionStaggerDelay = findViewById(R.id.home_motion_stagger_delay)
-        motionStaggerValue = findViewById(R.id.home_motion_stagger_value)
-        motionScale = findViewById(R.id.home_motion_scale)
-        motionScaleStrength = findViewById(R.id.home_motion_scale_strength)
-        motionScaleValue = findViewById(R.id.home_motion_scale_value)
-        motionDepthBlur = findViewById(R.id.home_motion_depth_blur)
-        motionBlurStrength = findViewById(R.id.home_motion_blur_strength)
-        motionBlurValue = findViewById(R.id.home_motion_blur_value)
-        motionPreview = findViewById(R.id.home_motion_preview)
-        backgroundModeTransparent = findViewById(R.id.background_mode_transparent)
-        backgroundModeLow = findViewById(R.id.background_mode_low)
-        backgroundModeHigh = findViewById(R.id.background_mode_high)
-        seekFontSize = findViewById(R.id.seek_font_size)
-        fontSizeValue = findViewById(R.id.font_size_value)
-        seekFontWeight = findViewById(R.id.seek_font_weight)
-        fontWeightValue = findViewById(R.id.font_weight_value)
-        lyricOffsetValue = findViewById(R.id.lyric_offset_value)
-        offsetEarlier = findViewById(R.id.offset_earlier)
-        offsetLater = findViewById(R.id.offset_later)
-        offsetReset = findViewById(R.id.offset_reset)
-        overlayPreview = findViewById(R.id.overlay_preview)
-        overlayPreview.setPlayback("preview", 10000L, 25000L, false, 1f)
-        overlayPreview.setDocument(LyricDocument(listOf(
+        findViewById<CollapsingToolbarLayout>(R.id.settings_header).title = section?.title ?: "设置"
+        if (section == null) {
+            fun label(title: String) = NativeUi.text(this, title, 13f).apply {
+                setTextColor(AccentPrefs.accent(this@SettingsActivity))
+                setPadding(NativeUi.dp(context, 16), NativeUi.dp(context, 24), 0, NativeUi.dp(context, 12))
+            }
+            fun group(title: String, sections: List<Section>) {
+                content.addView(label(title))
+                content.addView(NativeUi.group(this, sections.map { item ->
+                    NativeUi.navigationRow(this, item.title, item.summary, item.icon) {
+                        startActivity(intent(this, item))
+                    }
+                }))
+            }
+            group("歌词", listOf(Section.ACCESS, Section.OVERLAY, Section.SYNC, Section.LYRICS))
+            group("显示", listOf(Section.APPEARANCE, Section.HOME, Section.MOTION))
+            group("应用", listOf(Section.ABOUT))
+            content.addView(NativeUi.navigationRow(this, "隐私说明", "权限与数据使用", R.drawable.ic_home_library) {
+                startActivity(Intent(this, PrivacyActivity::class.java))
+            }.apply { id = R.id.cell_privacy })
+            return
+        }
+        layoutInflater.inflate(requireNotNull(section).layout, content, true)
+        NativeUi.styleGroupRows(content.getChildAt(0) as android.view.ViewGroup)
+        findViewById<TextView>(R.id.listener_permission_state)?.let { listenerState = it }
+        findViewById<TextView>(R.id.overlay_permission_state)?.let { overlayState = it }
+        findViewById<MaterialSwitch>(R.id.overlay_toggle)?.let { overlayToggle = it }
+        findViewById<MaterialButton>(R.id.theme_follow)?.let { themeFollow = it }
+        findViewById<MaterialButton>(R.id.theme_light)?.let { themeLight = it }
+        findViewById<MaterialButton>(R.id.theme_dark)?.let { themeDark = it }
+        findViewById<TextView>(R.id.accent_color_value)?.let { accentColorValue = it }
+        findViewById<MaterialButton>(R.id.home_align_left)?.let { homeAlignLeft = it }
+        findViewById<MaterialButton>(R.id.home_align_center)?.let { homeAlignCenter = it }
+        findViewById<MaterialButton>(R.id.home_align_right)?.let { homeAlignRight = it }
+        findViewById<MaterialSwitch>(R.id.home_motion_scroll_easing)?.let { motionEasedScroll = it }
+        findViewById<Slider>(R.id.home_motion_scroll_duration)?.let { motionDuration = it }
+        findViewById<TextView>(R.id.home_motion_scroll_value)?.let { motionDurationValue = it }
+        findViewById<MaterialSwitch>(R.id.home_motion_stagger)?.let { motionStagger = it }
+        findViewById<Slider>(R.id.home_motion_stagger_delay)?.let { motionStaggerDelay = it }
+        findViewById<TextView>(R.id.home_motion_stagger_value)?.let { motionStaggerValue = it }
+        findViewById<MaterialSwitch>(R.id.home_motion_scale)?.let { motionScale = it }
+        findViewById<Slider>(R.id.home_motion_scale_strength)?.let { motionScaleStrength = it }
+        findViewById<TextView>(R.id.home_motion_scale_value)?.let { motionScaleValue = it }
+        findViewById<MaterialSwitch>(R.id.home_motion_depth_blur)?.let { motionDepthBlur = it }
+        findViewById<Slider>(R.id.home_motion_blur_strength)?.let { motionBlurStrength = it }
+        findViewById<TextView>(R.id.home_motion_blur_value)?.let { motionBlurValue = it }
+        findViewById<HomeMotionPreview>(R.id.home_motion_preview)?.let { motionPreview = it }
+        findViewById<MaterialButton>(R.id.background_mode_transparent)?.let { backgroundModeTransparent = it }
+        findViewById<MaterialButton>(R.id.background_mode_low)?.let { backgroundModeLow = it }
+        findViewById<MaterialButton>(R.id.background_mode_high)?.let { backgroundModeHigh = it }
+        findViewById<Slider>(R.id.seek_font_size)?.let { seekFontSize = it }
+        findViewById<TextView>(R.id.font_size_value)?.let { fontSizeValue = it }
+        findViewById<Slider>(R.id.seek_font_weight)?.let { seekFontWeight = it }
+        findViewById<TextView>(R.id.font_weight_value)?.let { fontWeightValue = it }
+        findViewById<TextView>(R.id.lyric_offset_value)?.let { lyricOffsetValue = it }
+        findViewById<MaterialButton>(R.id.offset_earlier)?.let { offsetEarlier = it }
+        findViewById<MaterialButton>(R.id.offset_later)?.let { offsetLater = it }
+        findViewById<MaterialButton>(R.id.offset_reset)?.let { offsetReset = it }
+        findViewById<CompactLyricsView>(R.id.overlay_preview)?.let { overlayPreview = it }
+        if (::overlayPreview.isInitialized) {
+            overlayPreview.setPlayback("preview", 10000L, 25000L, false, 1f)
+            overlayPreview.setDocument(LyricDocument(listOf(
             LyricLine(0L, "City lights", "街灯轻轻亮起"),
             LyricLine(5000L, "A quiet melody", "旋律停在耳边"),
             LyricLine(10000L, "Stay with me", "让歌词陪着你"),
             LyricLine(15000L, "One more song", "再听一首歌"),
             LyricLine(20000L, "Until tomorrow", "直到明天")
-        ), true))
-        lyricColorWhite = findViewById(R.id.lyric_color_white)
-        lyricColorBlue = findViewById(R.id.lyric_color_blue)
-        lyricColorBlack = findViewById(R.id.lyric_color_black)
-        lyricColorPink = findViewById(R.id.lyric_color_pink)
-        lyricColorCustom = findViewById(R.id.lyric_color_custom)
-        translationOriginal = findViewById(R.id.translation_original)
-        translationBilingual = findViewById(R.id.translation_bilingual)
-        translationTranslated = findViewById(R.id.translation_translated)
-        versionValue = findViewById(R.id.version_value)
-        versionValue.text = currentVersionName
+            ), true))
+        }
+        findViewById<MaterialButton>(R.id.lyric_color_white)?.let { lyricColorWhite = it }
+        findViewById<MaterialButton>(R.id.lyric_color_blue)?.let { lyricColorBlue = it }
+        findViewById<MaterialButton>(R.id.lyric_color_black)?.let { lyricColorBlack = it }
+        findViewById<MaterialButton>(R.id.lyric_color_pink)?.let { lyricColorPink = it }
+        findViewById<MaterialButton>(R.id.lyric_color_custom)?.let { lyricColorCustom = it }
+        findViewById<MaterialButton>(R.id.translation_original)?.let { translationOriginal = it }
+        findViewById<MaterialButton>(R.id.translation_bilingual)?.let { translationBilingual = it }
+        findViewById<MaterialButton>(R.id.translation_translated)?.let { translationTranslated = it }
+        findViewById<TextView>(R.id.version_value)?.let { versionValue = it }
+        if (::versionValue.isInitialized) versionValue.text = currentVersionName
 
-        // 悬浮窗开关
-        findViewById<View>(R.id.cell_overlay_toggle).setOnClickListener { toggleOverlay() }
-        overlayToggle.setOnCheckedChangeListener { _, _ ->
-            if (!updatingOverlayToggle) toggleOverlay()
-        }
-        // 权限
-        findViewById<View>(R.id.cell_listener_permission).setOnClickListener {
-            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        }
-        findViewById<View>(R.id.cell_overlay_permission).setOnClickListener {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                startActivity(
-                    Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:$packageName")
-                    )
-                )
+
+        if (section == Section.ACCESS) {
+            // 悬浮窗开关
+            findViewById<View>(R.id.cell_overlay_toggle).setOnClickListener { toggleOverlay() }
+            overlayToggle.setOnCheckedChangeListener { _, _ ->
+                if (!updatingOverlayToggle) toggleOverlay()
             }
-        }
+            // 权限
+            findViewById<View>(R.id.cell_listener_permission).setOnClickListener {
+                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            }
+            findViewById<View>(R.id.cell_overlay_permission).setOnClickListener {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    startActivity(
+                    Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName")
+                    )
+                    )
+                }
+            }
 
-        // 主题
-        themeFollow.setOnClickListener { setTheme(ThemePrefs.FOLLOW) }
-        themeLight.setOnClickListener { setTheme(ThemePrefs.LIGHT) }
-        themeDark.setOnClickListener { setTheme(ThemePrefs.DARK) }
-        findViewById<View>(R.id.cell_accent_color).setOnClickListener { showAccentPicker() }
+        }
+        if (section == Section.APPEARANCE) {
+            // 主题
+            themeFollow.setOnClickListener { setTheme(ThemePrefs.FOLLOW) }
+            themeLight.setOnClickListener { setTheme(ThemePrefs.LIGHT) }
+            themeDark.setOnClickListener { setTheme(ThemePrefs.DARK) }
+            findViewById<View>(R.id.cell_accent_color).setOnClickListener { showAccentPicker() }
 
-        // 主页歌词对齐
-        homeAlignLeft.setOnClickListener { setHomeAlignment(HomeLyricsPrefs.LEFT) }
-        homeAlignCenter.setOnClickListener { setHomeAlignment(HomeLyricsPrefs.CENTER) }
-        homeAlignRight.setOnClickListener { setHomeAlignment(HomeLyricsPrefs.RIGHT) }
+        }
+        if (section == Section.HOME) {
+            // 主页歌词对齐
+            homeAlignLeft.setOnClickListener { setHomeAlignment(HomeLyricsPrefs.LEFT) }
+            homeAlignCenter.setOnClickListener { setHomeAlignment(HomeLyricsPrefs.CENTER) }
+            homeAlignRight.setOnClickListener { setHomeAlignment(HomeLyricsPrefs.RIGHT) }
 
-        // 主页歌词动效：每项效果独立开关 + 数值
-        motionEasedScroll.setOnCheckedChangeListener { _, value ->
-            saveMotion { it.copy(easedScroll = value) }
-            motionDuration.isEnabled = value
         }
-        motionStagger.setOnCheckedChangeListener { _, value ->
-            saveMotion { it.copy(stagger = value) }
-            motionStaggerDelay.isEnabled = value
-        }
-        motionScale.setOnCheckedChangeListener { _, value ->
-            saveMotion { it.copy(scale = value) }
-            motionScaleStrength.isEnabled = value
-        }
-        motionDepthBlur.setOnCheckedChangeListener { _, value ->
-            saveMotion { it.copy(depthBlur = value) }
-            motionBlurStrength.isEnabled = value
-        }
-        motionDuration.addOnChangeListener { _, value, fromUser ->
-            motionDurationValue.text = "${value.toInt()}ms"
-            if (fromUser) saveMotion { it.copy(scrollDurationMs = value.toInt()) }
-        }
-        motionStaggerDelay.addOnChangeListener { _, value, fromUser ->
-            motionStaggerValue.text = "${value.toInt()}ms"
-            if (fromUser) saveMotion { it.copy(staggerDelayMs = value.toInt()) }
-        }
-        motionScaleStrength.addOnChangeListener { _, value, fromUser ->
-            motionScaleValue.text = "${value.toInt()}%"
-            if (fromUser) saveMotion { it.copy(scalePercent = value.toInt()) }
-        }
-        motionBlurStrength.addOnChangeListener { _, value, fromUser ->
-            motionBlurValue.text = "${value.toInt()}%"
-            if (fromUser) saveMotion { it.copy(blurPercent = value.toInt()) }
-        }
+        if (section == Section.MOTION) {
+            // 主页歌词动效：每项效果独立开关 + 数值
+            motionEasedScroll.setOnCheckedChangeListener { _, value ->
+                saveMotion { it.copy(easedScroll = value) }
+                motionDuration.isEnabled = value
+            }
+            motionStagger.setOnCheckedChangeListener { _, value ->
+                saveMotion { it.copy(stagger = value) }
+                motionStaggerDelay.isEnabled = value
+            }
+            motionScale.setOnCheckedChangeListener { _, value ->
+                saveMotion { it.copy(scale = value) }
+                motionScaleStrength.isEnabled = value
+            }
+            motionDepthBlur.setOnCheckedChangeListener { _, value ->
+                saveMotion { it.copy(depthBlur = value) }
+                motionBlurStrength.isEnabled = value
+            }
+            motionDuration.addOnChangeListener { _, value, fromUser ->
+                motionDurationValue.text = "${value.toInt()}ms"
+                if (fromUser) saveMotion { it.copy(scrollDurationMs = value.toInt()) }
+            }
+            motionStaggerDelay.addOnChangeListener { _, value, fromUser ->
+                motionStaggerValue.text = "${value.toInt()}ms"
+                if (fromUser) saveMotion { it.copy(staggerDelayMs = value.toInt()) }
+            }
+            motionScaleStrength.addOnChangeListener { _, value, fromUser ->
+                motionScaleValue.text = "${value.toInt()}%"
+                if (fromUser) saveMotion { it.copy(scalePercent = value.toInt()) }
+            }
+            motionBlurStrength.addOnChangeListener { _, value, fromUser ->
+                motionBlurValue.text = "${value.toInt()}%"
+                if (fromUser) saveMotion { it.copy(blurPercent = value.toInt()) }
+            }
 
-        // 背景：透明 / 半透明 / 不透明
-        backgroundModeTransparent.setOnClickListener { setBackgroundMode(LyricsOverlayService.BACKGROUND_TRANSPARENT) }
-        backgroundModeLow.setOnClickListener { setBackgroundMode(LyricsOverlayService.BACKGROUND_LOW) }
-        backgroundModeHigh.setOnClickListener { setBackgroundMode(LyricsOverlayService.BACKGROUND_HIGH) }
-
-        // 字号
-        seekFontSize.valueFrom = LyricsOverlayService.FONT_SCALE_MIN_PERCENT.toFloat()
-        seekFontSize.valueTo = LyricsOverlayService.FONT_SCALE_MAX_PERCENT.toFloat()
-        seekFontSize.stepSize = 1f
-        seekFontSize.addOnChangeListener { _, value, fromUser ->
-            val percent = value.toInt()
-            fontSizeValue.text = "$percent%"
-            if (fromUser) setFontScale(percent)
         }
+        if (section == Section.OVERLAY) {
+            // 背景：透明 / 半透明 / 不透明
+            backgroundModeTransparent.setOnClickListener { setBackgroundMode(LyricsOverlayService.BACKGROUND_TRANSPARENT) }
+            backgroundModeLow.setOnClickListener { setBackgroundMode(LyricsOverlayService.BACKGROUND_LOW) }
+            backgroundModeHigh.setOnClickListener { setBackgroundMode(LyricsOverlayService.BACKGROUND_HIGH) }
 
-        seekFontWeight.addOnChangeListener { _, value, fromUser ->
-            if (fromUser) setFontWeight(OverlayAppearance.percentToWeight(value.toInt()))
+            // 字号
+            seekFontSize.valueFrom = LyricsOverlayService.FONT_SCALE_MIN_PERCENT.toFloat()
+            seekFontSize.valueTo = LyricsOverlayService.FONT_SCALE_MAX_PERCENT.toFloat()
+            seekFontSize.stepSize = 1f
+            seekFontSize.addOnChangeListener { _, value, fromUser ->
+                val percent = value.toInt()
+                fontSizeValue.text = "$percent%"
+                if (fromUser) setFontScale(percent)
+            }
+
+            seekFontWeight.addOnChangeListener { _, value, fromUser ->
+                if (fromUser) setFontWeight(OverlayAppearance.percentToWeight(value.toInt()))
+            }
+
         }
+        if (section == Section.SYNC) {
+            // 正偏移让歌词提前，用自然语言操作，不要求用户理解正负号。
+            offsetEarlier.setOnClickListener { setLyricOffset(displayedOffsetMs + 100) }
+            offsetLater.setOnClickListener { setLyricOffset(displayedOffsetMs - 100) }
+            offsetReset.setOnClickListener { setLyricOffset(0) }
+        }
+        if (section == Section.OVERLAY) {
+            findViewById<View>(R.id.context_before_less).setOnClickListener { changeContext(true, -1) }
+            findViewById<View>(R.id.context_before_more).setOnClickListener { changeContext(true, 1) }
+            findViewById<View>(R.id.context_after_less).setOnClickListener { changeContext(false, -1) }
+            findViewById<View>(R.id.context_after_more).setOnClickListener { changeContext(false, 1) }
 
-        // 正偏移让歌词提前，用自然语言操作，不要求用户理解正负号。
-        offsetEarlier.setOnClickListener { setLyricOffset(displayedOffsetMs + 100) }
-        offsetLater.setOnClickListener { setLyricOffset(displayedOffsetMs - 100) }
-        offsetReset.setOnClickListener { setLyricOffset(0) }
-        findViewById<View>(R.id.context_before_less).setOnClickListener { changeContext(true, -1) }
-        findViewById<View>(R.id.context_before_more).setOnClickListener { changeContext(true, 1) }
-        findViewById<View>(R.id.context_after_less).setOnClickListener { changeContext(false, -1) }
-        findViewById<View>(R.id.context_after_more).setOnClickListener { changeContext(false, 1) }
-
-        // 颜色
-        listOf(
+        }
+        if (section == Section.OVERLAY) {
+            // 颜色
+            listOf(
             lyricColorWhite to "#FFFFFF",
             lyricColorBlue to "#9FD8FF",
             lyricColorBlack to "#111111",
             lyricColorPink to "#FFB6D5"
-        ).forEach { (option, color) -> option.setOnClickListener { setLyricColor(color) } }
-        lyricColorCustom.setOnClickListener { showColorPickerDialog() }
+            ).forEach { (option, color) -> option.setOnClickListener { setLyricColor(color) } }
+            lyricColorCustom.setOnClickListener { showColorPickerDialog() }
 
-        // 翻译
-        translationOriginal.setOnClickListener { setTranslationMode(LyricsOverlayService.TRANSLATION_ORIGINAL) }
-        translationBilingual.setOnClickListener { setTranslationMode(LyricsOverlayService.TRANSLATION_BILINGUAL) }
-        translationTranslated.setOnClickListener { setTranslationMode(LyricsOverlayService.TRANSLATION_TRANSLATED) }
+        }
+        if (section == Section.LYRICS) {
+            // 翻译
+            translationOriginal.setOnClickListener { setTranslationMode(LyricsOverlayService.TRANSLATION_ORIGINAL) }
+            translationBilingual.setOnClickListener { setTranslationMode(LyricsOverlayService.TRANSLATION_BILINGUAL) }
+            translationTranslated.setOnClickListener { setTranslationMode(LyricsOverlayService.TRANSLATION_TRANSLATED) }
 
+        }
         // 管理
-        findViewById<View>(R.id.cell_supplement_translation).setOnClickListener {
+        findViewById<View>(R.id.cell_supplement_translation)?.setOnClickListener {
             startActivity(Intent(this, TranslationSettingsActivity::class.java))
         }
-        findViewById<View>(R.id.cell_manage_sources).setOnClickListener {
+        findViewById<View>(R.id.cell_manage_sources)?.setOnClickListener {
             startActivity(Intent(this, LyricSourceManagerActivity::class.java))
         }
-        findViewById<View>(R.id.cell_manage_offsets).setOnClickListener {
+        findViewById<View>(R.id.cell_manage_offsets)?.setOnClickListener {
             startActivity(Intent(this, LyricOffsetMemoryActivity::class.java))
         }
-        findViewById<View>(R.id.cell_custom_lyrics).setOnClickListener {
+        findViewById<View>(R.id.cell_custom_lyrics)?.setOnClickListener {
             startActivity(Intent(this, CustomLyricsManagerActivity::class.java))
         }
-        // 关于
-        findViewById<View>(R.id.cell_check_update).setOnClickListener { checkForUpdates() }
-        findViewById<View>(R.id.cell_maintainer).setOnClickListener {
-            openUrl("https://github.com/LuoH-AN")
-        }
-        findViewById<View>(R.id.cell_github).setOnClickListener {
-            openUrl("https://github.com/LuoH-AN/lyrics-android")
-        }
-        findViewById<View>(R.id.cell_privacy).setOnClickListener {
-            startActivity(Intent(this, PrivacyActivity::class.java))
-        }
+        if (section == Section.ABOUT) {
+            // 关于
+            findViewById<View>(R.id.cell_check_update).setOnClickListener { checkForUpdates() }
+            findViewById<View>(R.id.cell_maintainer).setOnClickListener {
+                openUrl("https://github.com/LuoH-AN")
+            }
+            findViewById<View>(R.id.cell_github).setOnClickListener {
+                openUrl("https://github.com/LuoH-AN/lyrics-android")
+            }
+            findViewById<View>(R.id.cell_privacy).setOnClickListener {
+                startActivity(Intent(this, PrivacyActivity::class.java))
+            }
 
+        }
         refreshAll()
     }
+
 
     private fun openUrl(url: String) {
         runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
@@ -383,7 +453,7 @@ class SettingsActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refreshAll()
-        motionPreview.start()
+        if (::motionPreview.isInitialized) motionPreview.start()
         overlayPrefs.registerOnSharedPreferenceChangeListener(offsetPreferenceListener)
         ContextCompat.registerReceiver(
             this, overlayStateReceiver, IntentFilter(LyricsOverlayService.ACTION_STATE_CHANGED),
@@ -392,7 +462,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
-        motionPreview.stop()
+        if (::motionPreview.isInitialized) motionPreview.stop()
         overlayPrefs.unregisterOnSharedPreferenceChangeListener(offsetPreferenceListener)
         unregisterReceiver(overlayStateReceiver)
         super.onPause()
@@ -424,6 +494,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun updateThemeUi() {
+        if (!::themeFollow.isInitialized) return
         val mode = appPrefs.getString(ThemePrefs.KEY, ThemePrefs.FOLLOW) ?: ThemePrefs.FOLLOW
         applySeg(
             listOf(
@@ -437,7 +508,8 @@ class SettingsActivity : AppCompatActivity() {
 
     // ---------- 主调颜色 ----------
     private fun updateAccentUi() {
-        accentColorValue.text = AccentPrefs.customColor(this)?.let(::hexColor) ?: "黑白灰"
+        if (!::accentColorValue.isInitialized) return
+        accentColorValue.text = AccentPrefs.customColor(this)?.let(::hexColor) ?: "森林"
         accentColorValue.setTextColor(AccentPrefs.textAccent(this, R.color.text_secondary))
     }
 
@@ -473,12 +545,11 @@ class SettingsActivity : AppCompatActivity() {
         "#" + Integer.toHexString(color and 0xFFFFFF).uppercase().padStart(6, '0')
 
     private fun applySegmentAccents() {
-        listOf(
-            themeFollow, themeLight, themeDark,
-            backgroundModeTransparent, backgroundModeLow, backgroundModeHigh,
-            translationOriginal, translationBilingual, translationTranslated,
-            homeAlignLeft, homeAlignCenter, homeAlignRight
-        ).forEach { AccentPrefs.styleSegment(this, it) }
+        listOf(R.id.theme_follow, R.id.theme_light, R.id.theme_dark,
+            R.id.background_mode_transparent, R.id.background_mode_low, R.id.background_mode_high,
+            R.id.translation_original, R.id.translation_bilingual, R.id.translation_translated,
+            R.id.home_align_left, R.id.home_align_center, R.id.home_align_right
+        ).mapNotNull { findViewById<MaterialButton>(it) }.forEach { AccentPrefs.styleSegment(this, it) }
     }
 
     // ---------- 主页歌词对齐 ----------
@@ -488,6 +559,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun updateHomeAlignmentUi() {
+        if (!::homeAlignLeft.isInitialized) return
         applySeg(
             listOf(
                 homeAlignLeft to HomeLyricsPrefs.LEFT,
@@ -507,6 +579,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun updateHomeMotionUi() {
+        if (!::motionPreview.isInitialized) return
         val style = HomeMotionPrefs.style(this)
         updatingMotionControls = true
         motionEasedScroll.isChecked = style.easedScroll
@@ -535,6 +608,7 @@ class SettingsActivity : AppCompatActivity() {
         NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
 
     private fun updatePermissionStates() {
+        if (!::listenerState.isInitialized) return
         val listenerOk = hasNotificationListenerAccess()
         val overlayOk = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
         listenerState.text = if (listenerOk) "已授权" else "去开启"
@@ -563,6 +637,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun updateContextUi() {
+        if (!::overlayPreview.isInitialized) return
         val before = contextLines(true)
         val after = contextLines(false)
         findViewById<TextView>(R.id.context_before_value).text = "$before 句"
@@ -574,6 +649,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun updateOverlayPreview() {
+        if (!::overlayPreview.isInitialized) return
         val percent = overlayPrefs.getInt(fontScalePreferenceKey(), expandedFontScale())
             .coerceIn(LyricsOverlayService.FONT_SCALE_MIN_PERCENT, LyricsOverlayService.FONT_SCALE_MAX_PERCENT)
         val color = runCatching {
@@ -608,6 +684,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun updateBackgroundModeUi() {
+        if (!::backgroundModeTransparent.isInitialized) return
         val stored = overlayPrefs.getString(backgroundPreferenceKey(), expandedBackgroundMode())
         // 旧值 medium → 半透明(low)；未知 → 默认
         val effective = when (stored) {
@@ -646,6 +723,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun updateFontSizeUi() {
+        if (!::fontSizeValue.isInitialized) return
         val percent = overlayPrefs.getInt(fontScalePreferenceKey(), expandedFontScale()).coerceIn(
             LyricsOverlayService.FONT_SCALE_MIN_PERCENT,
             LyricsOverlayService.FONT_SCALE_MAX_PERCENT
@@ -672,6 +750,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun updateFontWeightUi() {
+        if (!::fontWeightValue.isInitialized) return
         val percent = OverlayAppearance.weightToPercent(fontWeight())
         fontWeightValue.text = "$percent%"
         seekFontWeight.value = percent.toFloat()
@@ -703,6 +782,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun updateLyricOffsetUi() {
+        if (!::lyricOffsetValue.isInitialized) return
         val identity = overlayPrefs.getString(LyricsOverlayService.PREF_ACTIVE_LYRIC_IDENTITY, "").orEmpty()
         val source = overlayPrefs.getString(LyricsOverlayService.PREF_ACTIVE_LYRIC_SOURCE, "").orEmpty()
         val available = identity.isNotBlank() && source.isNotBlank()
@@ -735,6 +815,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun updateLyricColorUi() {
+        if (!::lyricColorWhite.isInitialized) return
         val selected = overlayPrefs.getString(lyricColorPreferenceKey(), expandedLyricColor()).orEmpty()
         val options = listOf(
             lyricColorWhite to "#FFFFFF",
@@ -795,6 +876,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun updateTranslationModeUi() {
+        if (!::translationOriginal.isInitialized) return
         val selected = overlayPrefs.getString(
             LyricsOverlayService.PREF_TRANSLATION_MODE,
             LyricsOverlayService.TRANSLATION_BILINGUAL

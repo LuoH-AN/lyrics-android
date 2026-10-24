@@ -78,6 +78,9 @@ class MaterialUiLayoutTest {
 
     private fun assertNativeSettings(preview: String) {
         val root = LayoutInflater.from(context()).inflate(R.layout.activity_settings, null)
+        val content = root.findViewById<LinearLayout>(R.id.settings_content)
+        LayoutInflater.from(context()).inflate(R.layout.settings_access, content, true)
+        LayoutInflater.from(context()).inflate(R.layout.settings_overlay, content, true)
         layout(root, preview = preview)
         val toggle = root.findViewById<View>(R.id.overlay_toggle)
         assertTrue("Overlay switch must be Material", toggle is MaterialSwitch)
@@ -300,7 +303,7 @@ class MaterialUiLayoutTest {
         assertEquals(android.view.Gravity.TOP or android.view.Gravity.END, row.gravity)
     }
 
-    @Test fun accentDefaultsToMonochromeAndPersistsCustomColor() {
+    @Test fun accentDefaultsToForestAndPersistsCustomColor() {
         val context = context()
         AccentPrefs.clear(context)
         assertEquals(context.getColor(R.color.accent), AccentPrefs.accent(context))
@@ -353,6 +356,7 @@ class MaterialUiLayoutTest {
             }
             requireNotNull(dialog.findViewById<MaterialButton>(R.id.home_more_export)).performClick()
             assertEquals(1, actions.exports)
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(1500))
             assertFalse("Export must close the sheet", dialog.isShowing)
             home.findViewById<View>(R.id.home_more).performClick()
             org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(500))
@@ -360,6 +364,7 @@ class MaterialUiLayoutTest {
             try {
                 requireNotNull(reopened.findViewById<MaterialButton>(R.id.home_more_settings)).performClick()
                 assertEquals(1, actions.settingsOpened)
+                org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(1500))
                 assertFalse(reopened.isShowing)
             } finally {
                 reopened.dismiss()
@@ -401,6 +406,11 @@ class MaterialUiLayoutTest {
                 .single { it.hint.toString() == "LRC 时间轴歌词" }.editText!!
             lyricsField.setText(lyrics)
             save.performClick()
+            val deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5)
+            while (!activity.isFinishing && System.nanoTime() < deadline) {
+                org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+                Thread.sleep(10)
+            }
             assertTrue("Save action must still close the editor", activity.isFinishing)
             assertEquals(lyrics, CustomLyricsStore.find(context, title, artist)?.lyrics)
         } finally {

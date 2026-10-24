@@ -9,7 +9,7 @@ assert.match(version, /^\d+\.\d+\.\d+$/, 'stable version must be x.y.z');
 assert.ok(code > 13, 'versionCode must upgrade the published 1.0.2 build');
 assert.ok(gradle.includes('applicationId = "com.luoh.music.lrc"'));
 
-const layout = read('app/src/main/res/layout/activity_settings.xml');
+const layout = read('app/src/main/res/layout/settings_about.xml');
 const activity = read(base + 'SettingsActivity.kt');
 assert.ok(layout.includes('cell_maintainer') && layout.includes('维护者 · LuoH-AN'));
 assert.ok(activity.includes('openUrl("https://github.com/LuoH-AN")'));

@@ -90,6 +90,8 @@ class MainActivity : AppCompatActivity() {
 
     private var controller: MediaController? = null
     private var lastTrackKey = ""
+    private var lyricFetchJob: Job? = null
+    private var settingsRefreshJob: Job? = null
     @Volatile private var lyricRequestId = 0
     // 切歌时刻（elapsedRealtime 时基）。用于判断某份 PlaybackState 是新歌的还是旧歌的残留：
     // 只有 lastPositionUpdateTime >= 此值的状态才算“属于当前这首歌”，才允许墙钟外推位置。
@@ -238,6 +240,7 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         homeForeground = false
         homeTranslation.cancel()
+        settingsRefreshJob?.cancel()
         mainHandler.removeCallbacks(progressTick)
         stopSessionMonitor()
         home.setActive(false)
@@ -513,7 +516,11 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun applyLyricPayload(payload: LyricPayload) {
+    private fun parsePayload(payload: LyricPayload): LyricDocument =
+        if (payload.isBlank) LyricDocument(emptyList(), true)
+        else LyricParser.parse(payload.lyrics, payload.translated, payload.word)
+
+    private fun applyLyricPayload(payload: LyricPayload, document: LyricDocument) {
         currentPayloadSignature = payload.signature
         currentLrcText = payload.lyrics
         currentLrcTranslated = payload.translated
@@ -523,8 +530,7 @@ class MainActivity : AppCompatActivity() {
         currentLyricArtist = currentArtist
         currentLyricIdentity = "$currentTrack\u0000$currentArtist".trim().lowercase(java.util.Locale.ROOT)
         currentLyricsCustom = payload.source == CustomLyricsStore.SOURCE
-        baseLyricDocument = if (payload.isBlank) LyricDocument(emptyList(), true)
-            else LyricParser.parse(payload.lyrics, payload.translated, payload.word)
+        baseLyricDocument = document
         home.setLyrics(baseLyricDocument, currentLyricsCustom)
         refreshHomeTranslation()
         applyLyricOffset()
@@ -546,25 +552,25 @@ class MainActivity : AppCompatActivity() {
         val reqId = ++lyricRequestId
         val cacheKey = cacheKeyOf(track, artist, album)
 
-        // 1) 本地命中（自定义 / 缓存）立即上屏，不打网络
-        if (!forceNetwork) {
-            val local = localPayload(track, artist, album)
-            if (local != null) {
-                applyLyricPayload(local)
-                // 自定义歌词不写入自动匹配记忆；缓存来源补一条歌词源管理记录
-                if (local.source != CustomLyricsStore.SOURCE) {
-                    mirrorToMatchMemory(
-                        track, artist, album, durationMs,
-                        local.source, local.recordId, local.lyrics, local.translated, local.word
-                    )
+        lyricFetchJob?.cancel()
+        settingsRefreshJob?.cancel()
+        lyricFetchJob = ioScope.launch {
+            // Local preference decoding, LRC parsing and cache bookkeeping never block navigation.
+            if (!forceNetwork) {
+                val local = localPayload(track, artist, album)
+                if (local != null) {
+                    val document = parsePayload(local)
+                    withContext(Dispatchers.Main) {
+                        if (reqId == lyricRequestId) applyLyricPayload(local, document)
+                    }
+                    if (reqId == lyricRequestId && local.source != CustomLyricsStore.SOURCE) {
+                        mirrorToMatchMemory(track, artist, album, durationMs,
+                            local.source, local.recordId, local.lyrics, local.translated, local.word)
+                    }
+                    return@launch
                 }
-                return
             }
-        }
-
-        // 2) 未命中或手动重试才清空并联网
-        home.showLoading()
-        ioScope.launch {
+            withContext(Dispatchers.Main) { if (reqId == lyricRequestId) home.showLoading() }
             val result = runCatching {
                 repository.resolveLyrics(track, artist, album, durationMs)
             }.getOrNull()
@@ -593,9 +599,11 @@ class MainActivity : AppCompatActivity() {
                 // 镜像到歌词源管理记忆（与悬浮窗共用同一份 match_memory_v2）
                 mirrorToMatchMemory(track, artist, album, durationMs, source, recordId, lrc, trans, word)
             }
+            val payload = LyricPayload(lrc, trans, word, source, recordId)
+            val document = parsePayload(payload)
             withContext(Dispatchers.Main) {
                 if (reqId != lyricRequestId) return@withContext
-                applyLyricPayload(LyricPayload(lrc, trans, word, source, recordId))
+                applyLyricPayload(payload, document)
             }
         }
     }
@@ -616,17 +624,29 @@ class MainActivity : AppCompatActivity() {
         home.setAlignment(HomeLyricsPrefs.alignment(this))
 
         if (currentTrack.isBlank()) return
-        val local = localPayload(currentTrack, currentArtist, currentAlbum)
-        when {
-            // 本地来源变了（新增/改了自定义，或缓存过期），重新上屏
-            local != null && local.signature != currentPayloadSignature -> applyLyricPayload(local)
-            // 之前用的是自定义歌词，但现在被删了 → 重新联网拉
-            local == null && currentLyricSource == CustomLyricsStore.SOURCE ->
-                fetchLyrics(currentTrack, currentArtist, currentAlbum, currentDurationMs)
-            // 其它情况只重新应用偏移
-            else -> applyLyricOffset()
-        }
+        applyLyricOffset()
         refreshHomeTranslation()
+        if (lyricFetchJob?.isActive == true) return
+        val request = lyricRequestId
+        val track = currentTrack
+        val artist = currentArtist
+        val album = currentAlbum
+        settingsRefreshJob?.cancel()
+        settingsRefreshJob = ioScope.launch {
+            val local = localPayload(track, artist, album)
+            val document = local?.let(::parsePayload)
+            withContext(Dispatchers.Main) {
+                if (request != lyricRequestId || track != currentTrack || !homeForeground) return@withContext
+                when {
+                    local != null && local.signature != currentPayloadSignature ->
+                        applyLyricPayload(local, requireNotNull(document))
+                    local == null && currentLyricSource == CustomLyricsStore.SOURCE ->
+                        fetchLyrics(currentTrack, currentArtist, currentAlbum, currentDurationMs)
+                    else -> applyLyricOffset()
+                }
+                refreshHomeTranslation()
+            }
+        }
     }
 
     private fun refreshHomeTranslation() {
