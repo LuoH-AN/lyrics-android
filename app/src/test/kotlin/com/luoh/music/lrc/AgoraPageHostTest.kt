@@ -27,6 +27,9 @@ import java.time.Duration
 @LooperMode(LooperMode.Mode.PAUSED)
 class AgoraPageHostTest {
     @Before fun deterministicFrames() {
+        val app = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.app.Application>()
+        // Android grants this merged-manifest signature permission; Robolectric requires an explicit grant.
+        shadowOf(app).grantPermissions("${app.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
         ShadowChoreographer.setPaused(true)
         ShadowChoreographer.setFrameDelay(Duration.ofMillis(16))
     }
@@ -221,6 +224,48 @@ class AgoraPageHostTest {
             assertEquals("未保存的歌名", fields[0].text.toString())
             assertEquals("[00:01.00]未保存的歌词", fields[2].text.toString())
         } finally { restored.pause().stop().destroy() }
+    }
+
+    @Test fun lyricSourceListAndVersionsUseHostNavigationAndRestoreSearch() {
+        val app = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.app.Application>()
+        val prefs = app.getSharedPreferences(LyricsOverlayService.PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        val previous = prefs.getString("match_memory_v2", null)
+        prefs.edit().putString("match_memory_v2", """[{"key":"song-one","title":"测试歌曲","artist":"测试歌手","source":"qq","candidate":{"recordId":"one","title":"测试歌曲","lyrics":"[00:01.00]歌词预览"}}]""").commit()
+        val controller = Robolectric.buildActivity(SettingsActivity::class.java).setup()
+        try {
+            val activity = controller.get()
+            val root = activity.findViewById<ViewGroup>(android.R.id.content)
+            activity.pageNavigator.open(Intent(activity, LyricSourceManagerActivity::class.java))
+            val listPage = activity.pageNavigator.currentPage!!
+            val search = descendants(listPage.pageRoot)
+                .filterIsInstance<com.google.android.material.textfield.TextInputLayout>().single().editText!!
+            search.setText("测试歌曲")
+            var action: com.google.android.material.button.MaterialButton? = null
+            for (i in 0 until 200) {
+                frames(1); layout(root)
+                action = descendants(listPage.pageRoot).filterIsInstance<com.google.android.material.button.MaterialButton>()
+                    .firstOrNull { it.text.toString() == "查看版本与预览" }
+                if (action != null) break
+                Thread.sleep(5)
+            }
+            assertNotNull("The asynchronously loaded song must be visible", action)
+            action!!.performClick()
+            layout(root)
+            assertEquals(3, activity.pageNavigator.depth)
+            assertTrue(activity.pageNavigator.currentPage is LyricSourceManagerPage)
+            assertEquals("song-one", activity.pageNavigator.currentPage!!.arguments?.getString("source_key"))
+            activity.onBackPressedDispatcher.onBackPressed()
+            layout(root); frames(150)
+            assertEquals(2, activity.pageNavigator.depth)
+            assertEquals(1, activity.supportFragmentManager.fragments.size)
+            val restoredSearch = descendants(activity.pageNavigator.currentPage!!.pageRoot)
+                .filterIsInstance<com.google.android.material.textfield.TextInputLayout>().single().editText!!
+            assertEquals("测试歌曲", restoredSearch.text.toString())
+            assertNull(shadowOf(activity).nextStartedActivity)
+        } finally {
+            controller.pause().stop().destroy()
+            prefs.edit().putString("match_memory_v2", previous).commit()
+        }
     }
 
     private fun descendants(view: View): Sequence<View> = sequence {

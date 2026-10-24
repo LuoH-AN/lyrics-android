@@ -333,6 +333,7 @@ class TranslationSettingsPage : NativePage() {
             apiExecutor.execute {
                 val tested = runCatching { SupplementTranslation(uiContext).testApi(address, modelName, apiKey) }
                 runOnUiThread {
+                    if (!isAdded) return@runOnUiThread
                     apiVerifyButton.isEnabled = true
                     if (tested.isSuccess) {
                         showStatus("API 连接成功，测试翻译：${tested.getOrNull()}", true)
@@ -350,10 +351,12 @@ class TranslationSettingsPage : NativePage() {
     }
     private fun refreshModels() {
         manager.getDownloadedModels(TranslateRemoteModel::class.java).addOnSuccessListener(uiContext) { result ->
+            if (!isAdded) return@addOnSuccessListener
             downloaded = result.map { it.language }.toSet()
             downloadProgress.visibility = if (downloading.isEmpty()) View.GONE else View.VISIBLE
             renderLanguages()
         }.addOnFailureListener(uiContext) {
+            if (!isAdded) return@addOnFailureListener
             downloadProgress.visibility = View.GONE
             showStatus("暂时无法读取语言包状态")
         }
@@ -375,8 +378,8 @@ class TranslationSettingsPage : NativePage() {
         NativeUi.confirm(uiContext, "删除语言包", message, "确认删除") {
             showStatus("正在删除语言包…")
             manager.deleteDownloadedModel(TranslateRemoteModel.Builder(removable).build())
-                .addOnSuccessListener(uiContext) { showStatus("语言包已删除", true); refreshModels() }
-                .addOnFailureListener(uiContext) { showStatus("删除失败，请停止离线翻译后重试") }
+                .addOnSuccessListener(uiContext) { if (isAdded) { showStatus("语言包已删除", true); refreshModels() } }
+                .addOnFailureListener(uiContext) { if (isAdded) showStatus("删除失败，请停止离线翻译后重试") }
         }
     }
     private fun renderLanguages() {
@@ -448,6 +451,7 @@ class TranslationSettingsPage : NativePage() {
         val conditions = DownloadConditions.Builder().apply { if (wifi) requireWifi() }.build()
         val tasks = needed(code).map { manager.download(TranslateRemoteModel.Builder(it).build(), conditions) }
         com.google.android.gms.tasks.Tasks.whenAll(tasks).addOnCompleteListener(uiContext) { result ->
+            if (!isAdded) return@addOnCompleteListener
             downloadTimeouts.remove(code)?.let(downloadTicker::removeCallbacks)
             downloading -= code
             downloadStartedAt.remove(code)

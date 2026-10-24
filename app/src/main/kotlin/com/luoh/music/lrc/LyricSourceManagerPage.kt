@@ -5,7 +5,6 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import androidx.recyclerview.widget.RecyclerView
-import androidx.activity.OnBackPressedCallback
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import com.google.android.material.textfield.TextInputLayout
@@ -26,8 +25,6 @@ class LyricSourceManagerPage : NativePage() {
     private lateinit var searchField: TextInputLayout
     private var renderJob: Job? = null
     private var renderedSelection: String? = null
-    private var songScrollState: android.os.Parcelable? = null
-    private var restoreSongs = false
     private data class Row(val kind: Int, val title: String, val artist: String = "", val detail: String = "",
         val entry: JSONObject? = null, val candidate: JSONObject? = null, val current: Boolean = false)
 
@@ -37,19 +34,21 @@ class LyricSourceManagerPage : NativePage() {
     private var songQuery = ""
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
+        selected = arguments?.getString("source_key")
+        songQuery = arguments?.getString("source_query").orEmpty()
+        renderedSelection = selected
         searchField = NativeUi.field(uiContext, "搜索已记录的歌名或歌手")
-        val header = NativeUi.column(uiContext, 24).apply { addView(searchField) }
+        searchField.editText!!.setText(songQuery)
+        val header = NativeUi.column(uiContext, 24).apply {
+            addView(searchField)
+            visibility = if (selected == null) View.VISIBLE else View.GONE
+        }
         content = NativeUi.listScreen(this, "歌词源管理", header)
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                if (selected != null) { selected = null; restoreSongs = true; render() }
-                else { isEnabled = false; onBackPressedDispatcher.onBackPressed() }
-            }
-        })
         searchField.editText!!.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 songQuery = s.toString()
+                arguments?.putString("source_query", songQuery)
                 render(debounce = true)
             }
             override fun afterTextChanged(s: Editable?) = Unit
@@ -124,8 +123,8 @@ class LyricSourceManagerPage : NativePage() {
                 val entry = row.entry
                 when (row.kind) {
                     1 -> cell.bind(row.title, row.artist, row.detail, "查看版本与预览", {
-                        songScrollState = content.layoutManager?.onSaveInstanceState()
-                        selected = requireNotNull(entry).optString("key"); message = ""; render()
+                        startActivity(Intent(uiContext, LyricSourceManagerActivity::class.java)
+                            .putExtra("source_key", requireNotNull(entry).optString("key")))
                     })
                     2 -> cell.bind(row.title, row.artist, action = "清除匹配记录与缓存…", onAction = ::confirmClearAll, enabled = !busy)
                     3 -> cell.bind(row.title, row.artist, action = if (busy) "正在搜索…" else "搜索下一个匹配结果（仅预览）",
@@ -146,10 +145,6 @@ class LyricSourceManagerPage : NativePage() {
                 }
             }
             renderedSelection = selectedKey
-            if (selectedKey == null && restoreSongs) {
-                songScrollState?.let { content.layoutManager?.onRestoreInstanceState(it) }
-                restoreSongs = false
-            }
         }
     }
 
@@ -158,7 +153,7 @@ class LyricSourceManagerPage : NativePage() {
             "将删除《${entry.optString("title")}》在 ${entry.optString("source")} 的选择及历史版本，下次搜索恢复自动匹配。", "删除记忆") {
             lifecycleScope.launch {
                 withContext(Dispatchers.IO) { save(entries().filter { it.optString("key") != entry.optString("key") }) }
-                selected = null; message = "已删除，下次搜索使用自动匹配"; render()
+                finish()
             }
         }
     }

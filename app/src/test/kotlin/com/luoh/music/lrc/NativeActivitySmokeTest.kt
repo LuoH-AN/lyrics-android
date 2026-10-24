@@ -17,6 +17,10 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class NativeActivitySmokeTest {
+    @org.junit.Before fun grantMergedReceiverPermission() {
+        val app = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.app.Application>()
+        org.robolectric.Shadows.shadowOf(app).grantPermissions("${app.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
+    }
     private fun views(root: View): Sequence<View> = sequence {
         yield(root)
         if (root is ViewGroup) {

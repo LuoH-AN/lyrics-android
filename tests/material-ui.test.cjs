@@ -6,7 +6,7 @@ const source = 'app/src/main/kotlin/com/luoh/music/lrc';
 const resources = 'app/src/main/res';
 const theme = fs.readFileSync(path.join(resources, 'values/themes.xml'), 'utf8');
 assert.ok(theme.includes('Theme.Material3.DayNight.NoActionBar'), 'the app must use a Material theme');
-for (const name of fs.readdirSync(source).filter(name => name.endsWith('Activity.kt'))) {
+for (const name of fs.readdirSync(source).filter(name => name.endsWith('Activity.kt') || name.endsWith('Page.kt'))) {
   const text = fs.readFileSync(path.join(source, name), 'utf8');
   assert.ok(!/\b(?:Button|EditText|SwitchCompat|SeekBar|Dialog)\(this\b/.test(text), `${name} must use shared or explicit Material controls`);
   assert.ok(!/\bAlertDialog\.Builder\(/.test(text), `${name} must use Material dialogs`);
