@@ -383,9 +383,9 @@ private fun HomePlayer(state: HomePresentationState, modifier: Modifier = Modifi
             },
         ),
         shape = RoundedCornerShape(28.dp),
+        // Elevation shadows show their rectangular interior through this translucent card.
         color = MaterialTheme.colorScheme.surface.copy(alpha = .88f),
         contentColor = MaterialTheme.colorScheme.onSurface,
-        shadowElevation = 2.dp,
     ) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
