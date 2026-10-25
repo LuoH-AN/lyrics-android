@@ -5,9 +5,11 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.content.res.Configuration
 import android.content.res.ColorStateList
@@ -16,7 +18,6 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
-import android.media.AudioManager
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
@@ -25,6 +26,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
@@ -45,6 +47,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import com.google.android.material.button.MaterialButton
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -71,7 +74,6 @@ class LyricsOverlayService : Service() {
     private val prefs by lazy { getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
     private val windowManager by lazy { getSystemService(Context.WINDOW_SERVICE) as WindowManager }
     private val sessionManager by lazy { getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager }
-    private val audioManager by lazy { getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     private val listenerComponent by lazy { ComponentName(this, MediaListenerService::class.java) }
     private val lyricsRepository = DirectLyricsRepository()
     private val lyricsScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -127,6 +129,14 @@ class LyricsOverlayService : Service() {
     @Volatile private var latestLyricsRequestId = 0
     private var supplementJob: kotlinx.coroutines.Job? = null
     private var supplementGeneration = 0
+    private var lyricsJob: kotlinx.coroutines.Job? = null
+    private var engineTickActive = false
+    private var screenInteractive = true
+    private var lastSnapshotPlaying = false
+    private var lastForcedSnapshotAt = 0L
+    private var lastDeliveredSnapshotJson = ""
+    private var permissionRetryDelayMs = 1_500L
+    private var screenStateReceiver: BroadcastReceiver? = null
     private val supplements by lazy { SupplementTranslation(this) }
 
     private val dispatchRunnable = Runnable {
@@ -143,10 +153,22 @@ class LyricsOverlayService : Service() {
 
     private val engineTickRunnable = object : Runnable {
         override fun run() {
-            if (!webReady || overlayRoot == null) return
+            // 只在播放且亮屏时驱动 JS 引擎；暂停/息屏时停下，由 ensureEngineTick 在恢复时重启。
+            if (!webReady || overlayRoot == null || !screenInteractive || !lastSnapshotPlaying) {
+                engineTickActive = false
+                return
+            }
             webView?.evaluateJavascript("window.LobstaOverlay && window.LobstaOverlay.engineTick();", null)
             mainHandler.postDelayed(this, 250L)
         }
+    }
+
+    private fun ensureEngineTick() {
+        if (engineTickActive) return
+        if (!webReady || overlayRoot == null || !screenInteractive || !lastSnapshotPlaying) return
+        engineTickActive = true
+        mainHandler.removeCallbacks(engineTickRunnable)
+        mainHandler.post(engineTickRunnable)
     }
 
     private val controllerCallback = object : MediaController.Callback() {
@@ -173,6 +195,22 @@ class LyricsOverlayService : Service() {
         instance = this
         isRunning = true
         announceOverlayState()
+        screenInteractive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
+        screenStateReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                screenInteractive = intent?.action == Intent.ACTION_SCREEN_ON
+                if (screenInteractive) ensureEngineTick()
+            }
+        }
+        ContextCompat.registerReceiver(
+            this,
+            screenStateReceiver,
+            IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_SCREEN_ON)
+            },
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
         expandedBackgroundMode = normalizedBackgroundMode(
             prefs.getString(PREF_BACKGROUND_MODE, BACKGROUND_DEFAULT)
         )
@@ -351,7 +389,10 @@ class LyricsOverlayService : Service() {
     override fun onDestroy() {
         instance = null
         mainHandler.removeCallbacksAndMessages(null)
+        screenStateReceiver?.let { runCatching { unregisterReceiver(it) } }
+        screenStateReceiver = null
         lyricsScope.cancel()
+        lyricsJob = null
         lyricsRepository.close()
         stopMediaMonitor()
         val player = webView
@@ -363,8 +404,11 @@ class LyricsOverlayService : Service() {
             }
         }
         player?.apply {
+            runCatching { onPause() }
+            runCatching { pauseTimers() }
             stopLoading()
             loadUrl("about:blank")
+            removeAllViews()
             destroy()
         }
         webReady = false
@@ -649,7 +693,9 @@ class LyricsOverlayService : Service() {
         ) {
             if (track.isBlank() || requestId <= 0) return
             latestLyricsRequestId = requestId
-            lyricsScope.launch {
+            // 切歌时取消上一首的获取任务，尽快释放线程池给新请求。
+            lyricsJob?.cancel()
+            lyricsJob = lyricsScope.launch {
                 val startedAt = SystemClock.elapsedRealtime()
                 val coverLookup = if (needsRemoteCover) {
                     async { lyricsRepository.resolveCover(track, artist) }
@@ -939,7 +985,7 @@ class LyricsOverlayService : Service() {
             setBackgroundColor(Color.TRANSPARENT)
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
-            settings.allowFileAccess = true
+            settings.allowFileAccess = false
             settings.allowContentAccess = false
             settings.mediaPlaybackRequiresUserGesture = false
             addJavascriptInterface(LyricsJavascriptBridge(), "LobstaNativeLyrics")
@@ -962,8 +1008,9 @@ class LyricsOverlayService : Service() {
                     applyCompactLayout()
                     applyBackgroundMode()
                     pendingSnapshot?.let { deliverToWeb(it) } ?: scheduleSnapshot()
-                    mainHandler.removeCallbacks(engineTickRunnable)
-                    mainHandler.post(engineTickRunnable)
+                    // 引擎 tick 由 ensureEngineTick 按播放/亮屏状态按需启动。
+                    engineTickActive = false
+                    ensureEngineTick()
                 }
             }
             loadUrl("file:///android_asset/lyrics_overlay.html")
@@ -1387,17 +1434,21 @@ class LyricsOverlayService : Service() {
         try {
             sessionManager.addOnActiveSessionsChangedListener(activeSessionsListener, listenerComponent)
             monitorStarted = true
+            permissionRetryDelayMs = 1_500L
             refreshActiveSessions()
             mainHandler.removeCallbacks(sessionRefreshRunnable)
             mainHandler.postDelayed(sessionRefreshRunnable, 750L)
         } catch (_: SecurityException) {
+            // 未授权期间指数退避：1.5s 起步逐次翻倍、30s 封顶，避免无限高频重试空转。
+            val delay = permissionRetryDelayMs
+            permissionRetryDelayMs = (permissionRetryDelayMs * 2).coerceAtMost(30_000L)
             pendingSnapshot = JSONObject()
                 .put("hasSession", false)
                 .put("permissionRequired", true)
             pendingSnapshot?.let { deliverToWeb(it) }
             mainHandler.postDelayed({
                 if (!monitorStarted) startMediaMonitor()
-            }, 1_500L)
+            }, delay)
         }
     }
 
@@ -1434,7 +1485,13 @@ class LyricsOverlayService : Service() {
             .maxByOrNull { controllerScore(it) }
 
         if (best?.sessionToken == currentController?.sessionToken) {
-            scheduleSnapshot()
+            // 会话未变化时：播放中保持原节奏同步进度；暂停/停止下最多 30 秒兜底刷新一次，
+            // 位置变化仍由 MediaController 回调事件驱动，不再每 2 秒全量重发快照。
+            val now = SystemClock.elapsedRealtime()
+            if (lastSnapshotPlaying || now - lastForcedSnapshotAt >= 30_000L) {
+                lastForcedSnapshotAt = now
+                scheduleSnapshot()
+            }
             return
         }
 
@@ -1459,29 +1516,7 @@ class LyricsOverlayService : Service() {
 
     private fun isSupportedMusicPackage(packageName: String): Boolean {
         val p = packageName.lowercase(Locale.ROOT)
-        val exactOrPrefix = listOf(
-            "com.apple.android.music",
-            "com.spotify.music",
-            "com.netease.cloudmusic",
-            "com.tencent.qqmusic",
-            "com.kugou.android",
-            "cn.kuwo.player",
-            "com.kuwo.player",
-            "com.google.android.apps.youtube.music",
-            "com.amazon.mp3",
-            "com.soundcloud.android",
-            "deezer.android.app",
-            "com.aspiro.tidal",
-            "com.miui.player",
-            "com.sec.android.app.music",
-            "com.maxmpz.audioplayer",
-            "in.krosbits.musicolet",
-            "com.aimp.player",
-            "com.fiio.music",
-            "com.plexamp.android",
-            "org.videolan.vlc"
-        )
-        return exactOrPrefix.any { p == it || p.startsWith("$it.") } ||
+        return SUPPORTED_MUSIC_PACKAGES.any { p == it || p.startsWith("$it.") } ||
             (p.contains("music") && !p.contains("bilibili"))
     }
 
@@ -1549,19 +1584,7 @@ class LyricsOverlayService : Service() {
             .put("canPrevious", actions and PlaybackState.ACTION_SKIP_TO_PREVIOUS != 0L)
             .put("canNext", actions and PlaybackState.ACTION_SKIP_TO_NEXT != 0L)
             .put("canSeek", actions and PlaybackState.ACTION_SEEK_TO != 0L)
-            .put("capturedAtMs", System.currentTimeMillis())
             .put("cover", artwork)
-            .put("volumePct", mediaVolumePercent())
-    }
-
-    private fun mediaVolumePercent(): Int {
-        return try {
-            val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-            val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            if (maxVolume > 0) (current * 100f / maxVolume).toInt().coerceIn(0, 100) else 0
-        } catch (_: Exception) {
-            0
-        }
     }
 
     private fun currentPosition(state: PlaybackState?, duration: Long): Long {
@@ -1672,12 +1695,22 @@ class LyricsOverlayService : Service() {
     private fun deliverToWeb(snapshot: JSONObject) {
         pendingSnapshot = snapshot
         updateNativePlayback(snapshot)
+        if (snapshot.optBoolean("permissionRequired") || !snapshot.optBoolean("hasSession")) {
+            lastSnapshotPlaying = false
+        } else {
+            lastSnapshotPlaying = snapshot.optString("state") == "playing"
+        }
+        if (lastSnapshotPlaying) ensureEngineTick()
         if (!webReady) return
         // View.post waits for attachment; the engine deliberately never gets attached.
+        val json = snapshot.toString()
+        // 暂停/停止时快照内容不再变化，跳过重复注入，省掉整段 JSON 的 JS 编译与执行。
+        if (json == lastDeliveredSnapshotJson) return
+        lastDeliveredSnapshotJson = json
         mainHandler.post {
             if (!webReady) return@post
             webView?.evaluateJavascript(
-                "window.LobstaOverlay && window.LobstaOverlay.updatePlayback($snapshot);",
+                "window.LobstaOverlay && window.LobstaOverlay.updatePlayback($json);",
                 null
             )
         }
@@ -1689,6 +1722,30 @@ class LyricsOverlayService : Service() {
     companion object {
         var instance: LyricsOverlayService? = null
             private set
+
+        /** 支持的音乐播放器包名白名单；每次会话轮询都会查询，提前构建避免反复分配。 */
+        private val SUPPORTED_MUSIC_PACKAGES = hashSetOf(
+            "com.apple.android.music",
+            "com.spotify.music",
+            "com.netease.cloudmusic",
+            "com.tencent.qqmusic",
+            "com.kugou.android",
+            "cn.kuwo.player",
+            "com.kuwo.player",
+            "com.google.android.apps.youtube.music",
+            "com.amazon.mp3",
+            "com.soundcloud.android",
+            "deezer.android.app",
+            "com.aspiro.tidal",
+            "com.miui.player",
+            "com.sec.android.app.music",
+            "com.maxmpz.audioplayer",
+            "in.krosbits.musicolet",
+            "com.aimp.player",
+            "com.fiio.music",
+            "com.plexamp.android",
+            "org.videolan.vlc"
+        )
         const val ACTION_START = "com.luoh.music.lrc.action.START_LYRICS_OVERLAY"
         const val ACTION_STOP = "com.luoh.music.lrc.action.STOP_LYRICS_OVERLAY"
         const val ACTION_STATE_CHANGED = "com.luoh.music.lrc.action.LYRICS_OVERLAY_STATE_CHANGED"
