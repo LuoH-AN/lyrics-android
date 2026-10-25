@@ -193,6 +193,8 @@ internal class HomePresentationState {
         private set
     internal var seekRevision by mutableIntStateOf(0)
         private set
+    private var lastProgressPlaying = false
+    private var lastProgressPositionMs = Long.MIN_VALUE
 
     fun setSnapshot(value: Snapshot, forcePosition: Boolean = false) {
         val trackChanged = value.track != snapshot.track || value.artist != snapshot.artist
@@ -209,9 +211,16 @@ internal class HomePresentationState {
     }
 
     fun setProgress(positionMs: Long, playing: Boolean, speed: Float = 1f) {
+        val wasPlaying = this.playing
+        val positionChanged = positionMs != lastProgressPositionMs
         clock.sync(positionMs, playing, speed)
         this.playing = playing
-        playbackRevision++
+        lastProgressPlaying = playing
+        lastProgressPositionMs = positionMs
+        // 播放中帧循环自行取值，position 无需作为 effect key；暂停时位置变化
+        // （如播放器外部 seek）才需要重启一次让滑杆跟上。此前的 500ms 轮询
+        // 每次都 bump，导致两个 LaunchedEffect 每秒被取消重建两次。
+        if (playing != wasPlaying || (!playing && positionChanged)) playbackRevision++
     }
 
     fun setLyrics(value: LyricDocument, isCustom: Boolean = false) {

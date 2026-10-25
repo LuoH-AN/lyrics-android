@@ -113,6 +113,9 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /** Business settings rendered directly by Agora's Compose scaffolds and grouped rows. */
+private val HEX_COLOR_REGEX = Regex("[0-9A-F]{6}")
+private val COLOR_PRESETS = listOf("#FFFFFF", "#9FD8FF", "#111111", "#FFB6D5", "#3F683D", "#B9CCB3")
+
 @Composable
 internal fun SettingsCategoryContent(
     category: String,
@@ -328,7 +331,7 @@ private fun DesktopAccessSettings(context: Context) {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(context)
     }
     val scope = rememberSettingsBusinessScope()
-    SettingsGroup(title = "桌面歌词", items = listOf(
+    SettingsGroup(title = "桌面歌词",
         {
             SettingsSwitchItem("桌面歌词", "在其他应用上显示当前播放的歌词", Icons.Default.Lyrics, running) {
                 when {
@@ -357,8 +360,7 @@ private fun DesktopAccessSettings(context: Context) {
                     settingsOpenIntent(context, Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
                 }
             }
-        },
-    ))
+        },)
 }
 
 @Composable
@@ -397,7 +399,7 @@ private fun DesktopAppearanceSettings(context: Context, prefs: SharedPreferences
             putExtra(LyricsOverlayService.EXTRA_TARGET_COMPACT, true)
         }
     }
-    SettingsGroup(title = "歌词预览", items = listOf({
+    SettingsGroup(title = "歌词预览", {
         val lyricColor = remember(color) { settingsParseColor(color) }
         val previewBackground = Color(OverlayAppearance.backgroundColor(background))
         Column(
@@ -420,8 +422,8 @@ private fun DesktopAppearanceSettings(context: Context, prefs: SharedPreferences
                 }
             }
         }
-    }))
-    SettingsGroup(title = "文字与背景", items = listOf(
+    })
+    SettingsGroup(title = "文字与背景",
         {
             SettingsChoiceItem("背景", background, listOf(
                 LyricsOverlayService.BACKGROUND_TRANSPARENT to "透明",
@@ -463,9 +465,8 @@ private fun DesktopAppearanceSettings(context: Context, prefs: SharedPreferences
                 },
                 modifier = Modifier.clickable { showColorPicker = true },
             )
-        },
-    ))
-    SettingsGroup(title = "上下文", items = listOf(
+        },)
+    SettingsGroup(title = "上下文",
         {
             SettingsCountItem("上文", before) { value ->
                 prefs.edit().putInt(LyricsOverlayService.PREF_CONTEXT_BEFORE, value).apply()
@@ -477,8 +478,7 @@ private fun DesktopAppearanceSettings(context: Context, prefs: SharedPreferences
                 prefs.edit().putInt(LyricsOverlayService.PREF_CONTEXT_AFTER, value).apply()
                 settingsOverlayAction(context, LyricsOverlayService.ACTION_SET_CONTEXT)
             }
-        },
-    ))
+        },)
     if (showColorPicker) SettingsColorDialog("歌词颜色", color, onDismiss = { showColorPicker = false }, onApply = ::saveColor)
 }
 
@@ -551,7 +551,7 @@ private fun LyricsSyncSettings(context: Context, prefs: SharedPreferences, revis
             }
         }
     }
-    SettingsGroup(title = "当前歌词", items = listOf({
+    SettingsGroup(title = "当前歌词", {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             SettingsItem(
                 headlineContent = { Text(LyricSyncText.format(offset)) },
@@ -567,10 +567,10 @@ private fun LyricsSyncSettings(context: Context, prefs: SharedPreferences, revis
                     modifier = Modifier.weight(1f)) { Text("提前") }
             }
         }
-    }))
-    SettingsGroup(title = "同步记忆", items = listOf({
+    })
+    SettingsGroup(title = "同步记忆", {
         SettingsNavigationItem("同步记忆管理", "查看或清除已记住的单曲偏移", Icons.Default.Timeline) { onNavigate(ComposeRoute("offsets")) }
-    }))
+    })
 }
 
 @Composable
@@ -578,7 +578,7 @@ private fun LyricsContentSettings(context: Context, prefs: SharedPreferences, re
     val translation = remember(revision) {
         prefs.getString(LyricsOverlayService.PREF_TRANSLATION_MODE, LyricsOverlayService.TRANSLATION_BILINGUAL).orEmpty()
     }
-    SettingsGroup(title = "歌词显示", items = listOf({
+    SettingsGroup(title = "歌词显示", {
         SettingsChoiceItem("翻译显示", translation, listOf(
             LyricsOverlayService.TRANSLATION_ORIGINAL to "原文",
             LyricsOverlayService.TRANSLATION_BILINGUAL to "双语",
@@ -587,12 +587,11 @@ private fun LyricsContentSettings(context: Context, prefs: SharedPreferences, re
             prefs.edit().putString(LyricsOverlayService.PREF_TRANSLATION_MODE, value).apply()
             settingsOverlayAction(context, LyricsOverlayService.ACTION_SET_TRANSLATION_MODE) { putExtra(LyricsOverlayService.EXTRA_TRANSLATION_MODE, value) }
         }
-    }))
-    SettingsGroup(title = "歌词管理", items = listOf(
+    })
+    SettingsGroup(title = "歌词管理",
         { SettingsNavigationItem("补充翻译", "翻译服务、模型与配置", Icons.Default.Translate) { onNavigate(ComposeRoute("translation")) } },
         { SettingsNavigationItem("自定义歌词", "导入和编辑本地歌词", Icons.Default.Lyrics) { onNavigate(ComposeRoute("custom")) } },
-        { SettingsNavigationItem("歌词源管理", "管理匹配记录与歌词版本", Icons.Default.Link) { onNavigate(ComposeRoute("sources")) } },
-    ))
+        { SettingsNavigationItem("歌词源管理", "管理匹配记录与歌词版本", Icons.Default.Link) { onNavigate(ComposeRoute("sources")) } },)
 }
 
 @Composable
@@ -620,7 +619,7 @@ private fun AppAppearanceSettings(context: Context, prefs: SharedPreferences, re
     val presetLabel = presets.first { it.first == appearance.preset }.second
     val primary = MaterialTheme.colorScheme.primary
     var showColorPicker by rememberSaveable { mutableStateOf(false) }
-    SettingsGroup(title = "主题与颜色", items = listOf(
+    SettingsGroup(title = "主题与颜色",
         {
             SettingsChoiceItem("主题", theme, listOf(ThemePrefs.FOLLOW to "跟随系统", ThemePrefs.LIGHT to "浅色", ThemePrefs.DARK to "深色"), Icons.Default.SettingsBrightness) {
                 prefs.edit().putString(ThemePrefs.KEY, it).apply()
@@ -664,8 +663,7 @@ private fun AppAppearanceSettings(context: Context, prefs: SharedPreferences, re
                 modifier = Modifier.alpha(if (dynamicActive) 0.38f else 1f)
                     .clickable(enabled = !dynamicActive) { showColorPicker = true },
             )
-        },
-    ))
+        },)
     if (showColorPicker) SettingsColorDialog(
         title = "主调颜色",
         initialColor = accent ?: settingsHexColor(primary.toArgb()),
@@ -689,16 +687,16 @@ private fun HomeAlignmentSettings(context: Context, revision: Int) {
     fun saveStyle(change: (HomeLyricAppearance) -> HomeLyricAppearance) {
         HomeLyricsPrefs.saveAppearance(context, change(HomeLyricsPrefs.appearance(context)))
     }
-    SettingsGroup(title = "背景", items = listOf({
+    SettingsGroup(title = "背景", {
         SettingsSwitchItem("封面模糊背景", null, Icons.Default.BlurOn, albumBackground) {
             HomeLyricsPrefs.saveAlbumBackground(context, it)
         }
-    }))
-    SettingsGroup(title = "歌词布局", items = listOf({
+    })
+    SettingsGroup(title = "歌词布局", {
         SettingsChoiceItem("对齐方式", alignment, listOf(HomeLyricsPrefs.LEFT to "左对齐", HomeLyricsPrefs.CENTER to "居中", HomeLyricsPrefs.RIGHT to "右对齐"),
             Icons.Default.FormatAlignLeft) { HomeLyricsPrefs.save(context, it) }
-    }))
-    SettingsGroup(title = "歌词文字", items = listOf(
+    })
+    SettingsGroup(title = "歌词文字",
         { SettingsSliderItem("主页歌词字号", appearance.fontSize, 16..48, unit = "sp", icon = Icons.Default.FormatSize) {
             value -> saveStyle { it.copy(fontSize = value) }
         } },
@@ -711,15 +709,14 @@ private fun HomeAlignmentSettings(context: Context, revision: Int) {
         } },
         { SettingsSliderItem("主页歌词行间距", appearance.lineSpacing, 0..28, step = 2, unit = "dp", icon = Icons.Default.FormatAlignLeft) {
             value -> saveStyle { it.copy(lineSpacing = value) }
-        } },
-    ))
-    SettingsGroup(title = "文字预览", items = listOf({
+        } },)
+    SettingsGroup(title = "文字预览", {
         Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("让音乐陪你到天亮", fontSize = appearance.fontSize.sp, fontWeight = FontWeight(appearance.fontWeight))
             Text("Let the music stay with you", fontSize = appearance.translationSize.sp,
                 fontWeight = FontWeight(appearance.fontWeight), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-    }))
+    })
 }
 
 @Composable
@@ -728,28 +725,26 @@ private fun HomeMotionSettings(context: Context, revision: Int) {
     val appPrefs = remember(context) { context.getSharedPreferences(ThemePrefs.PREFS, Context.MODE_PRIVATE) }
     val reduceMotion = remember(revision) { appPrefs.getBoolean("reduce_motion", false) }
     fun save(transform: (MotionStyle) -> MotionStyle) { HomeMotionPrefs.save(context, transform(HomeMotionPrefs.style(context))) }
-    SettingsGroup(title = "应用动效", items = listOf({
+    SettingsGroup(title = "应用动效", {
         SettingsSwitchItem("减少动效", "减少页面切换和弹出界面的运动", Icons.Default.MotionPhotosOff, reduceMotion) {
             appPrefs.edit().putBoolean("reduce_motion", it).apply()
         }
-    }))
-    SettingsGroup(title = "动效预览", items = listOf({ ComposeMotionPreview(style) }))
-    SettingsGroup(title = "滚动与错位", items = listOf(
+    })
+    SettingsGroup(title = "动效预览", { ComposeMotionPreview(style) })
+    SettingsGroup(title = "滚动与错位",
         { SettingsSwitchItem("缓动滚动", "让歌词切行沿平滑曲线滚动", Icons.Default.Speed, style.easedScroll) { value -> save { it.copy(easedScroll = value) } } },
         { SettingsSliderItem("切行时长", style.scrollDurationMs, MotionStyle.DURATION_MIN..MotionStyle.DURATION_MAX, MotionStyle.DURATION_STEP,
             "ms", Icons.Default.Speed, style.easedScroll) { value -> save { it.copy(scrollDurationMs = value) } } },
         { SettingsSwitchItem("逐行错位", "相邻歌词按顺序跟随当前行", Icons.Default.Layers, style.stagger) { value -> save { it.copy(stagger = value) } } },
         { SettingsSliderItem("错位延迟", style.staggerDelayMs, MotionStyle.STAGGER_MIN..MotionStyle.STAGGER_MAX, MotionStyle.STAGGER_STEP,
-            "ms", Icons.Default.Layers, style.stagger) { value -> save { it.copy(staggerDelayMs = value) } } },
-    ))
-    SettingsGroup(title = "缩放与模糊", items = listOf(
+            "ms", Icons.Default.Layers, style.stagger) { value -> save { it.copy(staggerDelayMs = value) } } },)
+    SettingsGroup(title = "缩放与模糊",
         { SettingsSwitchItem("行间缩放", "突出当前演唱的歌词", Icons.Default.FormatSize, style.scale) { value -> save { it.copy(scale = value) } } },
         { SettingsSliderItem("缩放强度", style.scalePercent, MotionStyle.PERCENT_MIN..MotionStyle.PERCENT_MAX, MotionStyle.PERCENT_STEP,
             "%", Icons.Default.FormatSize, style.scale) { value -> save { it.copy(scalePercent = value) } } },
         { SettingsSwitchItem("远景模糊", "柔化离当前行较远的歌词", Icons.Default.BlurOn, style.depthBlur) { value -> save { it.copy(depthBlur = value) } } },
         { SettingsSliderItem("模糊强度", style.blurPercent, MotionStyle.PERCENT_MIN..MotionStyle.PERCENT_MAX, MotionStyle.PERCENT_STEP,
-            "%", Icons.Default.BlurOn, style.depthBlur) { value -> save { it.copy(blurPercent = value) } } },
-    ))
+            "%", Icons.Default.BlurOn, style.depthBlur) { value -> save { it.copy(blurPercent = value) } } },)
 }
 
 @Composable
@@ -797,7 +792,7 @@ private fun AboutSettings(context: Context, onNavigate: (ComposeRoute) -> Unit) 
     val active = LocalSettingsScrollRetentionActive.current
     LaunchedEffect(active) { if (!active) { checking = false; release = null } }
     val scope = rememberSettingsBusinessScope()
-    SettingsGroup(title = "应用", items = listOf(
+    SettingsGroup(title = "应用",
         {
             SettingsNavigationItem("检查更新", if (checking) "检查中…" else version, Icons.Default.Update, !checking) {
                 checking = true
@@ -814,8 +809,7 @@ private fun AboutSettings(context: Context, onNavigate: (ComposeRoute) -> Unit) 
         },
         { SettingsNavigationItem("维护者 · LuoH-AN", icon = Icons.Default.Person) { settingsOpenUrl(context, "https://github.com/LuoH-AN") } },
         { SettingsNavigationItem("项目主页 · GitHub", icon = Icons.Default.Link) { settingsOpenUrl(context, "https://github.com/LuoH-AN/lyrics-android") } },
-        { SettingsNavigationItem("隐私说明", "权限与数据使用", Icons.Default.Lock) { onNavigate(ComposeRoute("privacy")) } },
-    ))
+        { SettingsNavigationItem("隐私说明", "权限与数据使用", Icons.Default.Lock) { onNavigate(ComposeRoute("privacy")) } },)
     release?.let { update ->
         AlertDialog(
             onDismissRequest = { release = null },
@@ -837,8 +831,8 @@ private fun SettingsColorDialog(
 ) {
     var draft by rememberSaveable(title) { mutableStateOf(initialColor) }
     val normalized = draft.trim().removePrefix("#").uppercase()
-    val valid = normalized.matches(Regex("[0-9A-F]{6}"))
-    val presets = listOf("#FFFFFF", "#9FD8FF", "#111111", "#FFB6D5", "#3F683D", "#B9CCB3")
+    val valid = normalized.matches(HEX_COLOR_REGEX)
+    val presets = COLOR_PRESETS
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },

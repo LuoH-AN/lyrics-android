@@ -70,7 +70,7 @@ fun SettingsGroup(
     title: String,
     modifier: Modifier = Modifier,
     bottomPadding: androidx.compose.ui.unit.Dp = 24.dp,
-    items: List<@Composable () -> Unit>
+    vararg items: @Composable () -> Unit
 ) {
     val effectiveBottom = if (LocalSettingsGroupSpacing.current) 0.dp else bottomPadding
     Column(modifier = modifier.fillMaxWidth().padding(bottom = effectiveBottom)) {
