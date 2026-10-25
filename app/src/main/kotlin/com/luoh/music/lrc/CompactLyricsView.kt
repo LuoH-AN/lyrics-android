@@ -2,6 +2,7 @@ package com.luoh.music.lrc
 
 import android.content.Context
 import android.animation.ValueAnimator
+import android.view.animation.FastOutSlowInInterpolator
 import android.graphics.Color
 import android.os.SystemClock
 import android.text.Layout
@@ -30,6 +31,7 @@ class CompactLyricsView @JvmOverloads constructor(context: Context, attrs: Attri
     private var offsetMs = 0
     private var fontScale = 1f
     private var fontWeight = OverlayAppearance.DEFAULT_FONT_WEIGHT
+    private var fontFamily = OverlayAppearance.FONT_FAMILY_SYSTEM
     private var lyricColor = Color.WHITE
     private var translationMode = LyricsOverlayService.TRANSLATION_BILINGUAL
     private var before = 0
@@ -85,15 +87,18 @@ class CompactLyricsView @JvmOverloads constructor(context: Context, attrs: Attri
     }
 
     fun setAppearance(percent: Int, color: Int, mode: String, contextBefore: Int, contextAfter: Int,
-                      weight: Int = OverlayAppearance.DEFAULT_FONT_WEIGHT) {
+                      weight: Int = OverlayAppearance.DEFAULT_FONT_WEIGHT,
+                      family: String = OverlayAppearance.FONT_FAMILY_SYSTEM) {
         val scale = percent.coerceIn(35, 150) / 100f
         val normalizedWeight = OverlayAppearance.normalizeWeight(weight)
+        val normalizedFamily = OverlayAppearance.normalizeFontFamily(family)
         val normalizedBefore = contextBefore.coerceIn(0, 2)
         val normalizedAfter = contextAfter.coerceIn(0, 2)
-        if (fontScale == scale && fontWeight == normalizedWeight && lyricColor == color &&
-            translationMode == mode && before == normalizedBefore && after == normalizedAfter) return
+        if (fontScale == scale && fontWeight == normalizedWeight && fontFamily == normalizedFamily &&
+            lyricColor == color && translationMode == mode && before == normalizedBefore && after == normalizedAfter) return
         fontScale = scale
         fontWeight = normalizedWeight
+        fontFamily = normalizedFamily
         lyricColor = color
         translationMode = mode
         before = normalizedBefore
@@ -161,7 +166,7 @@ class CompactLyricsView @JvmOverloads constructor(context: Context, attrs: Attri
                     }
                 }
             }
-            if (rows != paintedRows) rebuildRows(rows)
+            if (rows != paintedRows) rebuildRows(rows, animate = !force)
         }
         val line = document.lines.getOrNull(activeIndex)
         val lineEnd = if (line == null) 0L else if (document.timed) {
@@ -177,14 +182,43 @@ class CompactLyricsView @JvmOverloads constructor(context: Context, attrs: Attri
         lastFrameAt = now
     }
 
-    private fun rebuildRows(rows: List<RowModel>) {
+    private fun rebuildRows(rows: List<RowModel>, animate: Boolean) {
+        // 记录旧行的位置，换行时让新行从旧位置平滑滑到新位置、新增行淡入，
+        // 代替 removeAllViews 的硬切。
+        val previousTops = if (animate) rowViews.associate { it.key to it.top } else emptyMap()
         removeAllViews()
         rowViews.clear()
         paintedRows = rows
+        var newTop = paddingTop
         rows.forEach { model ->
             val row = LyricRow(model)
             rowViews.add(row)
             addView(row, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, row.rowHeight))
+            // 仅在已挂窗（真实显示）且系统未减少动态效果时做过渡；
+            // Robolectric/未 attach 的视图保持原行为。
+            if (animate && isAttachedToWindow && ValueAnimator.areAnimatorsEnabled()) {
+                val previousTop = previousTops[row.key]
+                if (previousTop != null && previousTop != newTop) {
+                    // 该行在上一屏已存在：从旧位置滑向新位置（歌词“离去/上来”的主体感）。
+                    row.translationY = (previousTop - newTop).toFloat()
+                    row.animate()
+                        .translationY(0f)
+                        .setDuration(220L)
+                        .setInterpolator(FastOutSlowInInterpolator())
+                        .start()
+                } else if (previousTop == null) {
+                    // 新进入的行（如底部上下文行）：轻微上移 + 淡入。
+                    row.alpha = 0f
+                    row.translationY = dp(10).toFloat()
+                    row.animate()
+                        .alpha(row.targetAlpha)
+                        .translationY(0f)
+                        .setDuration(220L)
+                        .setInterpolator(FastOutSlowInInterpolator())
+                        .start()
+                }
+            }
+            newTop += row.rowHeight
         }
         val hasLyrics = document.lines.isNotEmpty()
         val hasTranslation = rows.any { it.translated }
@@ -199,6 +233,8 @@ class CompactLyricsView @JvmOverloads constructor(context: Context, attrs: Attri
 
     private inner class LyricRow(private val model: RowModel) : FrameLayout(context) {
         private val lyric = LyricLineView(context)
+        val key: String = "${model.line.startMs}:${model.line.text}:${model.current}:${model.translated}"
+        val targetAlpha: Float = if (model.current) 1f else if (model.translated) .8f else .55f
         private var scrollShift = 0f
         private var scrollTarget = 0f
         private var contentWidth = 0
@@ -216,14 +252,14 @@ class CompactLyricsView @JvmOverloads constructor(context: Context, attrs: Attri
             }
             lyric.apply {
                 textSize = textSp
-                typeface = OverlayAppearance.typeface(fontWeight)
+                typeface = OverlayAppearance.typeface(context, fontFamily, fontWeight)
                 setTextColor(lyricColor)
                 setShadowLayer(0f, 0f, 0f, Color.TRANSPARENT)
                 includeFontPadding = false
                 setPadding(0, 0, 0, 0)
                 setSingleLine(true)
                 gravity = Gravity.CENTER_VERTICAL
-                alpha = if (model.current) 1f else if (model.translated) .8f else .55f
+                alpha = targetAlpha
                 bind(model.line, LyricsOverlayService.TRANSLATION_ORIGINAL)
                 importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
             }

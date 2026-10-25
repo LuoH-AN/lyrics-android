@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.FontDownload
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.FormatAlignLeft
@@ -84,6 +85,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -381,6 +384,9 @@ private fun DesktopAppearanceSettings(context: Context, prefs: SharedPreferences
     val fontWeight = remember(revision) {
         OverlayAppearance.normalizeWeight(prefs.getInt(LyricsOverlayService.PREF_FONT_WEIGHT, OverlayAppearance.DEFAULT_FONT_WEIGHT))
     }
+    val fontFamily = remember(revision) {
+        OverlayAppearance.normalizeFontFamily(prefs.getString(LyricsOverlayService.PREF_FONT_FAMILY, null))
+    }
     val color = remember(revision) {
         prefs.getString(LyricsOverlayService.PREF_LYRIC_COLOR_COMPACT,
             prefs.getString(LyricsOverlayService.PREF_LYRIC_COLOR, LyricsOverlayService.LYRIC_COLOR_DEFAULT))
@@ -408,16 +414,22 @@ private fun DesktopAppearanceSettings(context: Context, prefs: SharedPreferences
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             val lines = listOf("City lights" to "街灯轻轻亮起", "A quiet melody" to "旋律停在耳边", "Stay with me" to "让歌词陪着你", "One more song" to "再听一首歌", "Until tomorrow" to "直到明天")
+
+            val previewFamily = when (fontFamily) {
+                OverlayAppearance.FONT_FAMILY_MONO -> FontFamily.Monospace
+                OverlayAppearance.FONT_FAMILY_MIOUTFIT -> FontFamily(Font(R.font.mioutfit_variable))
+                else -> FontFamily.SansSerif
+            }
             for (index in (2 - before)..(2 + after)) {
                 val (original, translated) = lines[index]
                 val foreground = lyricColor.copy(alpha = if (index == 2) 1f else .5f)
                 Column {
                     if (translation != LyricsOverlayService.TRANSLATION_TRANSLATED) {
-                        Text(original, color = foreground, fontSize = (20f * fontScale / 100).sp, fontWeight = FontWeight(fontWeight))
+                        Text(original, color = foreground, fontSize = (20f * fontScale / 100).sp, fontWeight = FontWeight(fontWeight), fontFamily = previewFamily)
                     }
                     if (translation != LyricsOverlayService.TRANSLATION_ORIGINAL) {
                         Text(translated, color = foreground, fontSize = (if (translation == LyricsOverlayService.TRANSLATION_TRANSLATED) 20f else 15f).times(fontScale / 100f).sp,
-                            fontWeight = FontWeight(fontWeight))
+                            fontWeight = FontWeight(fontWeight), fontFamily = previewFamily)
                     }
                 }
             }
@@ -453,6 +465,14 @@ private fun DesktopAppearanceSettings(context: Context, prefs: SharedPreferences
                 val weight = OverlayAppearance.percentToWeight(value)
                 prefs.edit().putInt(LyricsOverlayService.PREF_FONT_WEIGHT, weight).apply()
                 settingsOverlayAction(context, LyricsOverlayService.ACTION_SET_FONT_WEIGHT) { putExtra(LyricsOverlayService.EXTRA_FONT_WEIGHT, weight) }
+            }
+        },
+        {
+            SettingsChoiceItem("字体", fontFamily, OverlayAppearance.FONT_FAMILIES, Icons.Default.FontDownload) { value ->
+                prefs.edit().putString(LyricsOverlayService.PREF_FONT_FAMILY, value).apply()
+                settingsOverlayAction(context, LyricsOverlayService.ACTION_SET_FONT_FAMILY) {
+                    putExtra(LyricsOverlayService.EXTRA_FONT_FAMILY, value)
+                }
             }
         },
         {
