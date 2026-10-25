@@ -140,6 +140,7 @@ class MainActivity : ComponentActivity() {
         home.setAlignment(HomeLyricsPrefs.alignment(this))
         home.onTranslationSettings = { startActivity(Intent(this, TranslationSettingsActivity::class.java)) }
         pageNavigator = ComposeNavigator(savedInstanceState?.getBundle("navigation"))
+        savedInstanceState?.getString("pendingLrcExport")?.let { pendingLrcExport = it }
         pageNavigator.onPresentationChanged = { open ->
             homeForeground = !open
             home.setActive(!open)
@@ -167,6 +168,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onSaveInstanceState(state: Bundle) {
         state.putBundle("navigation", pageNavigator.saveState())
+        // 导出歌词时可能正打开系统文件选择器，旋转重建会丢掉待写内容。
+        if (pendingLrcExport.isNotEmpty()) state.putString("pendingLrcExport", pendingLrcExport)
         super.onSaveInstanceState(state)
     }
 
@@ -199,6 +202,8 @@ class MainActivity : ComponentActivity() {
         homeTranslation.cancel()
         settingsRefreshJob?.cancel()
         mainHandler.removeCallbacks(progressTick)
+        // 清掉 seek 类操作遗留的延迟快照回调，避免切后台后回调触发清空曲目状态。
+        mainHandler.removeCallbacksAndMessages(null)
         stopSessionMonitor()
         home.setActive(false)
         super.onPause()
@@ -208,6 +213,8 @@ class MainActivity : ComponentActivity() {
         homeTranslation.cancel()
         translationScope.coroutineContext[Job]?.cancel()
         ioScope.coroutineContext[Job]?.cancel()
+        // 释放仓库的固定线程池；旋转/重建会重建 Activity，不关闭会持续累积空闲线程。
+        runCatching { repository.close() }
         super.onDestroy()
     }
 

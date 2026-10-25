@@ -377,13 +377,13 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
     CollapsingSettingsLazyScaffold(title = "补充翻译", onBack = onBack) {
         if (lastStatus.isNotBlank()) item(key = "last-status") { LibraryStatus(lastStatus) }
         item(key = "mode") {
-            SettingsGroup("翻译方式", items = listOf({
+            SettingsGroup("翻译方式", {
                 SettingsItem(
                     modifier = Modifier.clickable { modeMenu = true },
                     headlineContent = { Text("补充翻译方式") },
                     supportingContent = { Text(translationModes.firstOrNull { it.first == mode }?.second ?: "关闭") },
                 )
-            }))
+            })
         }
         if (mode == "api") {
             item(key = "api-title") { LibraryGroupTitle("翻译 API") }
@@ -438,7 +438,7 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
         }
         if (mode == "offline") {
             item(key = "offline-tools") {
-                SettingsGroup("离线语言包 · 需要代理", items = listOf({
+                SettingsGroup("离线语言包 · 需要代理", {
                     Column {
                         if (modelsBusy || downloading.isNotEmpty()) LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp))
                         if (downloading.isNotEmpty()) LibraryStatus("语言包下载中… 已用时 ${elapsed}s（系统未提供百分比/速度）")
@@ -455,7 +455,7 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
                             }
                         }
                     }
-                }))
+                })
             }
             itemsIndexed(filteredLanguages, key = { _, language -> "language-${language.first}" }, contentType = { _, _ -> "language" }) { index, language ->
                 val (code, title) = language
@@ -562,7 +562,7 @@ private fun ApiProfilesComposeScreen(onBack: () -> Unit) {
     CollapsingSettingsLazyScaffold(title = "API 配置", onBack = onBack) {
         item(key = "intro") { LibraryStatus("可添加多套兼容 Chat Completions 的服务，并随时切换。") }
         item(key = "editor") {
-            SettingsGroup(if (editingId == null) "添加 API" else "编辑 API 配置", items = listOf({
+            SettingsGroup(if (editingId == null) "添加 API" else "编辑 API 配置", {
                 Column {
                     LibraryField("配置名称", name, { name = it }, !busy)
                     LibraryField("HTTPS 服务地址", endpoint, { endpoint = it }, !busy)
@@ -596,7 +596,7 @@ private fun ApiProfilesComposeScreen(onBack: () -> Unit) {
                     if (editingId != null) LibraryAction("添加另一套 API", !busy) { clearEditor() }
                     LibraryStatus(status)
                 }
-            }))
+            })
         }
         if (profiles.isEmpty()) item(key = "empty") { LibraryStatus("还没有 API 配置，请在上方添加") }
         itemsIndexed(profiles, key = { _, profile -> "profile-${profile.id}" }, contentType = { _, _ -> "profile" }) { index, profile ->
@@ -657,7 +657,7 @@ private fun OffsetMemoriesComposeScreen(onBack: () -> Unit) {
     }
     CollapsingSettingsLazyScaffold(title = "同步记忆", onBack = onBack) {
         item(key = "summary") {
-            SettingsGroup("同步调整", items = listOf({
+            SettingsGroup("同步调整", {
                 Column {
                     SettingsItem(headlineContent = { Text(if (!loaded) "正在读取…" else if (entries.isEmpty()) "还没有保存的同步调整" else "已保存 ${entries.size} 条") })
                     if (entries.isNotEmpty()) LibraryAction("重置全部同步记忆") {
@@ -674,7 +674,7 @@ private fun OffsetMemoriesComposeScreen(onBack: () -> Unit) {
                         }
                     }
                 }
-            }))
+            })
         }
         itemsIndexed(entries, key = { _, entry -> entry.id }, contentType = { _, _ -> "offset" }) { index, entry ->
             LibraryLazyGroupItem(index, entries.size) {
@@ -826,7 +826,7 @@ private fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute)
                 }
             }
             item(key = "cache") {
-                SettingsGroup("匹配记录与缓存", items = listOf({
+                SettingsGroup("匹配记录与缓存", {
                     Column {
                         SettingsItem(headlineContent = { Text("已记录 ${entries.size} 个来源") })
                         LibraryAction("清除匹配记录与缓存…", !busy) {
@@ -842,12 +842,12 @@ private fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute)
                             }
                         }
                     }
-                }))
+                })
             }
         } else if (entry == null) item(key = "missing") { LibraryStatus(if (loaded) "这首歌的来源记忆已不存在" else "正在读取…") }
         else {
             item(key = "song") {
-                SettingsGroup("歌曲", items = listOf({
+                SettingsGroup("歌曲", {
                     Column {
                         SettingsItem(headlineContent = { Text(entry.optString("title")) }, supportingContent = { Text(entry.optString("artist")) })
                         LibraryAction(if (busy) "正在处理…" else "搜索下一个匹配结果（仅预览）", !busy) { searchNext(entry) }
@@ -856,10 +856,10 @@ private fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute)
                             update(entry.optString("key")) { it.put("candidate", original).put("needsReview", false) }
                         }
                     }
-                }))
+                })
             }
             items(versions, key = { it.id }, contentType = { "version" }) { version ->
-                SettingsGroup(if (version.current) "当前选择" else "候选版本", items = listOf({
+                SettingsGroup(if (version.current) "当前选择" else "候选版本", {
                     Column {
                         SettingsItem(headlineContent = { Text(version.title) }, supportingContent = { Text(version.artist + "\n" + version.summary) })
                         Text(version.preview, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
@@ -869,10 +869,10 @@ private fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute)
                             }
                         }
                     }
-                }))
+                })
             }
             item(key = "delete") {
-                SettingsGroup("来源记忆", items = listOf({
+                SettingsGroup("来源记忆", {
                     LibraryAction("删除记忆 / 恢复自动匹配", !busy) {
                         confirmation = LibraryConfirmation("删除这首歌的来源记忆？", "将删除《${entry.optString("title")}》在 ${entry.optString("source")} 的选择及历史版本，下次搜索恢复自动匹配。", "删除记忆") {
                             scope.launch {
@@ -881,7 +881,7 @@ private fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute)
                             }
                         }
                     }
-                }))
+                })
             }
         }
     }
@@ -915,16 +915,16 @@ private fun CustomLibraryComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBac
     }
     CollapsingSettingsLazyScaffold(title = "自定义歌词", onBack = onBack) {
         playing?.let { track -> item(key = "playing") {
-            SettingsGroup("正在播放", items = listOf({
+            SettingsGroup("正在播放", {
                 SettingsItem(headlineContent = { Text(track.title.ifBlank { "未知歌曲" }) }, supportingContent = { Text(track.artist) },
                     trailingContent = { TextButton(onClick = { onNavigate(ComposeRoute("editor", title = track.title, artist = track.artist)) }) { Text("添加或编辑") } })
-            }))
+            })
         } }
         item(key = "new") {
-            SettingsGroup("歌词库", items = listOf({
+            SettingsGroup("歌词库", {
                 SettingsItem(headlineContent = { Text("新建自定义歌词") }, supportingContent = { Text("手动填写歌名或导入 LRC · 已保存 ${entries.size} 份") },
                     trailingContent = { TextButton(onClick = { onNavigate(ComposeRoute("editor")) }) { Text("新建") } })
-            }))
+            })
         }
         if (entries.isEmpty()) item(key = "empty") { LibraryStatus(if (loaded) "还没有自定义歌词" else "正在读取…") }
         itemsIndexed(entries, key = { _, item -> item.id }, contentType = { _, _ -> "custom-lyric" }) { index, item ->
@@ -1051,12 +1051,12 @@ private fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) {
     BackHandler(enabled = active) { leave() }
     CollapsingSettingsScaffold(title = if (editingId == null) "添加自定义歌词" else "编辑自定义歌词", onBack = ::leave,
         actions = { TextButton(enabled = loaded && !saving, onClick = ::save) { Text(if (saving) "保存中…" else "保存") } }) {
-        SettingsGroup("歌曲信息", items = listOf({
+        SettingsGroup("歌曲信息", {
             Column {
                 LibraryField("歌名（必填）", title, { title = it }, loaded && !saving)
                 LibraryField("歌手（留空匹配所有同名歌曲）", artist, { artist = it }, loaded && !saving)
             }
-        }))
+        })
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             TextButton(enabled = loaded && !saving && !importing, onClick = { importLauncher.launch(arrayOf("*/*")) }) { Text(if (importing) "正在导入…" else "导入 .lrc 文件") }
             TextButton(enabled = loaded && !saving, onClick = {

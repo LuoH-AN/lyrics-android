@@ -23,7 +23,8 @@ import java.util.concurrent.TimeUnit
  * QQ Music and NetEase artwork are only used when the player did not publish one.
  */
 class DirectLyricsRepository {
-    private val latinTransliterator by lazy {
+    // ICU Transliterator 未声明线程安全；仓库的 provider 线程池会并发调用，改为线程独立实例。
+    private val latinTransliterator = ThreadLocal.withInitial {
         Transliterator.getInstance("Any-Latin; NFD; [:Nonspacing Mark:] Remove; NFC")
     }
     data class Result(
@@ -68,7 +69,11 @@ class DirectLyricsRepository {
         val translatedLyrics: String,
         val wordLyrics: String
     )
-    private val identityCache = ConcurrentHashMap<String, ResolvedIdentity>()
+    // 按访问序淘汰的 LRU；原先的 ConcurrentHashMap 超限时删的是任意哈希桶首个条目，可能误删热数据。
+    private val identityCache = object : LinkedHashMap<String, ResolvedIdentity>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ResolvedIdentity>?): Boolean =
+            size > 128
+    }
     private val artistAliasCache = ConcurrentHashMap<String, Set<String>>()
     private val providerCooldown = ConcurrentHashMap<String, Long>()
     private val excludedRecords = ThreadLocal<Set<String>>()
@@ -111,8 +116,11 @@ class DirectLyricsRepository {
         }
     }
 
-    private val executor = Executors.newFixedThreadPool(6) { runnable ->
-        Thread(runnable, "direct-lyrics").apply { isDaemon = true }
+    // 线程池改为懒加载；仓库实例可能只用于封面/翻译等轻路径，用不到就不建线程。
+    private val executor by lazy {
+        Executors.newFixedThreadPool(6) { runnable ->
+            Thread(runnable, "direct-lyrics").apply { isDaemon = true }
+        }
     }
 
     fun resolveLyrics(
@@ -209,11 +217,14 @@ class DirectLyricsRepository {
         } finally {
             futures.forEach { it.cancel(true) }
         }
+        // qualityRank 内含多轮逐行正则扫描，排序比较器会反复调用它；
+        // 先缓存一次分值再排序，distinctBy 本身保持有序，去掉冗余的第二轮排序。
         val ranked = (candidates + available.values.toList())
-            .sortedByDescending(::qualityRank)
+            .map { it to qualityRank(it) }
+            .sortedByDescending { it.second }
+            .map { it.first }
             .distinctBy { it.source }
             .distinctBy { "${it.source}\u0000${it.lyrics}" }
-            .sortedByDescending(::qualityRank)
         val primary = ranked.firstOrNull() ?: return Result()
         return primary.copy(alternatives = ranked.drop(1))
     }
@@ -281,10 +292,10 @@ class DirectLyricsRepository {
         artistAliasCache[key]?.let { return it }
         val aliases = mutableSetOf(key)
         return runCatching {
-            val root = JSONObject(getText(
+            val root = fetchJson(
                 "https://music.163.com/api/search/get/web?type=100&limit=3&s=${encode(artist)}",
                 mapOf("Referer" to "https://music.163.com/")
-            ))
+            )
             val artists = root.optJSONObject("result")?.optJSONArray("artists") ?: return@runCatching aliases
             for (index in 0 until artists.length()) {
                 val entry = artists.optJSONObject(index) ?: continue
@@ -360,7 +371,7 @@ class DirectLyricsRepository {
             val searchTrack = plan.track
             val searchUrl = "https://c.y.qq.com/soso/fcgi-bin/search_for_qq_cp" +
                 "?format=json&p=1&n=${searchResultLimit(searchTrack)}&w=${encode(plan.query)}"
-            val root = JSONObject(getText(searchUrl, headers))
+            val root = fetchJson(searchUrl, headers)
             val songs = root.optJSONObject("data")
                 ?.optJSONObject("song")
                 ?.optJSONArray("list") ?: continue
@@ -565,7 +576,7 @@ class DirectLyricsRepository {
             val line = raw.trim()
             val match = qrcLine.matchEntire(line)
             if (match == null) {
-                line.takeIf { Regex("^\\[\\d{1,3}:\\d{2}(?:[.:]\\d+)?]").containsMatchIn(it) }
+                line.takeIf { RE_LINE_LRC_TAG.containsMatchIn(it) }
             } else {
                 val start = match.groupValues[1].toLongOrNull() ?: return@mapNotNull null
                 val text = match.groupValues[3].replace(wordMarker, "").trim()
@@ -584,7 +595,7 @@ class DirectLyricsRepository {
 
     private fun cleanQqTranslation(lyrics: String): String = lyrics.lineSequence()
         .filterNot { line ->
-            val text = line.replace(Regex("^(\\[[^]]+])+"), "").trim()
+            val text = line.replace(RE_TIMED_TAG_PREFIX, "").trim()
             text == "//" || text.contains("QQ音乐享有本翻译作品的著作权") ||
                 text.contains("TME享有本翻译作品的著作权")
         }
@@ -606,7 +617,7 @@ class DirectLyricsRepository {
             val searchTrack = plan.track
             val searchUrl = "https://music.163.com/api/search/get/web" +
                 "?type=1&limit=${searchResultLimit(searchTrack)}&s=${encode(plan.query)}"
-            val root = JSONObject(getText(searchUrl, headers))
+            val root = fetchJson(searchUrl, headers)
             val songs = root.optJSONObject("result")?.optJSONArray("songs") ?: continue
             val rejectedSongIds = mutableSetOf<Long>()
             var best: Result? = null
@@ -645,7 +656,7 @@ class DirectLyricsRepository {
 
                 if (cover.isBlank()) {
                     val detailUrl = "https://music.163.com/api/song/detail/?id=$songId&ids=[$songId]"
-                    val detail = runCatching { JSONObject(getText(detailUrl, headers)) }.getOrNull()
+                    val detail = runCatching { fetchJson(detailUrl, headers) }.getOrNull()
                     val detailSong = detail?.optJSONArray("songs")?.optJSONObject(0)
                     cover = (detailSong?.optJSONObject("album") ?: detailSong?.optJSONObject("al"))
                         ?.optString("picUrl").orEmpty()
@@ -654,7 +665,7 @@ class DirectLyricsRepository {
 
                 val lyricUrl = "https://music.163.com/api/song/lyric?os=pc&id=$songId" +
                     "&lv=-1&kv=-1&tv=-1&yv=-1&rv=-1"
-                val lyricRoot = JSONObject(getText(lyricUrl, headers))
+                val lyricRoot = fetchJson(lyricUrl, headers)
                 val lyrics = lyricRoot.optJSONObject("lrc")?.optString("lyric").orEmpty()
                 if (!isUsableLyrics(lyrics)) {
                     rejectedSongIds += songId
@@ -775,7 +786,7 @@ class DirectLyricsRepository {
         if (expectedDurationMs <= 0L) return null
         val cacheKey = listOf(track, artist, album, (expectedDurationMs / 2_000L).toString())
             .joinToString("\u0000") { normalize(it) }
-        identityCache[cacheKey]?.let { return it }
+        synchronized(identityCache) { identityCache[cacheKey] }?.let { return it }
 
         val query = "$track $artist".trim()
         val url = "https://itunes.apple.com/search?term=${encode(query)}" +
@@ -829,15 +840,14 @@ class DirectLyricsRepository {
         if (secondScore != Int.MIN_VALUE && best.second < IDENTITY_STRONG_SCORE &&
             best.second - secondScore < IDENTITY_MIN_MARGIN
         ) return null
-        if (identityCache.size >= 128) identityCache.keys.firstOrNull()?.let(identityCache::remove)
-        identityCache[cacheKey] = best.first
+        synchronized(identityCache) { identityCache[cacheKey] = best.first }
         return best.first
     }
 
     private fun coreTitle(value: String): String = value
-        .replace(Regex("\\s*[（(][^）)]*[）)]\\s*"), " ")
-        .replace(Regex("\\s*[【\\[].*?[】\\]]\\s*"), " ")
-        .replace(Regex("\\s*(?:-|/)?\\s*(?:feat\\.?|ft\\.?|with)\\s+.+$", RegexOption.IGNORE_CASE), " ")
+        .replace(RE_PAREN_NOISE, " ")
+        .replace(RE_BRACKET_NOISE, " ")
+        .replace(RE_FEAT_TAIL, " ")
         .trim()
 
     private fun textSimilarity(first: String, second: String): Double {
@@ -856,11 +866,12 @@ class DirectLyricsRepository {
     private fun versionTags(value: String): Set<String> {
         val normalized = Normalizer.normalize(value, Normalizer.Form.NFKC).lowercase(Locale.ROOT)
         return buildSet {
-            if (Regex("\\blive\\b|现场|ライヴ|ライブ").containsMatchIn(normalized)) add("live")
-            if (Regex("instrumental|伴奏|纯音乐|純音楽|off\\s*vocal").containsMatchIn(normalized)) add("instrumental")
-            if (Regex("remix|リミックス").containsMatchIn(normalized)) add("remix")
-            if (Regex("acoustic|アコースティック").containsMatchIn(normalized)) add("acoustic")
-            if (Regex("karaoke|カラオケ").containsMatchIn(normalized)) add("karaoke")
+            // 正则全部预编译在 companion；该函数在候选循环里逐条调用。
+            if (TAG_LIVE.containsMatchIn(normalized)) add("live")
+            if (TAG_INSTRUMENTAL.containsMatchIn(normalized)) add("instrumental")
+            if (TAG_REMIX.containsMatchIn(normalized)) add("remix")
+            if (TAG_ACOUSTIC.containsMatchIn(normalized)) add("acoustic")
+            if (TAG_KARAOKE.containsMatchIn(normalized)) add("karaoke")
         }
     }
 
@@ -983,9 +994,19 @@ class DirectLyricsRepository {
         }
     }
 
+    // ICU 转写昂贵且同一查询里查询侧字符串反复出现；LRU 缓存转写结果。
+    private val latinCache = object : LinkedHashMap<String, String>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean =
+            size > 256
+    }
+
+    private fun latinize(value: String): String = synchronized(latinCache) {
+        latinCache.getOrPut(value) { latinTransliterator.get().transliterate(value) }
+    }
+
     private fun latinSimilarity(first: String, second: String): Double {
-        val left = normalize(latinTransliterator.transliterate(first))
-        val right = normalize(latinTransliterator.transliterate(second))
+        val left = normalize(latinize(first))
+        val right = normalize(latinize(second))
         if (left.isBlank() || right.isBlank()) return 0.0
         if (left == right) return 1.0
         val distance = editDistance(left, right)
@@ -1011,15 +1032,15 @@ class DirectLyricsRepository {
 
     private fun normalize(value: String): String = Normalizer.normalize(value, Normalizer.Form.NFKC)
         .lowercase(Locale.ROOT)
-        .replace(Regex("[（(\\[].*?(live|remaster|版|伴奏|纯音乐|翻唱).*?[）)\\]]", RegexOption.IGNORE_CASE), "")
-        .replace(Regex("[^\\p{L}\\p{N}]"), "")
+        .replace(RE_PAREN_VERSION, "")
+        .replace(RE_NON_LETTER, "")
 
     private fun titleIdentityKey(value: String): String {
         val alphanumeric = normalize(value)
         if (alphanumeric.isNotBlank()) return alphanumeric
         return Normalizer.normalize(value, Normalizer.Form.NFKC)
             .lowercase(Locale.ROOT)
-            .replace(Regex("\\s+"), "")
+            .replace(RE_WHITESPACE, "")
     }
 
     private fun commonPrefixRatio(first: String, second: String): Double {
@@ -1039,7 +1060,7 @@ class DirectLyricsRepository {
     private fun coverage(original: String, extra: String): Int {
         if (!isUsableLyrics(extra)) return 0
         fun timedLines(text: String): Int = text.lineSequence().count {
-            Regex("^\\[(?:\\d+:\\d+|\\d+,\\d+)").containsMatchIn(it.trim())
+            RE_TIMED_LINE.containsMatchIn(it.trim())
         }
         val base = timedLines(original).coerceAtLeast(1)
         return (timedLines(extra) * 100 / base).coerceIn(0, 100)
@@ -1047,7 +1068,7 @@ class DirectLyricsRepository {
 
     private fun needsEnrichment(result: Result): Boolean = result.score >= EXACT_MATCH_SCORE &&
         (coverage(result.lyrics, result.wordLyrics) < 80 ||
-            (Regex("[a-zA-Z\\u3040-\\u30ff\\uac00-\\ud7af]").containsMatchIn(result.lyrics) &&
+            (RE_HAS_LATIN.containsMatchIn(result.lyrics) &&
                 coverage(result.lyrics, result.translatedLyrics) < 80))
 
     private fun qualityRank(result: Result): Int {
@@ -1065,10 +1086,10 @@ class DirectLyricsRepository {
     }
 
     private fun isTitleOnlyLyrics(value: String, track: String): Boolean {
-        val lines = value.lineSequence().map { it.replace(Regex("^(\\[[^]]+])+"), "").trim() }
+        val lines = value.lineSequence().map { it.replace(RE_TIMED_TAG_PREFIX, "").trim() }
             .filter { it.isNotBlank() }.toList()
         if (lines.size != 1) return false
-        val title = lines[0].split(Regex("\\s+[-–—]\\s+"), limit = 2)[0]
+        val title = lines[0].split(RE_TITLE_SPLIT, limit = 2)[0]
         return titleIdentityKey(title) == titleIdentityKey(track)
     }
 
@@ -1079,23 +1100,22 @@ class DirectLyricsRepository {
         ) return false
 
         val meaningful = normalized.lineSequence()
-            .map { it.replace(Regex("^(\\[[^]]+])+"), "").trim() }
+            .map { it.replace(RE_TIMED_TAG_PREFIX, "").trim() }
             .filter { it.isNotBlank() }
-            .filterNot { Regex("^(?:作词|作詞|作曲|编曲|編曲|词|詞|曲|制作人|製作人|混音|母带|录音|演唱|歌手|composer|lyricist|arranger|producer)\\s*[:：]", RegexOption.IGNORE_CASE).containsMatchIn(it) }
+            .filterNot { RE_CREDIT_LINE.containsMatchIn(it) }
             .toList()
         if (meaningful.isEmpty()) return false
         val body = meaningful.asSequence()
             .joinToString("")
-            .replace(Regex("[\\s,，。.!！?？、]"), "")
+            .replace(RE_PUNCTUATION, "")
         if (body.length <= 48 && PLACEHOLDER_LYRICS.any { it.matches(body) }) return false
         return true
     }
 
     private fun lyricBodyScore(lyrics: String): Int {
-        val credit = Regex("^(作词|作詞|作曲|编曲|編曲|词|詞|曲|composer|lyricist|arranger)\\s*[:：]", RegexOption.IGNORE_CASE)
         val count = lyrics.lineSequence().count { raw ->
-            val text = raw.replace(Regex("^(\\[[^]]+])+"), "").trim()
-            text.isNotBlank() && !credit.containsMatchIn(text) &&
+            val text = raw.replace(RE_TIMED_TAG_PREFIX, "").trim()
+            text.isNotBlank() && !RE_CREDIT_LINE_SHORT.containsMatchIn(text) &&
                 !text.contains("纯音乐，请欣赏")
         }
         return count.coerceAtMost(40) * 3
@@ -1116,6 +1136,17 @@ class DirectLyricsRepository {
             runCatching { JSONObject(text) }.getOrNull()?.let { checkStatus(url, it.optInt("code", 0)) }
         }
         return text
+    }
+
+    /** 一次取回并解析 JSON：业务码检查与解析共用同一份结果，避免响应被解析两遍。 */
+    private fun fetchJson(url: String, headers: Map<String, String>): JSONObject {
+        val bytes = getBytes(url, headers)
+        val json = runCatching { JSONObject(bytes.toString(Charsets.UTF_8)) }
+            .getOrElse {
+                runCatching { JSONObject(bytes.toString(Charset.forName("GBK"))) }.getOrElse { throw it }
+            }
+        checkStatus(url, json.optInt("code", 0))
+        return json
     }
 
     private fun postFormText(
@@ -1141,7 +1172,11 @@ class DirectLyricsRepository {
             connection.outputStream.use { it.write(body) }
             val status = connection.responseCode
             checkStatus(url, status)
-            if (status !in 200..299) throw IllegalStateException("HTTP $status")
+            if (status !in 200..299) {
+                // 排空错误响应体，连接才能回到 keep-alive 池复用。
+                runCatching { connection.errorStream?.use { it.readBytes() } }
+                throw IllegalStateException("HTTP $status")
+            }
             connection.inputStream.use { input ->
                 val output = ByteArrayOutputStream()
                 val buffer = ByteArray(8192)
@@ -1156,7 +1191,8 @@ class DirectLyricsRepository {
                 return output.toString(Charsets.UTF_8.name())
             }
         } finally {
-            connection.disconnect()
+            // 不主动 disconnect：完整读取后底层 socket 由 HttpURLConnection 的
+            // keep-alive 池复用，避免每次请求都做完整 TLS 握手。
         }
     }
 
@@ -1172,7 +1208,10 @@ class DirectLyricsRepository {
             headers.forEach(connection::setRequestProperty)
             val status = connection.responseCode
             checkStatus(url, status)
-            if (status !in 200..299) throw IllegalStateException("HTTP $status")
+            if (status !in 200..299) {
+                runCatching { connection.errorStream?.use { it.readBytes() } }
+                throw IllegalStateException("HTTP $status")
+            }
             connection.inputStream.use { input ->
                 val output = ByteArrayOutputStream()
                 val buffer = ByteArray(8192)
@@ -1187,7 +1226,7 @@ class DirectLyricsRepository {
                 return output.toByteArray()
             }
         } finally {
-            connection.disconnect()
+            // 同上：不 disconnect，交给 keep-alive 池。
         }
     }
 
@@ -1208,6 +1247,26 @@ class DirectLyricsRepository {
 
     companion object {
         private const val LOG_TAG = "DesktopLyrics"
+        // 热路径正则统一预编译：normalize/versionTags/逐行扫描在候选循环里被调用数千次。
+        private val RE_PAREN_VERSION = Regex("[（(\\[].*?(live|remaster|版|伴奏|纯音乐|翻唱).*?[）)\\]]", RegexOption.IGNORE_CASE)
+        private val RE_NON_LETTER = Regex("[^\\p{L}\\p{N}]")
+        private val RE_WHITESPACE = Regex("\\s+")
+        private val RE_TIMED_TAG_PREFIX = Regex("^(\\[[^]]+])+")
+        private val RE_TIMED_LINE = Regex("^\\[(?:\\d+:\\d+|\\d+,\\d+)")
+        private val RE_LINE_LRC_TAG = Regex("^\\[\\d{1,3}:\\d{2}(?:[.:]\\d+)?]")
+        private val RE_CREDIT_LINE = Regex("^(?:作词|作詞|作曲|编曲|編曲|词|詞|曲|制作人|製作人|混音|母带|录音|演唱|歌手|composer|lyricist|arranger|producer)\\s*[:：]", RegexOption.IGNORE_CASE)
+        private val RE_CREDIT_LINE_SHORT = Regex("^(作词|作詞|作曲|编曲|編曲|词|詞|曲|composer|lyricist|arranger)\\s*[:：]", RegexOption.IGNORE_CASE)
+        private val RE_PUNCTUATION = Regex("[\\s,，。.!！?？、]")
+        private val RE_TITLE_SPLIT = Regex("\\s+[-–—]\\s+")
+        private val RE_PAREN_NOISE = Regex("\\s*[（(][^）)]*[）)]\\s*")
+        private val RE_BRACKET_NOISE = Regex("\\s*[【\\[].*?[】\\]]\\s*")
+        private val RE_FEAT_TAIL = Regex("\\s*(?:-|/)?\\s*(?:feat\\.?|ft\\.?|with)\\s+.+$", RegexOption.IGNORE_CASE)
+        private val RE_HAS_LATIN = Regex("[a-zA-Z\\u3040-\\u30ff\\uac00-\\ud7af]")
+        private val TAG_LIVE = Regex("\\blive\\b|现场|ライヴ|ライブ")
+        private val TAG_INSTRUMENTAL = Regex("instrumental|伴奏|纯音乐|純音楽|off\\s*vocal")
+        private val TAG_REMIX = Regex("remix|リミックス")
+        private val TAG_ACOUSTIC = Regex("acoustic|アコースティック")
+        private val TAG_KARAOKE = Regex("karaoke|カラオケ")
         private const val CONNECT_TIMEOUT_MS = 3_000
         private const val READ_TIMEOUT_MS = 6_000
         private const val LYRICS_DEADLINE_MS = 10_000L
