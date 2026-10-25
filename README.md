@@ -3,36 +3,43 @@
 
 # 桌面歌词
 
-简洁的 Android 桌面歌词应用，由 [LuoH-AN](https://github.com/LuoH-AN) 维护。
+歌在你常用的播放器里放，歌词在这里慢慢走。
 
 [下载正式版](https://github.com/LuoH-AN/lyrics-android/releases/latest) · [反馈问题](https://github.com/LuoH-AN/lyrics-android/issues)
 
 </div>
 
-让歌词跟着音乐，出现在你想看的地方。通过 Jetpack Compose Material 界面和可拖动的桌面歌词，同步显示正在播放的歌词；支持逐字高亮、双语显示、自定义歌词，以及字号、颜色和背景调整。不需要额外账号，配合你常用的音乐播放器即可使用。
+打开主页，专辑封面铺成背景，歌词跟着音乐滚动。有逐字时间轴的歌，唱到哪里，就亮到哪里。碰到想重听的一句，点一下歌词就能跳过去。
 
-<p align="center">
-  <img src="https://i.luoh.org/file/wZxhwij4.webp" width="23%" alt="桌面歌词应用预览 1">
-  <img src="https://i.luoh.org/file/hcpv0wyj.webp" width="23%" alt="桌面歌词应用预览 2">
-  <img src="https://i.luoh.org/file/mMNccDZa.webp" width="23%" alt="桌面歌词应用预览 3">
-  <img src="https://i.luoh.org/file/8tn8gupD.webp" width="23%" alt="桌面歌词应用预览 4">
-</p>
+回消息、刷网页时，把歌词留在桌面小窗里，拖到顺手的位置。主页的播放控制栏也能下滑收起来，留下圆形封面、环形进度和歌曲信息；点封面播放或暂停，上滑再展开。
 
-## 开始使用
+| 封面歌词主页 | 桌面歌词外观 | 应用主题配色 | 歌词与翻译 |
+| :---: | :---: | :---: | :---: |
+| <a href="docs/assets/screenshots/home.webp"><img src="docs/assets/screenshots/home.webp" width="180" alt="铺满的封面背景、逐字高亮和双语歌词"></a> | <a href="docs/assets/screenshots/desktop-lyrics.webp"><img src="docs/assets/screenshots/desktop-lyrics.webp" width="180" alt="桌面歌词预览与文字、背景设置"></a> | <a href="docs/assets/screenshots/appearance.webp"><img src="docs/assets/screenshots/appearance.webp" width="180" alt="深色主题、AMOLED 和配色设置"></a> | <a href="docs/assets/screenshots/lyrics-translation.webp"><img src="docs/assets/screenshots/lyrics-translation.webp" width="180" alt="双语显示、补充翻译、自定义歌词与歌词源管理"></a> |
 
-1. 下载并安装最新版本 APK。
-2. 按提示授予通知使用权和悬浮窗权限。
-3. 播放音乐，点击主页中控台「⋯」左侧的歌词图标开启桌面歌词；具体调整在「⋯ → 设置」里。
+*四张图由当前应用界面渲染，主页歌曲和歌词为示例内容。点开图片可以看大图。*
 
-主页控制栏下滑收起、上滑展开，也可以点击歌曲信息切换。收起后保留圆形封面、环形播放进度、歌曲信息和右侧两个按钮；点击封面播放或暂停。主页背景将专辑封面铺满、模糊并压暗，播放时轻微移动，切歌时淡入切换；可在「设置 → 主页歌词 → 封面模糊背景」开关，暂停或离开主页时停止移动。应用外观支持「黑白灰」方案风格，自定义黑灰颜色保持中性。
+## 调成自己喜欢的样子
 
-需要 Android 8.0 及以上、64 位 ARM 设备和 Android System WebView。播放器需提供标准 MediaSession；如桌面歌词被系统清理，请放宽应用的后台省电限制。
+封面背景会在播放时轻轻移动，切歌时淡入。喜欢干净的纯色页面，也可以把它关掉。浅色、深色、AMOLED、壁纸动态颜色和黑白灰都能选；字号、字重、行间距、对齐方式，以及歌词滚动的缓动、错位、缩放和模糊，也都可以自己调。
 
-## 来源与使用说明
+听外语歌时，可以把原文和译文放在一起看。歌词源有译文就直接用；没有的话，再选择下载离线翻译语言包，或接入自己的翻译 API。两种补充翻译都需要主动开启。
 
-本项目基于 [Tcrrrry](https://github.com/tcrrry)（B站 @Tcrrrry）的 [desktop-lyrics](https://github.com/tcrrry/desktop-lyrics) 继续开发，感谢原作者的工作。
+歌词会从 QQ 音乐、网易云音乐和 LRCLIB 查找，主页和小窗共用缓存。搜不到的歌，可以导入自己的 LRC；时间对不上，可以调偏移；想换歌词版本，可以去歌词源管理里挑。
 
-社区：[LINUX DO](https://linux.do/)。
+## 装好就听
+
+1. [下载 APK](https://github.com/LuoH-AN/lyrics-android/releases/latest)，安装后按提示授予通知使用权；使用桌面小窗还需要悬浮窗权限。
+2. 在常用的音乐播放器里放一首歌，回到这里看歌词。
+3. 想把歌词放到桌面，点主页控制栏「⋯」左侧的歌词按钮。其他调整都在「⋯ → 设置」里。
+
+需要 **Android 8.0 及以上、64 位 ARM 设备**和 Android System WebView。播放器要能通过系统媒体会话提供歌曲信息。小窗被系统清理时，可以放宽应用的后台省电限制。
+
+更多细节：[歌词查找](docs/guide/lyrics-search.md) · [歌词外观与翻译](docs/guide/lyrics-display.md) · [反馈问题](https://github.com/LuoH-AN/lyrics-android/issues)
+
+## 从哪里来
+
+由 [LuoH-AN](https://github.com/LuoH-AN) 继续开发，最初来自 [Tcrrrry](https://github.com/tcrrry)（B站 @Tcrrrry）的 [desktop-lyrics](https://github.com/tcrrry/desktop-lyrics)。感谢原作者，也欢迎来 [LINUX DO](https://linux.do/) 交流。
 
 Compose 页面组件参考并移植自 [Agora](https://github.com/newo-ether/Agora)，保留其 [GPL-3.0 许可](app/src/main/kotlin/com/luoh/music/lrc/ui/agora/LICENSE)；迁移说明见 [Agora Compose 页面迁移](docs/agora-compose-migration.md)。
 

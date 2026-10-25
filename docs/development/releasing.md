@@ -36,4 +36,4 @@
 
 ## 参考
 
-[原生界面结构](material-ui.md) · [歌词搜索流程](../guide/lyrics-search.md) · [来源与使用说明](../../README.md#来源与使用说明)
+[原生界面结构](material-ui.md) · [歌词搜索流程](../guide/lyrics-search.md) · [项目来源](../../README.md#从哪里来)
