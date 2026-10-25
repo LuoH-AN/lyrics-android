@@ -50,6 +50,9 @@ public final class QqQrcDecoder {
     private static final int[] SHIFTS = {1,1,2,2,2,2,2,2,1,2,2,2,2,2,2,1};
 
     // QQ's cloud QRC cipher has two historical S-box deviations from standard DES.
+    // S2 row 2 col 8 is 15 here (standard DES: 14).
+    // S4 row 4 has "10,10" here (standard DES: "10,1"). This is NOT a typo:
+    // QQ's encoder uses the same table, so "fixing" it would break every QRC payload.
     private static final int[][] SBOX = {
         {14,4,13,1,2,15,11,8,3,10,6,12,5,9,0,7, 0,15,7,4,14,2,13,1,10,6,12,11,9,5,3,8, 4,1,14,8,13,6,2,11,15,12,9,7,3,10,5,0, 15,12,8,2,4,9,1,7,5,11,3,14,10,0,6,13},
         {15,1,8,14,6,11,3,4,9,7,2,13,12,0,5,10, 3,13,4,7,15,2,8,15,12,0,1,10,6,9,11,5, 0,14,7,11,10,4,13,1,5,8,12,6,9,3,2,15, 13,8,10,1,3,15,4,2,11,6,7,12,0,5,14,9},
@@ -63,6 +66,24 @@ public final class QqQrcDecoder {
 
     private QqQrcDecoder() {}
 
+    /** 3DES 密钥为编译期常量，密钥表只需计算一次；此前每次 decode 都重算三遍。 */
+    private static final byte[][][] CACHED_SCHEDULE = buildCachedSchedule();
+
+    private static byte[][][] buildCachedSchedule() {
+        byte[][][] schedule = new byte[3][16][6];
+        keySchedule(KEY, 0, schedule[2], false);
+        keySchedule(KEY, 8, schedule[1], true);
+        keySchedule(KEY, 16, schedule[0], false);
+        return schedule;
+    }
+
+    private static int hexNibble(char c) {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+        return -1;
+    }
+
     public static String decode(String encryptedHex) throws Exception {
         String hex = encryptedHex == null ? "" : encryptedHex.trim();
         if ((hex.length() & 1) != 0 || !hex.matches("[0-9A-Fa-f]+")) {
@@ -70,22 +91,26 @@ public final class QqQrcDecoder {
         }
         byte[] encrypted = new byte[hex.length() / 2];
         for (int i = 0; i < encrypted.length; i++) {
-            encrypted[i] = (byte) Integer.parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+            int high = hexNibble(hex.charAt(i * 2));
+            int low = hexNibble(hex.charAt(i * 2 + 1));
+            encrypted[i] = (byte) ((high << 4) | low);
         }
         if (encrypted.length == 0 || encrypted.length % 8 != 0) {
             throw new IllegalArgumentException("Invalid QRC block length");
         }
 
-        byte[][][] schedule = new byte[3][16][6];
-        keySchedule(KEY, 0, schedule[2], false);
-        keySchedule(KEY, 8, schedule[1], true);
-        keySchedule(KEY, 16, schedule[0], false);
+        byte[][][] schedule = CACHED_SCHEDULE;
+        // 三个 8 字节缓冲在循环外分配，整份 QRC 只做几次小分配。
+        byte[] block = new byte[8];
+        byte[] mid = new byte[8];
+        byte[] out = new byte[8];
         byte[] decrypted = new byte[encrypted.length];
         for (int offset = 0; offset < encrypted.length; offset += 8) {
-            byte[] block = new byte[8];
             System.arraycopy(encrypted, offset, block, 0, 8);
-            byte[] decoded = tripleDesCrypt(block, schedule);
-            System.arraycopy(decoded, 0, decrypted, offset, 8);
+            desCrypt(block, schedule[0], mid);
+            desCrypt(mid, schedule[1], out);
+            desCrypt(out, schedule[2], block);
+            System.arraycopy(block, 0, decrypted, offset, 8);
         }
 
         try (InflaterInputStream input = new InflaterInputStream(new ByteArrayInputStream(decrypted));
@@ -162,13 +187,19 @@ public final class QqQrcDecoder {
     private static int feistelLegacy(int state, byte[] key) {
         int t1=bitNumIntl(state,31,0)|((state&0xf0000000)>>>1)|bitNumIntl(state,4,5)|bitNumIntl(state,3,6)|((state&0x0f000000)>>>3)|bitNumIntl(state,8,11)|bitNumIntl(state,7,12)|((state&0x00f00000)>>>5)|bitNumIntl(state,12,17)|bitNumIntl(state,11,18)|((state&0x000f0000)>>>7)|bitNumIntl(state,16,23);
         int t2=bitNumIntl(state,15,0)|((state&0x0000f000)<<15)|bitNumIntl(state,20,5)|bitNumIntl(state,19,6)|((state&0x00000f00)<<13)|bitNumIntl(state,24,11)|bitNumIntl(state,23,12)|((state&0x000000f0)<<11)|bitNumIntl(state,28,17)|bitNumIntl(state,27,18)|((state&0x0000000f)<<9)|bitNumIntl(state,0,23);
-        int[] l={(t1>>>24)&255,(t1>>>16)&255,(t1>>>8)&255,(t2>>>24)&255,(t2>>>16)&255,(t2>>>8)&255};
-        for(int i=0;i<6;i++)l[i]^=key[i]&255;
-        int result=(SBOX[0][sboxBit(l[0]>>>2)]<<28)|(SBOX[1][sboxBit(((l[0]&3)<<4)|(l[1]>>>4))]<<24)|(SBOX[2][sboxBit(((l[1]&15)<<2)|(l[2]>>>6))]<<20)|(SBOX[3][sboxBit(l[2]&63)]<<16)|(SBOX[4][sboxBit(l[3]>>>2)]<<12)|(SBOX[5][sboxBit(((l[3]&3)<<4)|(l[4]>>>4))]<<8)|(SBOX[6][sboxBit(((l[4]&15)<<2)|(l[5]>>>6))]<<4)|SBOX[7][sboxBit(l[5]&63)];
+        // 每块每轮都走这里；用局部标量替代此前的 int[6] 分配。
+        int l0=((t1>>>24)&255)^(key[0]&255);
+        int l1=((t1>>>16)&255)^(key[1]&255);
+        int l2=((t1>>>8)&255)^(key[2]&255);
+        int l3=((t2>>>24)&255)^(key[3]&255);
+        int l4=((t2>>>16)&255)^(key[4]&255);
+        int l5=((t2>>>8)&255)^(key[5]&255);
+        int result=(SBOX[0][sboxBit(l0>>>2)]<<28)|(SBOX[1][sboxBit(((l0&3)<<4)|(l1>>>4))]<<24)|(SBOX[2][sboxBit(((l1&15)<<2)|(l2>>>6))]<<20)|(SBOX[3][sboxBit(l2&63)]<<16)|(SBOX[4][sboxBit(l3>>>2)]<<12)|(SBOX[5][sboxBit(((l3&3)<<4)|(l4>>>4))]<<8)|(SBOX[6][sboxBit(((l4&15)<<2)|(l5>>>6))]<<4)|SBOX[7][sboxBit(l5&63)];
         return bitNumIntl(result,15,0)|bitNumIntl(result,6,1)|bitNumIntl(result,19,2)|bitNumIntl(result,20,3)|bitNumIntl(result,28,4)|bitNumIntl(result,11,5)|bitNumIntl(result,27,6)|bitNumIntl(result,16,7)|bitNumIntl(result,0,8)|bitNumIntl(result,14,9)|bitNumIntl(result,22,10)|bitNumIntl(result,25,11)|bitNumIntl(result,4,12)|bitNumIntl(result,17,13)|bitNumIntl(result,30,14)|bitNumIntl(result,9,15)|bitNumIntl(result,1,16)|bitNumIntl(result,7,17)|bitNumIntl(result,23,18)|bitNumIntl(result,13,19)|bitNumIntl(result,31,20)|bitNumIntl(result,26,21)|bitNumIntl(result,2,22)|bitNumIntl(result,8,23)|bitNumIntl(result,18,24)|bitNumIntl(result,12,25)|bitNumIntl(result,29,26)|bitNumIntl(result,5,27)|bitNumIntl(result,21,28)|bitNumIntl(result,10,29)|bitNumIntl(result,3,30)|bitNumIntl(result,24,31);
     }
 
-    private static byte[] desCrypt(byte[] input, byte[][] key) {
+    /** 输出写入 output[0..7]，调用方复用缓冲，避免整份 QRC 逐块分配。 */
+    private static void desCrypt(byte[] input, byte[][] key, byte[] output) {
         int[] state=new int[2];
         initialPermutation(state,input);
         for(int round=0;round<15;round++){
@@ -177,12 +208,6 @@ public final class QqQrcDecoder {
             state[0]=temp;
         }
         state[0]=feistelLegacy(state[1],key[15])^state[0];
-        byte[] output=new byte[8];
         inversePermutation(state,output);
-        return output;
-    }
-
-    private static byte[] tripleDesCrypt(byte[] input, byte[][][] schedule) {
-        return desCrypt(desCrypt(desCrypt(input,schedule[0]),schedule[1]),schedule[2]);
     }
 }
