@@ -440,10 +440,10 @@ class MainActivity : ComponentActivity() {
     /** 只查本地：先自定义歌词，再 14 天内的缓存。查不到返回 null（需要联网）。 */
     private fun localPayload(track: String, artist: String, album: String, durationMs: Long): LyricPayload? {
         CustomLyricsStore.find(this, track, artist)?.let { entry ->
-            val parsed = CustomLyricsStore.parse(entry.lyrics)
+            val parsed = CustomLyricsStore.parse(entry)
             if (parsed.lyrics.isNotBlank()) {
                 return LyricPayload(
-                    parsed.lyrics, parsed.translatedLyrics, "",
+                    parsed.lyrics, parsed.translatedLyrics, entry.wordLyrics,
                     CustomLyricsStore.SOURCE, entry.recordId
                 )
             }
@@ -454,7 +454,8 @@ class MainActivity : ComponentActivity() {
 
     private fun parsePayload(payload: LyricPayload): LyricDocument =
         if (payload.isBlank) LyricDocument(emptyList(), true)
-        else LyricParser.parse(payload.lyrics, payload.translated, payload.word)
+        else LyricParser.parse(payload.lyrics, payload.translated, payload.word,
+            allowPartialWords = payload.source == CustomLyricsStore.SOURCE)
 
     private fun applyLyricPayload(payload: LyricPayload, document: LyricDocument) {
         currentPayloadSignature = payload.signature
@@ -679,7 +680,10 @@ class MainActivity : ComponentActivity() {
 
         override fun editCustomLyrics() {
             if (currentTrack.isNotBlank()) {
-                startActivity(CustomLyricsEditActivity.intent(this@MainActivity, currentTrack, currentArtist))
+                val intent = if (!currentLyricsCustom && currentLrcText.isNotBlank()) {
+                    CustomLyricsEditActivity.cachedIntent(this@MainActivity, currentTrack, currentArtist)
+                } else CustomLyricsEditActivity.intent(this@MainActivity, currentTrack, currentArtist)
+                startActivity(intent)
             } else {
                 manageCustomLyrics()
             }

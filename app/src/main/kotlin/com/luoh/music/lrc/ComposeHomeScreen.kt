@@ -848,7 +848,11 @@ private fun HomeMoreSheet(state: HomePresentationState, onDismiss: () -> Unit) {
         },
     ) {
         LazyColumn(state = scroll, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-            item { HomeSheetOption(if (state.custom) "编辑自定义歌词" else "添加自定义歌词", Icons.Default.Edit) { select { state.actions?.editCustomLyrics() } } }
+            item { HomeSheetOption(when {
+                state.custom -> "编辑自定义歌词"
+                state.document.lines.isNotEmpty() -> "修改当前歌词"
+                else -> "添加自定义歌词"
+            }, Icons.Default.Edit) { select { state.actions?.editCustomLyrics() } } }
             item { HomeSheetOption("管理自定义歌词", Icons.Default.LibraryMusic) { select { state.actions?.manageCustomLyrics() } } }
             item { HomeSheetOption("歌词源管理", Icons.Default.Layers) { select { state.actions?.manageLyricSources() } } }
             item { HomeSheetOption("补充翻译", Icons.Default.Translate) { select { state.onTranslationSettings?.invoke() } } }

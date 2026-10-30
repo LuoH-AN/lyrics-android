@@ -217,6 +217,10 @@
 
     function attachTranslations(lines,raw) {
       if(!lines.length||!raw)return lines;
+      if(lines.every(line=>line.plain)){
+        const translations=plainLyrics(raw);
+        return lines.map((line,index)=>({...line,translation:translations[index]?.text||''}));
+      }
       const translations=parseLrc(raw);
       if(!translations.length)return lines;
       let cursor=0;
@@ -646,8 +650,16 @@
         }catch(_){}
       }
       const lineTimed=parseLrc(data.lyrics);
-      const wordTimed=completeWordLyrics(data,lineTimed);
-      const base=wordTimed.length?wordTimed:(lineTimed.length?lineTimed:plainLyrics(data.lyrics));
+      const wordTimed=data.custom?parseWordLyrics(data.wordLyrics):completeWordLyrics(data,lineTimed);
+      let base=wordTimed.length?wordTimed:(lineTimed.length?lineTimed:plainLyrics(data.lyrics));
+      if(data.custom&&lineTimed.length){
+        // Keep every corrected line; unchanged rows alone carry the saved karaoke timing.
+        const wordsByTime=new Map(wordTimed.map(line=>[Math.round(line.t),line]));
+        base=lineTimed.map(line=>{
+          const word=wordsByTime.get(Math.round(line.t));
+          return word&&word.text===line.text?{...line,duration:word.duration,words:word.words}:line;
+        });
+      }
       if((!playback.durationMs||playback.durationMs<1000)&&Number(data.duration)>0)playback.durationMs=Number(data.duration);
       renderLyrics(attachTranslations(base,data.translatedLyrics),data.lyrics?'':'未找到歌词');
       if(data.cover)setCover(data.cover,false);

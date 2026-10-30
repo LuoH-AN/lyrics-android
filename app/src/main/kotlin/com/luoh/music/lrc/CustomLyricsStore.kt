@@ -8,7 +8,7 @@ import java.text.Normalizer
 import java.util.Locale
 
 /**
- * 用户手动指定的 LRC 歌词。按「歌名 + 歌手」匹配，歌手留空则匹配所有同名歌曲。
+ * 用户手动指定的歌词。按「歌名 + 歌手」匹配，歌手留空则匹配所有同名歌曲。
  * 命中后主页与悬浮窗都直接使用，不再联网搜索；删除后恢复自动匹配。
  */
 object CustomLyricsStore {
@@ -28,19 +28,24 @@ object CustomLyricsStore {
         val title: String,
         val artist: String,
         val lyrics: String,
-        val updatedAt: Long
+        val updatedAt: Long,
+        val structured: Boolean = false,
+        val translatedLyrics: String = "",
+        val wordLyrics: String = "",
+        val durationMs: Long = 0L
     ) {
         /** 内容变了 recordId 就变，悬浮窗据此判断需不需要重新渲染。 */
         val recordId: String get() = "custom:$id:$updatedAt"
     }
 
-    /** 同一时间戳下的第二行视为译文；没有时间轴的行会被忽略。 */
+    /** 解析后的正文、译文及编辑器统计。 */
     data class Parsed(
         val lyrics: String,
         val translatedLyrics: String,
         val lineCount: Int,
         val translationCount: Int,
-        val ignoredCount: Int
+        val ignoredCount: Int,
+        val timed: Boolean = true
     )
 
     private fun prefs(context: Context) =
@@ -72,8 +77,10 @@ object CustomLyricsStore {
     }
 
     /** 改了歌名或歌手时 id 会变，需要把旧条目一并删掉。 */
-    fun save(context: Context, title: String, artist: String, lyrics: String, replacingId: String? = null): Entry {
-        val entry = Entry(idOf(title, artist), title.trim(), artist.trim(), lyrics.take(MAX_LENGTH), System.currentTimeMillis())
+    fun save(context: Context, title: String, artist: String, lyrics: String, replacingId: String? = null,
+             structured: Boolean = false, translatedLyrics: String = "", wordLyrics: String = "", durationMs: Long = 0L): Entry {
+        val entry = Entry(idOf(title, artist), title.trim(), artist.trim(), lyrics.take(MAX_LENGTH), System.currentTimeMillis(),
+            structured, translatedLyrics.take(MAX_LENGTH), wordLyrics.takeIf { it.length <= MAX_LENGTH }.orEmpty(), durationMs.coerceAtLeast(0L))
         val editor = prefs(context).edit()
         if (replacingId != null && replacingId != entry.id) editor.remove(ENTRY_PREFIX + replacingId)
         editor.putString(ENTRY_PREFIX + entry.id, encode(entry)).apply()
@@ -84,6 +91,30 @@ object CustomLyricsStore {
         prefs(context).edit().remove(ENTRY_PREFIX + id).apply()
     }
 
+    /** Cache corrections keep original and translated tracks separate, including plain lyrics. */
+    fun parse(entry: Entry): Parsed = if (entry.structured) parse(entry.lyrics, entry.translatedLyrics) else parse(entry.lyrics)
+
+    fun parse(lyrics: String, translatedLyrics: String): Parsed {
+        val main = normalizeTrack(lyrics)
+        val translated = normalizeTrack(translatedLyrics)
+        val document = LyricParser.parse(main, translated)
+        return Parsed(main, translated, document.lines.size,
+            document.lines.count { it.translation.isNotBlank() }, 0, document.timed)
+    }
+
+    /** Materialize offsets for both renderers without merging separate tracks or dropping empty timestamps. */
+    private fun normalizeTrack(raw: String): String {
+        val rows = raw.removePrefix(BOM).replace("\r\n", "\n").replace('\r', '\n').lines()
+        val offsetMs = rows.mapNotNull { OFFSET_TAG.matchEntire(it.trim()) }
+            .lastOrNull()?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+        return rows.filterNot { OFFSET_TAG.matches(it.trim()) }.joinToString("\n") { row ->
+            if (!TIME_TAG.containsMatchIn(row)) row
+            else TIME_TAG.replace(row) { formatTime((toMillis(it) - offsetMs).coerceAtLeast(0L)) }
+                .replace(WORD_TAG, "")
+        }
+    }
+
+    /** 同一时间戳下的第二行视为译文；没有时间轴的行会被忽略。 */
     fun parse(raw: String): Parsed {
         var offsetMs = 0L
         var ignored = 0
@@ -140,12 +171,12 @@ object CustomLyricsStore {
 
     /** 与 DirectLyricsRepository.Result.toJson() 同形，悬浮窗可以直接当作歌词候选使用。 */
     fun toResultJson(entry: Entry, durationMs: Long): JSONObject {
-        val parsed = parse(entry.lyrics)
+        val parsed = parse(entry)
         fun candidate() = JSONObject()
             .put("lyrics", parsed.lyrics)
             .put("translatedLyrics", parsed.translatedLyrics)
-            .put("wordLyrics", "")
-            .put("duration", durationMs)
+            .put("wordLyrics", entry.wordLyrics)
+            .put("duration", durationMs.takeIf { it > 0L } ?: entry.durationMs)
             .put("cover", "")
             .put("source", SOURCE)
             .put("recordId", entry.recordId)
@@ -174,6 +205,10 @@ object CustomLyricsStore {
         .put("artist", entry.artist)
         .put("lyrics", entry.lyrics)
         .put("updatedAt", entry.updatedAt)
+        .put("structured", entry.structured)
+        .put("translatedLyrics", entry.translatedLyrics)
+        .put("wordLyrics", entry.wordLyrics)
+        .put("durationMs", entry.durationMs)
         .toString()
 
     private fun decode(raw: String): Entry? = runCatching {
@@ -183,7 +218,11 @@ object CustomLyricsStore {
             json.optString("title"),
             json.optString("artist"),
             json.optString("lyrics"),
-            json.optLong("updatedAt")
+            json.optLong("updatedAt"),
+            json.optBoolean("structured"),
+            json.optString("translatedLyrics"),
+            json.optString("wordLyrics"),
+            json.optLong("durationMs")
         )
     }.getOrNull()?.takeIf { it.lyrics.isNotBlank() }
 }

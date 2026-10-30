@@ -12,6 +12,40 @@ internal class SharedLyricsCache(context: Context, private val now: () -> Long =
 
     private fun key(track: String, artist: String) = "${track.trim()}\u0000${artist.trim()}".lowercase(Locale.ROOT)
 
+    data class Entry(val title: String, val artist: String, val result: DirectLyricsRepository.Result, val savedAt: Long)
+
+    /** Expired downloads remain editable until they are evicted or explicitly cleared. */
+    fun all(): List<Entry> {
+        val current = prefs.all
+        val entries = current.entries.mapNotNull { (identity, value) ->
+            (value as? String)?.let { editingEntry(identity, it) }
+        }
+        return (entries + legacyEditingEntries(current.keys)).sortedByDescending { it.savedAt }
+    }
+
+    private fun editingEntry(identity: String, raw: String, oldFormat: Boolean = false): Entry? {
+        val parts = identity.split('\u0000', limit = 2)
+        if (parts.size != 2) return null
+        val result = decode(raw, 0L, oldFormat = oldFormat, ignoreExpiry = true) ?: return null
+        val data = runCatching { JSONObject(raw) }.getOrNull() ?: return null
+        return Entry(if (oldFormat) parts[0] else data.optString("track", parts[0]),
+            if (oldFormat) parts[1] else data.optString("artist", parts[1]), result, data.optLong("at"))
+    }
+
+    /** Reading older downloads for correction must not renew their playback TTL. */
+    private fun legacyEditingEntries(currentKeys: Set<String>): List<Entry> = legacy.all.entries.mapNotNull { (identity, value) ->
+        val song = identity.substringBeforeLast('\u0000', "")
+        val parts = song.split('\u0000', limit = 2)
+        if (parts.size != 2 || key(parts[0], parts[1]) in currentKeys) return@mapNotNull null
+        (value as? String)?.let { editingEntry(song, it, oldFormat = true) }
+    }.sortedByDescending { it.savedAt }.distinctBy { key(it.title, it.artist) }
+
+    fun readForEditing(track: String, artist: String): DirectLyricsRepository.Result? {
+        val raw = prefs.getString(key(track, artist), null)
+        return if (raw != null) decode(raw, 0L, ignoreExpiry = true)
+        else legacyEditingEntries(prefs.all.keys).firstOrNull { key(it.title, it.artist) == key(track, artist) }?.result
+    }
+
     fun read(track: String, artist: String, album: String = "", durationMs: Long = 0L): DirectLyricsRepository.Result? {
         val identity = key(track, artist)
         // Once migrated, stale legacy entries must not replace a newer recording or expired result.
@@ -38,12 +72,12 @@ internal class SharedLyricsCache(context: Context, private val now: () -> Long =
         }
     }
 
-    private fun decode(raw: String?, expectedDuration: Long, oldFormat: Boolean = false): DirectLyricsRepository.Result? {
+    private fun decode(raw: String?, expectedDuration: Long, oldFormat: Boolean = false, ignoreExpiry: Boolean = false): DirectLyricsRepository.Result? {
         if (raw == null) return null
         return runCatching {
             val data = JSONObject(raw)
             val saved = data.optLong("at", 0L)
-            if (saved <= 0 || now() - saved > TTL_MS) return null
+            if (saved <= 0 || (!ignoreExpiry && now() - saved > TTL_MS)) return null
             val payload = if (oldFormat) data else data.optJSONObject("result") ?: return null
             val result = candidate(payload, oldFormat)
             if (result.lyrics.isBlank() || result.source == CustomLyricsStore.SOURCE) return null
@@ -72,6 +106,7 @@ internal class SharedLyricsCache(context: Context, private val now: () -> Long =
             val identity = key(track, artist)
             val entries = prefs.all.filterKeys { it != identity }
             val editor = prefs.edit().putString(identity, JSONObject().put("at", savedAt)
+                .put("track", track.trim()).put("artist", artist.trim())
                 .put("result", result.toJson(includePrimary = false)).toString())
             val excess = entries.size + 1 - MAX_ENTRIES
             if (excess > 0) {

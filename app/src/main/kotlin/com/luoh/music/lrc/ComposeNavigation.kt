@@ -106,7 +106,7 @@ internal fun routeForIntent(intent: Intent): ComposeRoute? = when(intent.compone
     "LyricSourceManagerActivity" -> ComposeRoute("sources",id=intent.getStringExtra("source_key").orEmpty(),category=intent.getStringExtra("source_query").orEmpty())
     "PrivacyActivity" -> ComposeRoute("privacy")
     "CustomLyricsManagerActivity" -> ComposeRoute("custom")
-    "CustomLyricsEditActivity" -> ComposeRoute("editor",id=intent.getStringExtra("custom_lyrics_id").orEmpty(),title=intent.getStringExtra("custom_lyrics_title").orEmpty(),artist=intent.getStringExtra("custom_lyrics_artist").orEmpty())
+    "CustomLyricsEditActivity" -> ComposeRoute(if(intent.getBooleanExtra("edit_cached_lyrics",false)) "cached-editor" else "editor",id=intent.getStringExtra("custom_lyrics_id").orEmpty(),title=intent.getStringExtra("custom_lyrics_title").orEmpty(),artist=intent.getStringExtra("custom_lyrics_artist").orEmpty())
     else -> null
 }
 

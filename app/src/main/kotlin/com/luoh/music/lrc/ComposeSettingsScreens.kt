@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.Contrast
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FormatAlignLeft
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Layers
@@ -591,6 +592,7 @@ private fun LyricsContentSettings(context: Context, prefs: SharedPreferences, re
     SettingsGroup(title = "歌词管理", items = listOf(
         { SettingsNavigationItem("补充翻译", "翻译服务、模型与配置", Icons.Default.Translate) { onNavigate(ComposeRoute("translation")) } },
         { SettingsNavigationItem("自定义歌词", "导入和编辑本地歌词", Icons.Default.Lyrics) { onNavigate(ComposeRoute("custom")) } },
+        { SettingsNavigationItem("缓存歌词勘误", "修改已下载的歌词与译文", Icons.Default.Edit) { onNavigate(ComposeRoute("cached")) } },
         { SettingsNavigationItem("歌词源管理", "管理匹配记录与歌词版本", Icons.Default.Link) { onNavigate(ComposeRoute("sources")) } },
     ))
 }

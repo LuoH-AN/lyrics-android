@@ -11,7 +11,7 @@ object LyricParser {
     private val wordLine = Regex("^\\[(\\d+),(\\d+)](.*)$")
     private val wordStamp = Regex("\\((\\d+),(\\d+)(?:,\\d+)?\\)")
 
-    fun parse(lrc: String, translated: String = "", wordLrc: String = ""): LyricDocument {
+    fun parse(lrc: String, translated: String = "", wordLrc: String = "", allowPartialWords: Boolean = false): LyricDocument {
         val lines = parseLines(lrc).toMutableList()
         val words = parseWords(wordLrc)
         if (lines.isEmpty() && words.isNotEmpty() && lrc.isBlank()) lines.addAll(words)
@@ -43,12 +43,14 @@ object LyricParser {
                 nearestIndex = nextIndex++
             }
             val index = nearestIndex
+            // Corrections contain timing only for exact, unchanged lines.
+            if (allowPartialWords && (lines[index].startMs != word.startMs || lines[index].text != word.text.trim())) continue
             if (abs(lines[index].startMs - word.startMs) < 1200L) {
                 lines[index] = lines[index].copy(words = word.words, endMs = word.endMs)
                 attached += index
             }
         }
-        if (words.isNotEmpty() && attached.size.toDouble() / lines.size < .7) {
+        if (!allowPartialWords && words.isNotEmpty() && attached.size.toDouble() / lines.size < .7) {
             for (index in lines.indices) lines[index] = lines[index].copy(words = emptyList())
         }
         return LyricDocument(lines, true)

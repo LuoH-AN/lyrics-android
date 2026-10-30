@@ -9,6 +9,7 @@ class CustomLyricsEditActivity : ComposeNavigationActivity() {
         private const val EXTRA_ID = "custom_lyrics_id"
         private const val EXTRA_TITLE = "custom_lyrics_title"
         private const val EXTRA_ARTIST = "custom_lyrics_artist"
+        private const val EXTRA_CACHED = "edit_cached_lyrics"
         private const val MAX_FILE_BYTES = 1_000_000
 
         /** 按歌名/歌手打开：已有自定义歌词就编辑它，否则新建并预填。 */
@@ -19,5 +20,8 @@ class CustomLyricsEditActivity : ComposeNavigationActivity() {
 
         fun editIntent(context: Context, id: String): Intent =
             Intent(context, CustomLyricsEditActivity::class.java).putExtra(EXTRA_ID, id)
+
+        fun cachedIntent(context: Context, title: String, artist: String): Intent =
+            intent(context, title, artist).putExtra(EXTRA_CACHED, true)
     }
 }
