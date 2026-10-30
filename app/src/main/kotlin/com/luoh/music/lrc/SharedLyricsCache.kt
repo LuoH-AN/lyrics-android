@@ -72,10 +72,13 @@ internal class SharedLyricsCache(context: Context, private val now: () -> Long =
             val identity = key(track, artist)
             val entries = prefs.all.filterKeys { it != identity }
             val editor = prefs.edit().putString(identity, JSONObject().put("at", savedAt)
-                .put("result", result.toJson()).toString())
-            entries.entries.sortedBy {
-                runCatching { JSONObject(it.value as String).optLong("at") }.getOrDefault(0L)
-            }.take((entries.size + 1 - MAX_ENTRIES).coerceAtLeast(0)).forEach { editor.remove(it.key) }
+                .put("result", result.toJson(includePrimary = false)).toString())
+            val excess = entries.size + 1 - MAX_ENTRIES
+            if (excess > 0) {
+                entries.entries.sortedBy {
+                    runCatching { JSONObject(it.value as String).optLong("at") }.getOrDefault(0L)
+                }.take(excess).forEach { editor.remove(it.key) }
+            }
             editor.apply()
         }
     }

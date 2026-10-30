@@ -28,8 +28,21 @@ object LyricParser {
             lines[index] = lines[index].copy(translation = translations[bucket(lines[index].startMs)].orEmpty())
         }
         val attached = mutableSetOf<Int>()
+        var nearestIndex = 0
+        var nextIndex = 1
+        // Both timelines are sorted. Advance once through the lines, keeping the
+        // first line for equal timestamps or equal distances, as the full scan did.
         for (word in words) {
-            val index = lines.indices.minByOrNull { abs(lines[it].startMs - word.startMs) } ?: continue
+            while (nextIndex < lines.size) {
+                if (lines[nextIndex].startMs == lines[nearestIndex].startMs) {
+                    nextIndex++
+                    continue
+                }
+                if (abs(lines[nextIndex].startMs - word.startMs) >=
+                    abs(lines[nearestIndex].startMs - word.startMs)) break
+                nearestIndex = nextIndex++
+            }
+            val index = nearestIndex
             if (abs(lines[index].startMs - word.startMs) < 1200L) {
                 lines[index] = lines[index].copy(words = word.words, endMs = word.endMs)
                 attached += index

@@ -5,4 +5,4 @@
 - [Compose 界面结构](development/material-ui.md)
 - [测试、构建与发布](development/releasing.md)
 
-`assets/` 只存放 README 使用的应用图标；预览图片直接引用 README 中的外部地址。
+`assets/` 存放 README 使用的应用图标和应用界面截图，截图位于 `assets/screenshots/`。

@@ -208,6 +208,7 @@ class MainActivity : ComponentActivity() {
         homeTranslation.cancel()
         translationScope.coroutineContext[Job]?.cancel()
         ioScope.coroutineContext[Job]?.cancel()
+        repository.close()
         super.onDestroy()
     }
 
@@ -437,7 +438,7 @@ class MainActivity : ComponentActivity() {
     }
 
     /** 只查本地：先自定义歌词，再 14 天内的缓存。查不到返回 null（需要联网）。 */
-    private fun localPayload(track: String, artist: String, album: String): LyricPayload? {
+    private fun localPayload(track: String, artist: String, album: String, durationMs: Long): LyricPayload? {
         CustomLyricsStore.find(this, track, artist)?.let { entry ->
             val parsed = CustomLyricsStore.parse(entry.lyrics)
             if (parsed.lyrics.isNotBlank()) {
@@ -447,7 +448,7 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
-        val cached = sharedLyricsCache.read(track, artist, album, currentDurationMs) ?: return null
+        val cached = sharedLyricsCache.read(track, artist, album, durationMs) ?: return null
         return LyricPayload(cached.lyrics, cached.translatedLyrics, cached.wordLyrics, cached.source, cached.recordId)
     }
 
@@ -491,7 +492,7 @@ class MainActivity : ComponentActivity() {
         lyricFetchJob = ioScope.launch {
             // Local preference decoding, LRC parsing and cache bookkeeping never block navigation.
             if (!forceNetwork) {
-                val local = localPayload(track, artist, album)
+                val local = localPayload(track, artist, album, durationMs)
                 if (local != null) {
                     val document = parsePayload(local)
                     withContext(Dispatchers.Main) {
@@ -552,10 +553,15 @@ class MainActivity : ComponentActivity() {
         val track = currentTrack
         val artist = currentArtist
         val album = currentAlbum
+        val duration = currentDurationMs
+        val loadedSignature = currentPayloadSignature
+        val loadedDocument = baseLyricDocument
         settingsRefreshJob?.cancel()
         settingsRefreshJob = ioScope.launch {
-            val local = localPayload(track, artist, album)
-            val document = local?.let(::parsePayload)
+            val local = localPayload(track, artist, album, duration)
+            val document = local?.let {
+                if (it.signature == loadedSignature) loadedDocument else parsePayload(it)
+            }
             withContext(Dispatchers.Main) {
                 if (request != lyricRequestId || track != currentTrack || !homeForeground) return@withContext
                 when {

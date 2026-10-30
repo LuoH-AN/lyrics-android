@@ -51,10 +51,11 @@ class DirectLyricsRepository {
             .put("artist", artist)
             .put("matchScore", score)
 
-        fun toJson(): JSONObject = candidateJson().put(
+        /** The matching engine needs the primary candidate in its list; persistent caches do not. */
+        fun toJson(includePrimary: Boolean = true): JSONObject = candidateJson().put(
             "alternatives",
             JSONArray().apply {
-                put(candidateJson())
+                if (includePrimary) put(candidateJson())
                 alternatives.forEach { put(it.candidateJson()) }
             }
         )
