@@ -14,7 +14,9 @@ assert.match(home, /state\.actions\?\.retryLyrics\(\)/);
 assert.match(home, /state\.actions\?\.editCustomLyrics\(\)/);
 assert.match(home, /state\.actions\?\.exportLrc\(\)/);
 assert.ok(home.includes('下载当前歌词为 .lrc'));
-assert.match(main, /LyricParser\.parse\(payload\.lyrics, payload\.translated, payload\.word\)/);
+assert.match(main,
+  /LyricParser\.parse\(\s*payload\.lyrics,\s*payload\.translated,\s*payload\.word,\s*allowPartialWords\s*=\s*payload\.source\s*==\s*CustomLyricsStore\.SOURCE\s*\)/,
+  'home must parse lyrics, translations and word timing, allowing partial words only for custom lyrics');
 assert.match(main, /HomeTranslationController\(/);
 assert.match(main, /exportLrcLauncher/);
 assert.match(main, /LyricExporter\.buildLrc\(currentTrack, currentArtist, lrc, currentLrcTranslated\)/);
