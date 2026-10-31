@@ -6,6 +6,9 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.view.View
 import android.view.ViewGroup
+import android.view.Gravity
+import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.webkit.WebView
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.test.core.app.ApplicationProvider
@@ -141,6 +144,50 @@ class CompactLyricsViewTest {
                 assertEquals(Color.TRANSPARENT, text.shadowColor)
             }
         }
+    }
+
+    @Test fun alignmentAppliesToOriginalTranslationAndContextWithoutReservingButtonSpace() {
+        val view = CompactLyricsView(context())
+        view.setPlayback("alignment", 1000L, 4000L, false, 1f)
+        view.setDocument(LyricDocument(listOf(LyricLine(0, "Before"), LyricLine(1000, "Now", "现在"), LyricLine(2000, "After")), true))
+        for ((alignment, gravity) in listOf("left" to Gravity.LEFT, "center" to Gravity.CENTER_HORIZONTAL, "right" to Gravity.RIGHT)) {
+            view.setAppearance(100, Color.WHITE, "bilingual", 1, 1, style = OverlayTextStyle(alignment))
+            draw(view, 320)
+            for (index in 0 until view.childCount) {
+                val row = view.getChildAt(index) as ViewGroup
+                val text = row.getChildAt(0) as MaterialTextView
+                assertEquals(gravity, text.gravity and Gravity.HORIZONTAL_GRAVITY_MASK)
+                assertEquals(view.width - view.paddingLeft - view.paddingRight, row.width)
+                if (alignment == "center") assertEquals(text.width / 2f,
+                    (text.layout.getLineLeft(0) + text.layout.getLineRight(0)) / 2f, 1f)
+                if (alignment == "right") assertEquals(text.width.toFloat(), text.layout.getLineRight(0), 1f)
+            }
+        }
+    }
+
+    @Test fun floatingControlsDoNotChangeLyricsBoundsWhenTheyAppearOrHide() {
+        val root = FrameLayout(context())
+        val lyrics = CompactLyricsView(context())
+        lyrics.setDocument(LyricDocument(listOf(LyricLine(0, "贴着屏幕边缘的歌词")), true))
+        root.addView(lyrics, FrameLayout.LayoutParams(-1, -1))
+        val controls = LinearLayout(context()).apply {
+            addView(OverlayControls.iconButton(context(), R.drawable.ic_overlay_unlocked, "锁定") {})
+            addView(OverlayControls.iconButton(context(), R.drawable.ic_overlay_close, "关闭") {})
+        }
+        OverlayControls.attachFloating(root, View(context()), controls)
+        draw(root, 160, 80)
+        val originalWidth = lyrics.width
+        val originalHeight = lyrics.height
+        assertEquals(160, originalWidth)
+        assertEquals(80, originalHeight)
+        assertEquals(0, lyrics.left)
+        assertEquals(0, lyrics.top)
+        assertSame(root, controls.parent)
+        assertTrue(controls.translationZ > lyrics.translationZ)
+        controls.visibility = View.INVISIBLE
+        draw(root, 160, 80)
+        assertEquals(originalWidth, lyrics.width)
+        assertEquals(originalHeight, lyrics.height)
     }
 
     @Test fun documentBridgeKeepsWordsAndToleratesMissingOptionalFields() {

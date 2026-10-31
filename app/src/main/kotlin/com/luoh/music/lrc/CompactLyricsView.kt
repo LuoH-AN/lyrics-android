@@ -31,6 +31,7 @@ class CompactLyricsView @JvmOverloads constructor(context: Context, attrs: Attri
     private var fontScale = 1f
     private var fontWeight = OverlayAppearance.DEFAULT_FONT_WEIGHT
     private var lyricColor = Color.WHITE
+    private var textStyle = OverlayTextStyle()
     private var translationMode = LyricsOverlayService.TRANSLATION_BILINGUAL
     private var before = 0
     private var after = 1
@@ -85,16 +86,17 @@ class CompactLyricsView @JvmOverloads constructor(context: Context, attrs: Attri
     }
 
     fun setAppearance(percent: Int, color: Int, mode: String, contextBefore: Int, contextAfter: Int,
-                      weight: Int = OverlayAppearance.DEFAULT_FONT_WEIGHT) {
+                      weight: Int = OverlayAppearance.DEFAULT_FONT_WEIGHT, style: OverlayTextStyle = OverlayTextStyle()) {
         val scale = percent.coerceIn(35, 150) / 100f
         val normalizedWeight = OverlayAppearance.normalizeWeight(weight)
         val normalizedBefore = contextBefore.coerceIn(0, 2)
         val normalizedAfter = contextAfter.coerceIn(0, 2)
         if (fontScale == scale && fontWeight == normalizedWeight && lyricColor == color &&
-            translationMode == mode && before == normalizedBefore && after == normalizedAfter) return
+            translationMode == mode && before == normalizedBefore && after == normalizedAfter && textStyle == style) return
         fontScale = scale
         fontWeight = normalizedWeight
         lyricColor = color
+        textStyle = style.copy(alignment = OverlayAppearance.alignment(style.alignment))
         translationMode = mode
         before = normalizedBefore
         after = normalizedAfter
@@ -218,11 +220,17 @@ class CompactLyricsView @JvmOverloads constructor(context: Context, attrs: Attri
                 textSize = textSp
                 typeface = OverlayAppearance.typeface(fontWeight)
                 setTextColor(lyricColor)
+                setGradient(textStyle.gradientEnd, textStyle.gradientVertical)
                 setShadowLayer(0f, 0f, 0f, Color.TRANSPARENT)
                 includeFontPadding = false
                 setPadding(0, 0, 0, 0)
                 setSingleLine(true)
-                gravity = Gravity.CENTER_VERTICAL
+                gravity = Gravity.CENTER_VERTICAL or when (textStyle.alignment) {
+                    OverlayAppearance.CENTER -> Gravity.CENTER_HORIZONTAL
+                    OverlayAppearance.RIGHT -> Gravity.RIGHT
+                    else -> Gravity.LEFT
+                }
+                textAlignment = TEXT_ALIGNMENT_GRAVITY
                 alpha = if (model.current) 1f else if (model.translated) .8f else .55f
                 bind(model.line, LyricsOverlayService.TRANSLATION_ORIGINAL)
                 importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO

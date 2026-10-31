@@ -224,6 +224,13 @@ class LyricsOverlayService : Service() {
             if (overlayRoot != null) return START_STICKY
         }
 
+        if (intent?.action == ACTION_REFRESH_APPEARANCE) {
+            applyNativeAppearance()
+            applyBackgroundMode()
+            adaptOverlayToDisplay()
+            if (overlayRoot != null) return START_STICKY
+        }
+
         if (intent?.action == ACTION_SET_BACKGROUND) {
             val targetCompact = intent.getBooleanExtra(EXTRA_TARGET_COMPACT, false)
             val value = normalizedBackgroundMode(
@@ -772,7 +779,7 @@ class LyricsOverlayService : Service() {
             "width",
             min(dp(360), max(1, safeBounds.width() - dp(24)))
         )
-        val storedCompactWidth = prefs.getInt(PREF_COMPACT_WIDTH, storedExpandedWidth)
+        val storedCompactWidth = preferredCompactWidth(safeBounds, prefs.getInt(PREF_COMPACT_WIDTH, storedExpandedWidth))
         syncActiveVisualPreferences(true)
         val activeWindowSize = fittedLogicalOverlaySize(
             storedCompactWidth, desiredCompactHeight(), isCompact = true,
@@ -905,6 +912,7 @@ class LyricsOverlayService : Service() {
                         val dx = event.rawX - downRawX
                         val dy = event.rawY - downRawY
                         if (!moving && max(kotlin.math.abs(dx), kotlin.math.abs(dy)) <= touchSlop) return true
+                        if (!moving) hideChrome(immediate = true)
                         moving = true
                         val safe = currentSafeDisplayBounds()
                         lp.x = (downX + dx).roundToInt().coerceIn(safe.left, max(safe.left, safe.right - lp.width))
@@ -915,6 +923,7 @@ class LyricsOverlayService : Service() {
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         if (moving) saveOverlayGeometry(true, lp, saveSize = false)
                         moving = false
+                        revealChrome()
                         return true
                     }
                 }
@@ -974,13 +983,7 @@ class LyricsOverlayService : Service() {
         }
         webView = player
         // The engine deliberately has no parent: only native views enter the overlay window.
-        content.addView(dragArea, FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        ))
-        content.addView(chrome, FrameLayout.LayoutParams(dp(96), dp(48), Gravity.END or Gravity.CENTER_VERTICAL).apply {
-            marginEnd = dp(2)
-        })
+        OverlayControls.attachFloating(root, dragArea, chrome)
         updateControlLayout()
 
         windowManager.addView(root, params)
@@ -1077,7 +1080,12 @@ class LyricsOverlayService : Service() {
     }
 
     private fun minimumOverlayWidth(screenWidth: Int = currentDisplaySize().first): Int =
-        min(dp(240), max(1, screenWidth))
+        min(dp(120), max(1, screenWidth))
+
+    private fun preferredCompactWidth(safe: Rect, fallback: Int): Int =
+        if (prefs.contains(OverlayAppearance.PREF_WIDTH_PERCENT))
+            (safe.width() * prefs.getInt(OverlayAppearance.PREF_WIDTH_PERCENT, 90).coerceIn(40, 100) / 100f).roundToInt()
+        else fallback
 
     private fun fittedOverlaySize(
         desiredWidth: Int,
@@ -1105,7 +1113,7 @@ class LyricsOverlayService : Service() {
         val centerY = (lp.y + lp.height / 2f) / previousHeight
         val currentLogicalSize = windowToLogicalSize(lp.width, lp.height, overlayRotated)
 
-        val desiredSize = prefs.getInt(PREF_COMPACT_WIDTH, currentLogicalSize.first) to desiredCompactHeight()
+        val desiredSize = preferredCompactWidth(safe, prefs.getInt(PREF_COMPACT_WIDTH, currentLogicalSize.first)) to desiredCompactHeight()
         val fittedLogicalSize = fittedLogicalOverlaySize(
             desiredSize.first,
             desiredSize.second,
@@ -1166,15 +1174,26 @@ class LyricsOverlayService : Service() {
         mainHandler.postDelayed(task, retainMs)
     }
 
-    private fun hideChrome() {
+    private fun hideChrome(immediate: Boolean = false) {
         val chrome = chromeBar ?: return
+        chromeHideTask?.let(mainHandler::removeCallbacks)
         chromeHideTask = null
+        chrome.animate().cancel()
+        if (immediate) {
+            chrome.alpha = 0f
+            chrome.visibility = View.INVISIBLE
+            return
+        }
         chrome.animate().alpha(0f).setDuration(220).withEndAction {
             if (chromeHideTask == null) chrome.visibility = View.INVISIBLE
         }.start()
     }
 
-    private fun overlayBackground(isCompact: Boolean): GradientDrawable = OverlayAppearance.background(this, backgroundMode).apply {
+    private fun overlayBackground(isCompact: Boolean): GradientDrawable = OverlayAppearance.background(
+        this, backgroundMode, OverlayAppearance.parseColor(lyricColor),
+        prefs.getInt(OverlayAppearance.PREF_BACKGROUND_OPACITY, OverlayAppearance.DEFAULT_BACKGROUND_OPACITY),
+        prefs.getInt(OverlayAppearance.PREF_CORNER_RADIUS, OverlayAppearance.DEFAULT_CORNER_RADIUS),
+    ).apply {
         if (!isCompact) {
             setStroke(dp(1), Color.argb(45, 255, 255, 255))
         }
@@ -1224,7 +1243,8 @@ class LyricsOverlayService : Service() {
 
     private fun applyNativeAppearance() {
         val color = Color.parseColor(lyricColor)
-        nativeLyrics?.setAppearance(fontScalePercent, color, translationMode, contextLines(true), contextLines(false), fontWeight)
+        nativeLyrics?.setAppearance(fontScalePercent, color, translationMode, contextLines(true), contextLines(false), fontWeight,
+            OverlayAppearance.textStyle(prefs))
         updateChromeTint()
     }
 
@@ -1265,6 +1285,7 @@ class LyricsOverlayService : Service() {
 
     private fun applyLyricColor() {
         applyNativeAppearance()
+        applyBackgroundMode()
     }
 
     private fun applyLyricOffset() {
@@ -1704,6 +1725,7 @@ class LyricsOverlayService : Service() {
         const val ACTION_CLEAR_LYRIC_OFFSET_MEMORIES = "com.luoh.music.lrc.action.CLEAR_LYRIC_OFFSET_MEMORIES"
         const val ACTION_DELETE_LYRIC_OFFSET_MEMORY = "com.luoh.music.lrc.action.DELETE_LYRIC_OFFSET_MEMORY"
         const val ACTION_SET_CONTEXT = "com.luoh.music.lrc.action.SET_CONTEXT"
+        const val ACTION_REFRESH_APPEARANCE = "com.luoh.music.lrc.action.REFRESH_OVERLAY_APPEARANCE"
         const val PREF_CONTEXT_BEFORE = "context_before"
         const val PREF_CONTEXT_AFTER = "context_after"
         private const val PREF_POSITION_LOCKED = "position_locked"

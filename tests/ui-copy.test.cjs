@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const base = 'app/src/main/kotlin/com/luoh/music/lrc/';
 const library = fs.readFileSync(base + 'ComposeLibraryScreens.kt', 'utf8');
 const settings = fs.readFileSync(base + 'ComposeSettingsScreens.kt', 'utf8');
+const picker = fs.readFileSync(base + 'SettingsColorDialog.kt', 'utf8');
 for (const text of [
   '添加自定义歌词', '编辑自定义歌词', '歌名（必填）', '歌手（留空匹配所有同名歌曲）',
   'LRC 时间轴歌词', '[00:12.30]第一句歌词', '导入 .lrc 文件', '粘贴剪贴板',
@@ -21,7 +22,7 @@ for (const text of [
 ]) assert.ok(library.includes(text), `Compose library must preserve actionable feedback: ${text}`);
 for (const text of [
   '歌词预览', '上文', '下文', '字重', '提前', '延后', '重置', '十六进制颜色', '输入 6 位颜色值',
-]) assert.ok(settings.includes(text), `Compose settings must preserve control copy: ${text}`);
+]) assert.ok((settings + picker).includes(text), `Compose settings must preserve control copy: ${text}`);
 for (const text of [
   '获取不到歌词时，手动指定一份标准 LRC 时间轴歌词。按歌名+歌手匹配，命中后主页和悬浮窗都直接使用这份。',
   '按歌曲整理尝试过的歌词版本，选择来源后可预览与切换。记录持续保留，可随时手动清理。',
@@ -30,7 +31,9 @@ for (const text of [
 ]) assert.ok(!(library + settings).includes(text), `retired helper copy must stay removed: ${text}`);
 assert.match(settings, /OverlayAppearance\.percentToWeight\(/);
 assert.match(settings, /OverlayAppearance\.weightToPercent\(/);
-assert.match(settings, /contentDescription = "颜色 \$hex"/, 'palette swatches must be accessible');
-assert.match(settings, /enabled = valid/, 'invalid colors must not be applied');
+assert.match(picker, /testTag\("color_wheel"\)/, 'users must be able to pick arbitrary colors from a wheel');
+for (const label of ['色相', '饱和度', '明度']) assert.ok(picker.includes(`ColorSlider("${label}"`), 'wheel must have accessible slider alternatives');
+assert.doesNotMatch(picker, /val presets|presets\.forEach/, 'a few fixed swatches must not replace the color wheel');
+assert.match(picker, /enabled = valid/, 'invalid colors must not be applied');
 assert.doesNotMatch(settings, /lyric_offset_scope|拖动 RGB|seek_color_/);
 console.log('PASS: Compose editor/import feedback, destructive-action explanations, settings copy and accessible palette controls');

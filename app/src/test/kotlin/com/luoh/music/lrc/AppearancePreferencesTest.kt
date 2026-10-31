@@ -33,6 +33,31 @@ class AppearancePreferencesTest {
         assertEquals(255, Color.alpha(OverlayAppearance.backgroundColor(LyricsOverlayService.BACKGROUND_HIGH)))
     }
 
+    @Test fun backgroundOpacityAndContrastRespondWithoutMakingTransparentModeVisible() {
+        assertEquals(0, Color.alpha(OverlayAppearance.backgroundColor("transparent", Color.BLACK, 90)))
+        assertEquals(255, Color.alpha(OverlayAppearance.backgroundColor("high", Color.BLACK, 10)))
+        assertEquals(26, Color.alpha(OverlayAppearance.backgroundColor("low", Color.WHITE, 10)))
+        assertEquals(230, Color.alpha(OverlayAppearance.backgroundColor("low", Color.WHITE, 90)))
+        assertTrue(Color.red(OverlayAppearance.backgroundColor("high", Color.BLACK)) > 240)
+        assertTrue(Color.red(OverlayAppearance.backgroundColor("high", Color.WHITE)) < 30)
+        assertEquals(OverlayAppearance.backgroundColor("low", Color.WHITE, 10), OverlayAppearance.backgroundColor("low", Color.WHITE, -50))
+    }
+
+    @Test fun overlayStyleDefaultsPreservePlainLeftAlignedLyricsAndPersistCustomGradient() {
+        val prefs = context.getSharedPreferences(LyricsOverlayService.PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().clear().commit()
+        assertEquals(OverlayTextStyle(), OverlayAppearance.textStyle(prefs))
+        prefs.edit().putString(OverlayAppearance.PREF_ALIGNMENT, "right")
+            .putBoolean(OverlayAppearance.PREF_GRADIENT, true)
+            .putString(OverlayAppearance.PREF_GRADIENT_END, "#123ABC")
+            .putBoolean(OverlayAppearance.PREF_GRADIENT_VERTICAL, true).commit()
+        assertEquals(OverlayTextStyle("right", Color.rgb(18, 58, 188), true), OverlayAppearance.textStyle(prefs))
+        prefs.edit().putBoolean(OverlayAppearance.PREF_GRADIENT, false).commit()
+        assertEquals(null, OverlayAppearance.textStyle(prefs).gradientEnd)
+        assertEquals("#123ABC", prefs.getString(OverlayAppearance.PREF_GRADIENT_END, null))
+        assertEquals("left", OverlayAppearance.alignment("invalid"))
+    }
+
     @Test fun legacyMotionModeMigratesOnceAndIndependentChangesPersist() {
         val prefs = context.getSharedPreferences(HomeMotionPrefs.PREFS, Context.MODE_PRIVATE)
         prefs.edit().clear().putString("motion_mode", "reduced").commit()

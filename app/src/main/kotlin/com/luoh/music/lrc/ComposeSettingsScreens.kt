@@ -14,6 +14,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BlurOn
@@ -76,7 +78,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -86,6 +93,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -390,7 +398,18 @@ private fun DesktopAppearanceSettings(context: Context, prefs: SharedPreferences
     val translation = remember(revision) {
         prefs.getString(LyricsOverlayService.PREF_TRANSLATION_MODE, LyricsOverlayService.TRANSLATION_BILINGUAL).orEmpty()
     }
+    val style = remember(revision) { OverlayAppearance.textStyle(prefs) }
+    val gradientEnd = remember(revision) { prefs.getString(OverlayAppearance.PREF_GRADIENT_END, OverlayAppearance.DEFAULT_GRADIENT_END).orEmpty() }
+    val opacity = remember(revision) { prefs.getInt(OverlayAppearance.PREF_BACKGROUND_OPACITY, OverlayAppearance.DEFAULT_BACKGROUND_OPACITY).coerceIn(10, 90) }
+    val radius = remember(revision) { prefs.getInt(OverlayAppearance.PREF_CORNER_RADIUS, OverlayAppearance.DEFAULT_CORNER_RADIUS).coerceIn(0, 32) }
+    val widthPercent = remember(revision) {
+        val display = context.resources.displayMetrics
+        val storedWidth = prefs.getInt("compact_width_v1", (360 * display.density).roundToInt())
+        prefs.getInt(OverlayAppearance.PREF_WIDTH_PERCENT, (storedWidth * 100f / display.widthPixels.coerceAtLeast(1)).roundToInt()).coerceIn(40, 100)
+    }
     var showColorPicker by rememberSaveable { mutableStateOf(false) }
+    var pickingGradientEnd by rememberSaveable { mutableStateOf(false) }
+    fun refreshAppearance() = settingsOverlayAction(context, LyricsOverlayService.ACTION_REFRESH_APPEARANCE)
     fun saveColor(hex: String) {
         prefs.edit().putString(LyricsOverlayService.PREF_LYRIC_COLOR_COMPACT, hex).apply()
         settingsOverlayAction(context, LyricsOverlayService.ACTION_SET_LYRIC_COLOR) {
@@ -399,30 +418,50 @@ private fun DesktopAppearanceSettings(context: Context, prefs: SharedPreferences
         }
     }
     SettingsGroup(title = "歌词预览", items = listOf({
-        val lyricColor = remember(color) { settingsParseColor(color) }
-        val previewBackground = Color(OverlayAppearance.backgroundColor(background))
-        Column(
-            Modifier.fillMaxWidth().padding(16.dp).clip(MaterialTheme.shapes.large)
-                .background(previewBackground).padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            val lines = listOf("City lights" to "街灯轻轻亮起", "A quiet melody" to "旋律停在耳边", "Stay with me" to "让歌词陪着你", "One more song" to "再听一首歌", "Until tomorrow" to "直到明天")
-            for (index in (2 - before)..(2 + after)) {
-                val (original, translated) = lines[index]
-                val foreground = lyricColor.copy(alpha = if (index == 2) 1f else .5f)
-                Column {
-                    if (translation != LyricsOverlayService.TRANSLATION_TRANSLATED) {
-                        Text(original, color = foreground, fontSize = (20f * fontScale / 100).sp, fontWeight = FontWeight(fontWeight))
-                    }
-                    if (translation != LyricsOverlayService.TRANSLATION_ORIGINAL) {
-                        Text(translated, color = foreground, fontSize = (if (translation == LyricsOverlayService.TRANSLATION_TRANSLATED) 20f else 15f).times(fontScale / 100f).sp,
-                            fontWeight = FontWeight(fontWeight))
-                    }
+        val foreground = OverlayAppearance.parseColor(color)
+        val backgroundColor = Color(OverlayAppearance.backgroundColor(background, foreground, opacity))
+        val shape = RoundedCornerShape(radius.dp)
+        val brush = style.gradientEnd?.let { end ->
+            if (style.gradientVertical) Brush.verticalGradient(listOf(Color(foreground), Color(end)))
+            else Brush.horizontalGradient(listOf(Color(foreground), Color(end)))
+        } ?: SolidColor(Color(foreground))
+        Box(Modifier.fillMaxWidth().padding(16.dp).clip(RoundedCornerShape(radius.dp)).drawBehind {
+            val tile = 12.dp.toPx()
+            for (row in 0..(size.height / tile).toInt()) for (column in 0..(size.width / tile).toInt()) {
+                drawRect(if ((row + column) % 2 == 0) Color(0xFF506173) else Color(0xFF687B8F),
+                    Offset(column * tile, row * tile), Size(tile, tile))
+            }
+        }) {
+            Column(Modifier.fillMaxWidth().background(backgroundColor, shape)
+                .border(1.dp, if (backgroundColor.alpha == 0f) Color.Transparent else Color(OverlayAppearance.backgroundBorderColor(foreground)), shape)
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalAlignment = when (style.alignment) {
+                    OverlayAppearance.CENTER -> Alignment.CenterHorizontally
+                    OverlayAppearance.RIGHT -> Alignment.End
+                    else -> Alignment.Start
+                }) {
+                val lines = listOf("City lights" to "街灯轻轻亮起", "A quiet melody" to "旋律停在耳边", "Stay with me" to "让歌词陪着你", "One more song" to "再听一首歌", "Until tomorrow" to "直到明天")
+                for (index in (2 - before)..(2 + after)) {
+                    val (original, translated) = lines[index]
+                    val size = (if (index == 2) 30f else 23f) * fontScale / 100f
+                    Text(if (translation == LyricsOverlayService.TRANSLATION_TRANSLATED) translated else original,
+                        style = TextStyle(brush = brush, fontSize = size.sp, fontWeight = FontWeight(fontWeight)),
+                        modifier = Modifier.alpha(if (index == 2) 1f else .55f), maxLines = 1)
+                    if (index == 2 && translation == LyricsOverlayService.TRANSLATION_BILINGUAL) Text(translated,
+                        style = TextStyle(brush = brush, fontSize = (23f * fontScale / 100f).sp, fontWeight = FontWeight(fontWeight)),
+                        modifier = Modifier.alpha(.8f), maxLines = 1)
                 }
             }
         }
     }))
     SettingsGroup(title = "文字与背景", items = listOf(
+        {
+            SettingsChoiceItem("对齐方式", style.alignment, listOf(OverlayAppearance.LEFT to "左对齐",
+                OverlayAppearance.CENTER to "居中", OverlayAppearance.RIGHT to "右对齐"), Icons.Default.FormatAlignLeft) {
+                prefs.edit().putString(OverlayAppearance.PREF_ALIGNMENT, it).apply()
+                refreshAppearance()
+            }
+        },
         {
             SettingsChoiceItem("背景", background, listOf(
                 LyricsOverlayService.BACKGROUND_TRANSPARENT to "透明",
@@ -434,6 +473,25 @@ private fun DesktopAppearanceSettings(context: Context, prefs: SharedPreferences
                     putExtra(LyricsOverlayService.EXTRA_BACKGROUND_MODE, mode)
                     putExtra(LyricsOverlayService.EXTRA_TARGET_COMPACT, true)
                 }
+            }
+        },
+        {
+            SettingsSliderItem("半透明强度", opacity, 10..90, step = 5, icon = Icons.Default.Contrast,
+                enabled = background == LyricsOverlayService.BACKGROUND_LOW) {
+                prefs.edit().putInt(OverlayAppearance.PREF_BACKGROUND_OPACITY, it).apply()
+                refreshAppearance()
+            }
+        },
+        {
+            SettingsSliderItem("背景圆角", radius, 0..32, unit = " dp", icon = Icons.Default.Layers) {
+                prefs.edit().putInt(OverlayAppearance.PREF_CORNER_RADIUS, it).apply()
+                refreshAppearance()
+            }
+        },
+        {
+            SettingsSliderItem("悬浮窗宽度", widthPercent, 40..100, icon = Icons.Default.FormatSize) {
+                prefs.edit().putInt(OverlayAppearance.PREF_WIDTH_PERCENT, it).apply()
+                refreshAppearance()
             }
         },
         {
@@ -462,8 +520,29 @@ private fun DesktopAppearanceSettings(context: Context, prefs: SharedPreferences
                 trailingContent = {
                     Box(Modifier.size(32.dp).clip(CircleShape).background(settingsParseColor(color)))
                 },
-                modifier = Modifier.clickable { showColorPicker = true },
+                modifier = Modifier.clickable { pickingGradientEnd = false; showColorPicker = true },
             )
+        },
+        {
+            SettingsSwitchItem("渐变歌词", "双色渐变，保留逐字高亮", Icons.Default.Palette, style.gradientEnd != null) {
+                prefs.edit().putBoolean(OverlayAppearance.PREF_GRADIENT, it).apply()
+                refreshAppearance()
+            }
+        },
+        {
+            if (style.gradientEnd != null) SettingsItem(
+                headlineContent = { Text("渐变终点颜色") }, supportingContent = { Text(gradientEnd.uppercase()) },
+                leadingContent = { SettingsLeadingIcon(Icons.Default.ColorLens) },
+                trailingContent = { Box(Modifier.size(32.dp).clip(CircleShape).background(settingsParseColor(gradientEnd))) },
+                modifier = Modifier.clickable { pickingGradientEnd = true; showColorPicker = true },
+            )
+        },
+        {
+            if (style.gradientEnd != null) SettingsChoiceItem("渐变方向", if (style.gradientVertical) "vertical" else "horizontal",
+                listOf("horizontal" to "横向", "vertical" to "纵向"), Icons.Default.Style) {
+                prefs.edit().putBoolean(OverlayAppearance.PREF_GRADIENT_VERTICAL, it == "vertical").apply()
+                refreshAppearance()
+            }
         },
     ))
     SettingsGroup(title = "上下文", items = listOf(
@@ -480,7 +559,13 @@ private fun DesktopAppearanceSettings(context: Context, prefs: SharedPreferences
             }
         },
     ))
-    if (showColorPicker) SettingsColorDialog("歌词颜色", color, onDismiss = { showColorPicker = false }, onApply = ::saveColor)
+    if (showColorPicker) SettingsColorDialog(if (pickingGradientEnd) "渐变终点颜色" else "歌词颜色",
+        if (pickingGradientEnd) gradientEnd else color, onDismiss = { showColorPicker = false }, onApply = {
+            if (pickingGradientEnd) {
+                prefs.edit().putString(OverlayAppearance.PREF_GRADIENT_END, it).apply()
+                refreshAppearance()
+            } else saveColor(it)
+        })
 }
 
 @Composable
@@ -827,60 +912,6 @@ private fun AboutSettings(context: Context, onNavigate: (ComposeRoute) -> Unit) 
             dismissButton = { TextButton(onClick = { release = null }) { Text("稍后") } },
         )
     }
-}
-
-@Composable
-private fun SettingsColorDialog(
-    title: String,
-    initialColor: String,
-    onDismiss: () -> Unit,
-    onApply: (String) -> Unit,
-    onReset: (() -> Unit)? = null,
-) {
-    var draft by rememberSaveable(title) { mutableStateOf(initialColor) }
-    val normalized = draft.trim().removePrefix("#").uppercase()
-    val valid = normalized.matches(Regex("[0-9A-F]{6}"))
-    val presets = listOf("#FFFFFF", "#9FD8FF", "#111111", "#FFB6D5", "#3F683D", "#B9CCB3")
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    presets.forEach { hex ->
-                        Box(
-                            Modifier.size(32.dp).clip(CircleShape).background(settingsParseColor(hex))
-                                .clickable { draft = hex }.semantics { contentDescription = "颜色 $hex" },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (hex.equals("#$normalized", true)) Icon(Icons.Default.Check, null,
-                                tint = if (hex == "#111111" || hex == "#3F683D") Color.White else Color.Black,
-                                modifier = Modifier.size(18.dp))
-                        }
-                    }
-                }
-                OutlinedTextField(
-                    value = draft,
-                    onValueChange = { draft = it.take(7) },
-                    label = { Text("十六进制颜色") },
-                    supportingText = { Text("输入 6 位颜色值，例如 #9FD8FF") },
-                    isError = !valid,
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    leadingIcon = { Icon(Icons.Default.ColorLens, null, tint = if (valid) settingsParseColor("#$normalized") else MaterialTheme.colorScheme.onSurfaceVariant) },
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onApply("#$normalized"); onDismiss() }, enabled = valid) { Text("应用") }
-        },
-        dismissButton = {
-            Row {
-                if (onReset != null) TextButton(onClick = { onReset(); onDismiss() }) { Text("恢复森林") }
-                TextButton(onClick = onDismiss) { Text("取消") }
-            }
-        },
-    )
 }
 
 private fun settingsOverlayAction(context: Context, action: String, extras: Intent.() -> Unit = {}) {

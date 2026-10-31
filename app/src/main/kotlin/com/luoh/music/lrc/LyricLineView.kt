@@ -3,6 +3,9 @@ package com.luoh.music.lrc
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Path
+import android.graphics.LinearGradient
+import android.graphics.Shader
+import android.text.Layout
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.RelativeSizeSpan
@@ -25,6 +28,11 @@ class LyricLineView @JvmOverloads constructor(context: Context, attrs: Attribute
     private var sungCharacters = 0f
     private val highlight = Path()
     private val selection = Path()
+    private var gradientEnd: Int? = null
+    private var gradientVertical = false
+    private data class GradientKey(val first: Int, val last: Int, val left: Float, val right: Float, val height: Int, val vertical: Boolean)
+    private var gradientKey: GradientKey? = null
+    private var gradient: Shader? = null
 
     init {
         gravity = Gravity.TOP or Gravity.START
@@ -47,6 +55,30 @@ class LyricLineView @JvmOverloads constructor(context: Context, attrs: Attribute
         }
     }
 
+    fun setGradient(endColor: Int?, vertical: Boolean = false) {
+        if (gradientEnd == endColor && gradientVertical == vertical) return
+        gradientEnd = endColor
+        gradientVertical = vertical
+        gradientKey = null
+        gradient = null
+        invalidate()
+    }
+
+    private fun gradientFor(layout: Layout?): Shader? {
+        val end = gradientEnd ?: return null
+        if (layout == null || layout.lineCount == 0) return null
+        val left = (0 until layout.lineCount).minOf { layout.getLineLeft(it) }
+        val right = (0 until layout.lineCount).maxOf { layout.getLineRight(it) }.coerceAtLeast(left + 1f)
+        val key = GradientKey(currentTextColor, end, left, right, layout.height, gradientVertical)
+        if (key != gradientKey) {
+            gradientKey = key
+            gradient = LinearGradient(left, 0f, if (gradientVertical) left else right,
+                if (gradientVertical) layout.height.coerceAtLeast(1).toFloat() else 0f,
+                currentTextColor, end, Shader.TileMode.CLAMP)
+        }
+        return gradient
+    }
+
     fun setPlaybackPosition(positionMs: Long) {
         if (!wordTiming) return
         val value = LyricTiming.sungCharacters(lyric, positionMs)
@@ -64,8 +96,11 @@ class LyricLineView @JvmOverloads constructor(context: Context, attrs: Attribute
 
     override fun onDraw(canvas: Canvas) {
         val textLayout = layout
+        val oldShader = paint.shader
+        paint.shader = gradientFor(textLayout)
         if (!wordTiming || textLayout == null || primaryLength == 0) {
             super.onDraw(canvas)
+            paint.shader = oldShader
             return
         }
         highlight.reset()
@@ -113,5 +148,6 @@ class LyricLineView @JvmOverloads constructor(context: Context, attrs: Attribute
         canvas.restore()
         canvas.restore()
         paint.color = oldColor
+        paint.shader = oldShader
     }
 }
