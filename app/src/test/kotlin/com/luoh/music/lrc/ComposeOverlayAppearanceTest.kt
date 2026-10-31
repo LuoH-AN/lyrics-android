@@ -47,8 +47,19 @@ class ComposeOverlayAppearanceTest {
         .getSharedPreferences(LyricsOverlayService.PREFS_NAME, Context.MODE_PRIVATE)
 
     private var snapshotObserver: ObserverHandle? = null
+    private var writeObserver: ObserverHandle? = null
     @Before fun clearPreferences() {
         prefs.edit().clear().commit()
+        val globalWrites = java.util.IdentityHashMap<Any, Int>()
+        val values = java.util.IdentityHashMap<Any, ArrayDeque<String>>()
+        writeObserver = Snapshot.registerGlobalWriteObserver { state ->
+            val count = (globalWrites[state] ?: 0) + 1
+            globalWrites[state] = count
+            val recent = values.getOrPut(state) { ArrayDeque() }
+            if (recent.size >= 6) recent.removeFirst()
+            recent.addLast(state.toString())
+            check(count < 100) { "Color picker repeated global write: ${state.javaClass.name}: $recent" }
+        }
         val writes = java.util.IdentityHashMap<Any, Int>()
         snapshotObserver = Snapshot.registerApplyObserver { changes, _ ->
             for (state in changes) {
@@ -58,7 +69,7 @@ class ComposeOverlayAppearanceTest {
             }
         }
     }
-    @After fun stopObserving() { snapshotObserver?.dispose() }
+    @After fun stopObserving() { snapshotObserver?.dispose(); writeObserver?.dispose() }
 
     private fun showSettings() {
         compose.setContent {
