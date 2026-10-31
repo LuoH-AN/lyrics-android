@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher mark without its background, for the system's monochrome tile tint. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="256" android:viewportHeight="256">
+    <group android:translateX="-128" android:translateY="-128">
+        <path android:fillColor="#FFFFFF" android:pathData="M185,145 H212 Q232,145 232,165 V285 Q232,307 254,307 H327 Q347,307 347,327 V348 Q347,368 327,368 H185 Q165,368 165,348 V165 Q165,145 185,145 Z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M277,161 H339 A9,9 0 0 1 339,179 H277 A9,9 0 0 1 277,161 Z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M277,206 H323 A9,9 0 0 1 323,224 H277 A9,9 0 0 1 277,206 Z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M277,251 H307 A9,9 0 0 1 307,269 H277 A9,9 0 0 1 277,251 Z" />
+    </group>
+</vector>

@@ -74,6 +74,7 @@ class LyricsTileService : TileService() {
 
     private fun updateTileState() {
         qsTile?.apply {
+            icon = Icon.createWithResource(this@LyricsTileService, R.drawable.ic_quick_settings)
             state = if (LyricsOverlayService.isRunning) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
             label = getString(R.string.app_name)
             if (Build.VERSION.SDK_INT >= 29) subtitle = if (LyricsOverlayService.isRunning) "已开启" else "已关闭"
@@ -87,7 +88,7 @@ class LyricsTileService : TileService() {
             if (Build.VERSION.SDK_INT >= 33) {
                 context.getSystemService(StatusBarManager::class.java)?.requestAddTileService(
                     ComponentName(context, LyricsTileService::class.java), context.getString(R.string.app_name),
-                    Icon.createWithResource(context, R.drawable.ic_notification), context.mainExecutor,
+                    Icon.createWithResource(context, R.drawable.ic_quick_settings), context.mainExecutor,
                 ) { result ->
                     val message = when (result) {
                         StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED -> "已添加桌面歌词快捷开关"

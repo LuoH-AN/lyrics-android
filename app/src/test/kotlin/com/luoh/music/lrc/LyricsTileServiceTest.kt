@@ -39,6 +39,7 @@ class LyricsTileServiceTest {
             ComponentName(service, MediaListenerService::class.java).flattenToString())
         ShadowSettings.setCanDrawOverlays(true)
         service.onStartListening()
+        assertEquals(R.drawable.ic_quick_settings, service.qsTile.icon.resId)
         service.onClick()
         val started = shadowOf(service.application).nextStartedService
         assertEquals(LyricsOverlayService::class.java.name, started.component!!.className)
@@ -48,6 +49,7 @@ class LyricsTileServiceTest {
         service.sendBroadcast(Intent(LyricsOverlayService.ACTION_STATE_CHANGED).setPackage(service.packageName))
         ShadowLooper.idleMainLooper()
         assertEquals(Tile.STATE_ACTIVE, service.qsTile.state)
+        assertEquals(R.drawable.ic_quick_settings, service.qsTile.icon.resId)
         ReflectionHelpers.setStaticField(LyricsOverlayService::class.java, "isRunning", false)
         service.sendBroadcast(Intent(LyricsOverlayService.ACTION_STATE_CHANGED).setPackage(service.packageName))
         ShadowLooper.idleMainLooper()
