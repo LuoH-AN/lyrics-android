@@ -225,6 +225,9 @@ class CompactLyricsView @JvmOverloads constructor(context: Context, attrs: Attri
                 includeFontPadding = false
                 setPadding(0, 0, 0, 0)
                 setSingleLine(true)
+                // We measure long rows ourselves. TextView's VERY_WIDE scrolling layout
+                // would otherwise place centered/right-aligned text far off screen.
+                setHorizontallyScrolling(false)
                 gravity = Gravity.CENTER_VERTICAL or when (textStyle.alignment) {
                     OverlayAppearance.CENTER -> Gravity.CENTER_HORIZONTAL
                     OverlayAppearance.RIGHT -> Gravity.RIGHT

@@ -529,8 +529,10 @@ private fun DesktopAppearanceSettings(context: Context, prefs: SharedPreferences
                 refreshAppearance()
             }
         },
+    ))
+    if (style.gradientEnd != null) SettingsGroup(title = "渐变配色", items = listOf(
         {
-            if (style.gradientEnd != null) SettingsItem(
+            SettingsItem(
                 headlineContent = { Text("渐变终点颜色") }, supportingContent = { Text(gradientEnd.uppercase()) },
                 leadingContent = { SettingsLeadingIcon(Icons.Default.ColorLens) },
                 trailingContent = { Box(Modifier.size(32.dp).clip(CircleShape).background(settingsParseColor(gradientEnd))) },
@@ -538,7 +540,7 @@ private fun DesktopAppearanceSettings(context: Context, prefs: SharedPreferences
             )
         },
         {
-            if (style.gradientEnd != null) SettingsChoiceItem("渐变方向", if (style.gradientVertical) "vertical" else "horizontal",
+            SettingsChoiceItem("渐变方向", if (style.gradientVertical) "vertical" else "horizontal",
                 listOf("horizontal" to "横向", "vertical" to "纵向"), Icons.Default.Style) {
                 prefs.edit().putBoolean(OverlayAppearance.PREF_GRADIENT_VERTICAL, it == "vertical").apply()
                 refreshAppearance()
