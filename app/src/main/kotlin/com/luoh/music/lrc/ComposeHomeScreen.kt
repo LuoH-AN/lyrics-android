@@ -10,6 +10,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -49,6 +50,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Translate
@@ -177,6 +179,7 @@ internal class HomePresentationState {
         private set
     internal var translationMessage by mutableStateOf("")
         private set
+    internal var shareDraft by mutableStateOf<LyricShareDraft?>(null)
     internal var displayOffsetMs by mutableIntStateOf(0)
         private set
     internal var textAlignment by mutableStateOf(HomeLyricsPrefs.LEFT)
@@ -234,6 +237,12 @@ internal class HomePresentationState {
     }
 
     fun setTranslationStatus(message: String) { translationMessage = message }
+    fun beginSharing(index: Int? = null) {
+        if (document.lines.isEmpty() || snapshot.track.isBlank()) return
+        val selected = index ?: homeActiveLine(document, clock.positionMs() + displayOffsetMs, clock.durationMs).coerceAtLeast(0)
+        shareDraft = LyricShareDraft(snapshot.track, snapshot.artist, LyricShareCard.snapshotCover(snapshot.cover),
+            document.lines.toList(), selected)
+    }
     fun setAlignment(value: String) {
         textAlignment = when (value) {
             HomeLyricsPrefs.CENTER, HomeLyricsPrefs.RIGHT -> value
@@ -298,6 +307,7 @@ internal fun ComposeHomeScreen(
             }
         }
     }
+    state.shareDraft?.let { draft -> LyricShareSheet(draft) { state.shareDraft = null } }
 }
 
 /** Fade the lyric drawing itself so the album background remains continuous. */
@@ -695,6 +705,7 @@ private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = M
                         scrollVelocity = scrollVelocity,
                         timed = document.timed,
                         onClick = { state.seek(line.startMs - state.displayOffsetMs) },
+                        onLongClick = { state.beginSharing(index) },
                         activeColor = if (albumBackground) foreground else MaterialTheme.colorScheme.primary,
                         foregroundColor = foreground,
                         appearance = appearance,
@@ -736,6 +747,7 @@ private fun HomeLyricRow(
     scrollVelocity: State<Float>,
     timed: Boolean,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     activeColor: Color,
     foregroundColor: Color,
     appearance: HomeLyricAppearance,
@@ -764,11 +776,12 @@ private fun HomeLyricRow(
             this.alpha = alpha
             transformOrigin = origin
             translationY = if (motion.stagger && allowMotion) (scrollVelocity.value * lagSeconds).coerceIn(-48.dp.toPx(), 48.dp.toPx()) else 0f
-        }.blur(depth.dp).clickable(
-            enabled = timed,
+        }.blur(depth.dp).combinedClickable(
             interactionSource = remember { MutableInteractionSource() },
             indication = null,
-            onClick = onClick,
+            onClick = { if (timed) onClick() },
+            onLongClickLabel = "摘句与分享",
+            onLongClick = onLongClick,
         ).padding(vertical = 10.dp),
     ) {
         val primary = if (translationMode == LyricsOverlayService.TRANSLATION_TRANSLATED && line.translation.isNotBlank()) line.translation else line.text
@@ -857,6 +870,12 @@ private fun HomeMoreSheet(state: HomePresentationState, onDismiss: () -> Unit) {
         },
     ) {
         LazyColumn(state = scroll, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+            if (state.document.lines.isNotEmpty()) item {
+                HomeSheetOption("歌词摘句与分享", Icons.Default.Share) { select { state.beginSharing() } }
+            }
+            if (state.document.lines.isNotEmpty() && !state.custom) item {
+                HomeSheetOption("重新获取歌词", Icons.Default.Refresh) { select { state.actions?.retryLyrics() } }
+            }
             item { HomeSheetOption(when {
                 state.custom -> "编辑自定义歌词"
                 state.document.lines.isNotEmpty() -> "修改当前歌词"

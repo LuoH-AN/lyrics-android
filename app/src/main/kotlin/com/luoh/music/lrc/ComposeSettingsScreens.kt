@@ -339,6 +339,11 @@ private fun DesktopAccessSettings(context: Context) {
     val scope = rememberSettingsBusinessScope()
     SettingsGroup(title = "桌面歌词", items = listOf(
         {
+            SettingsNavigationItem("添加下拉快捷开关", "从系统快捷设置开关桌面歌词", Icons.Default.Lyrics) {
+                LyricsTileService.requestAdd(context)
+            }
+        },
+        {
             SettingsSwitchItem("桌面歌词", "在其他应用上显示当前播放的歌词", Icons.Default.Lyrics, running) {
                 when {
                     running -> context.stopService(Intent(context, LyricsOverlayService::class.java))

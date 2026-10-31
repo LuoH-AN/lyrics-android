@@ -391,6 +391,7 @@ class LyricsOverlayService : Service() {
     }
 
     private fun announceOverlayState() {
+        LyricsTileService.requestUpdate(this)
         sendBroadcast(
             Intent(ACTION_STATE_CHANGED)
                 .setPackage(packageName)

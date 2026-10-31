@@ -1,13 +1,9 @@
-<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="桌面歌词应用图标">
-  <!-- 纸面米白底、扁平、纯边框、橙色高亮当前歌词行 -->
-  <rect x="24" y="24" width="464" height="464" rx="104" fill="#f5f1e8"/>
-  <rect x="24.5" y="24.5" width="463" height="463" rx="103.5" fill="none" stroke="#d9d2c3" stroke-width="3"/>
-  <!-- 歌词行：暖灰为已过/未到，橙为当前行 -->
-  <g stroke-linecap="round">
-    <line x1="140" y1="176" x2="332" y2="176" stroke="#b8b0a0" stroke-width="20"/>
-    <line x1="140" y1="232" x2="300" y2="232" stroke="#b8b0a0" stroke-width="20"/>
-    <!-- 当前行：橙色、更长更粗 -->
-    <line x1="140" y1="292" x2="372" y2="292" stroke="#e8590c" stroke-width="26"/>
-    <line x1="140" y1="352" x2="288" y2="352" stroke="#b8b0a0" stroke-width="20"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="桌面歌词应用图标：圆角 L 与三条歌词线">
+  <rect width="512" height="512" rx="114" fill="#f4f4f4"/>
+  <path d="M185 145 H212 Q232 145 232 165 V285 Q232 307 254 307
+    H327 Q347 307 347 327 V348 Q347 368 327 368 H185
+    Q165 368 165 348 V165 Q165 145 185 145 Z" fill="#171717"/>
+  <path d="M277 170 H339" fill="none" stroke="#585858" stroke-width="18" stroke-linecap="round"/>
+  <path d="M277 215 H323" fill="none" stroke="#8b8b8b" stroke-width="18" stroke-linecap="round"/>
+  <path d="M277 260 H307" fill="none" stroke="#b4b4b4" stroke-width="18" stroke-linecap="round"/>
 </svg>

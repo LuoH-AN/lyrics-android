@@ -13,6 +13,8 @@
 
 回消息、刷网页时，把歌词留在桌面小窗里，拖到顺手的位置。主页的播放控制栏也能下滑收起来，留下圆形封面、环形进度和歌曲信息；点封面播放或暂停，上滑再展开。
 
+下拉系统快捷设置，也能直接开关桌面歌词。碰到喜欢的几句，长按歌词摘句，复制文字或生成分享卡片：专辑封面轻轻模糊成背景，左上是歌名和音乐人，中间是歌词，右下留一枚小图标。译文可以选择附带。
+
 | 封面歌词主页 | 桌面歌词外观 | 应用主题配色 | 歌词与翻译 |
 | :---: | :---: | :---: | :---: |
 | <a href="docs/assets/screenshots/home.webp"><img src="docs/assets/screenshots/home.webp" width="180" alt="铺满的封面背景、逐字高亮和双语歌词"></a> | <a href="docs/assets/screenshots/desktop-lyrics.webp"><img src="docs/assets/screenshots/desktop-lyrics.webp" width="180" alt="桌面歌词预览与文字、背景设置"></a> | <a href="docs/assets/screenshots/appearance.webp"><img src="docs/assets/screenshots/appearance.webp" width="180" alt="深色主题、AMOLED 和配色设置"></a> | <a href="docs/assets/screenshots/lyrics-translation.webp"><img src="docs/assets/screenshots/lyrics-translation.webp" width="180" alt="双语显示、补充翻译、自定义歌词与歌词源管理"></a> |

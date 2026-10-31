@@ -1,22 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 同步歌词标记：三条歌词行，当前行橙色高亮，其余暖灰。扁平/纸面/无渐变。 -->
+<!-- Approved rounded L and three descending lyric strokes. Keep them inside the adaptive safe area. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <!-- 过去行（暖灰，较短） -->
-    <path
-        android:fillColor="#4A463F"
-        android:fillAlpha="0.55"
-        android:pathData="M37,37 L61,37 A3,3 0 0 1 61,43 L37,43 A3,3 0 0 1 37,37 Z" />
-    <!-- 当前行（橙色高亮，最长） -->
-    <path
-        android:fillColor="#E8590C"
-        android:pathData="M37,50 L77,50 A4,4 0 0 1 77,58 L37,58 A4,4 0 0 1 37,50 Z" />
-    <!-- 未来行（暖灰，中长） -->
-    <path
-        android:fillColor="#4A463F"
-        android:fillAlpha="0.55"
-        android:pathData="M37,65 L57,65 A3,3 0 0 1 57,71 L37,71 A3,3 0 0 1 37,65 Z" />
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="768" android:viewportHeight="768">
+    <group android:translateX="128" android:translateY="128">
+    <path android:fillColor="#171717" android:pathData="M185,145 H212 Q232,145 232,165 V285 Q232,307 254,307 H327 Q347,307 347,327 V348 Q347,368 327,368 H185 Q165,368 165,348 V165 Q165,145 185,145 Z" />
+    <path android:fillColor="#585858" android:pathData="M277,161 H339 A9,9 0 0 1 339,179 H277 A9,9 0 0 1 277,161 Z" />
+    <path android:fillColor="#8b8b8b" android:pathData="M277,206 H323 A9,9 0 0 1 323,224 H277 A9,9 0 0 1 277,206 Z" />
+    <path android:fillColor="#b4b4b4" android:pathData="M277,251 H307 A9,9 0 0 1 307,269 H277 A9,9 0 0 1 277,251 Z" />
+    </group>
 </vector>
