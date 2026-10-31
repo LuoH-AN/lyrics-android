@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -40,6 +42,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
@@ -82,6 +85,10 @@ internal fun SettingsColorDialog(title: String, initialColor: String, onDismiss:
     } }
     AlertDialog(
         onDismissRequest = onDismiss,
+        // A wrap-content platform window can measure the sliders at two different widths
+        // every frame. Give the window a stable width and constrain the Material surface.
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier.padding(horizontal = 24.dp).widthIn(max = 560.dp).fillMaxWidth(),
         title = { Text(title) },
         text = {
             Column(Modifier.fillMaxWidth().height(400.dp).verticalScroll(rememberScrollState()),

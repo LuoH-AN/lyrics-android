@@ -52,20 +52,21 @@ class ComposeOverlayAppearanceTest {
         prefs.edit().clear().commit()
         val globalWrites = java.util.IdentityHashMap<Any, Int>()
         val values = java.util.IdentityHashMap<Any, ArrayDeque<String>>()
+        val origins = java.util.IdentityHashMap<Any, String>()
         writeObserver = Snapshot.registerGlobalWriteObserver { state ->
             val count = (globalWrites[state] ?: 0) + 1
             globalWrites[state] = count
             val recent = values.getOrPut(state) { ArrayDeque() }
             if (recent.size >= 6) recent.removeFirst()
             recent.addLast(state.toString())
-            check(count < 100) { "Color picker repeated global write: ${state.javaClass.name}: $recent" }
+            if (count == 100) origins[state] = Throwable("Repeated write origin: $recent").stackTraceToString()
         }
         val writes = java.util.IdentityHashMap<Any, Int>()
         snapshotObserver = Snapshot.registerApplyObserver { changes, _ ->
             for (state in changes) {
                 val count = (writes[state] ?: 0) + 1
                 writes[state] = count
-                check(count < 500) { "Color picker kept applying the same state: ${state.javaClass.name}: $state" }
+                check(count < 500) { "Color picker kept applying the same state: ${state.javaClass.name}: $state\n${origins[state]}" }
             }
         }
     }
