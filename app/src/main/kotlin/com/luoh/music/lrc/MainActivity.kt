@@ -137,6 +137,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ioScope.launch { TemporaryCache.prune(applicationContext) }
         enableEdgeToEdge()
         home.actions = HomeActions()
         home.setAlignment(HomeLyricsPrefs.alignment(this))

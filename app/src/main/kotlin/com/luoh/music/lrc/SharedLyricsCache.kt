@@ -14,6 +14,11 @@ internal class SharedLyricsCache(context: Context, private val now: () -> Long =
 
     data class Entry(val title: String, val artist: String, val result: DirectLyricsRepository.Result, val savedAt: Long)
 
+    fun clear() = synchronized(prefs) {
+        prefs.edit().clear().apply()
+        legacy.edit().clear().apply()
+    }
+
     /** Expired downloads remain editable until they are evicted or explicitly cleared. */
     fun all(): List<Entry> {
         val current = prefs.all

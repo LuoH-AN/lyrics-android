@@ -58,4 +58,24 @@ class SharedLyricsCacheTest {
         }
         assertNull(cache.read("Custom", "Artist"))
     }
+
+    @Test fun clearingSharedAndLegacyCachesDoesNotTouchSettingsOrCustomLyrics() {
+        val cache = SharedLyricsCache(context) { now }
+        cache.resolve("Song", "Artist", "", 0) {
+            DirectLyricsRepository.Result(lyrics = "[00:00.00]cached", source = "QQ音乐")
+        }
+        context.getSharedPreferences("home_lyric_cache_v1", Context.MODE_PRIVATE).edit()
+            .putString("Legacy\u0000Artist\u0000Album", "old cache").commit()
+        val settings = context.getSharedPreferences("supplement_translation", Context.MODE_PRIVATE)
+        settings.edit().putString("mode", "offline").commit()
+        val custom = CustomLyricsStore.save(context, "Custom cache test", "Artist", "[00:00.00]mine")
+        try {
+            cache.clear()
+            assertNull(cache.read("Song", "Artist"))
+            assertTrue(context.getSharedPreferences("home_lyric_cache_v1", Context.MODE_PRIVATE).all.isEmpty())
+            assertTrue(context.getSharedPreferences(SharedLyricsCache.PREFS, Context.MODE_PRIVATE).all.isEmpty())
+            assertEquals("offline", settings.getString("mode", null))
+            assertNotNull(CustomLyricsStore.get(context, custom.id))
+        } finally { CustomLyricsStore.delete(context, custom.id) }
+    }
 }

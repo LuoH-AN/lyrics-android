@@ -188,10 +188,10 @@ internal object LyricShareCard {
 
     fun shareIntent(context: Context, bitmap: Bitmap): Intent {
         val directory = File(context.cacheDir, "lyric_cards").apply { check(mkdirs() || isDirectory) }
-        val expiry = System.currentTimeMillis() - 86_400_000L
-        directory.listFiles()?.filter { it.lastModified() < expiry }?.forEach { it.delete() }
+        TemporaryCache.pruneCards(context)
         val file = File(directory, "lyrics-${UUID.randomUUID()}.png")
         file.outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+        TemporaryCache.pruneCards(context, protectedFile = file)
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.lyriccards", file)
         return Intent(Intent.ACTION_SEND).apply {
             type = "image/png"

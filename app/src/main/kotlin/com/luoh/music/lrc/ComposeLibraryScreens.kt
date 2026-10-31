@@ -836,7 +836,7 @@ private fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute)
                                 scope.launch {
                                     withContext(Dispatchers.IO) {
                                         saveSourceEntries(context, prefs, emptyList())
-                                        context.getSharedPreferences("home_lyric_cache_v1", Context.MODE_PRIVATE).edit().clear().apply()
+                                        SharedLyricsCache(context).clear()
                                     }
                                     message = "已清除匹配记录与缓存，下次搜索恢复自动匹配"
                                 }

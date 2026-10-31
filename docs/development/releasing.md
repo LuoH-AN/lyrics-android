@@ -18,6 +18,8 @@
 
 版本维护在 `app/build.gradle.kts`，`versionCode` 必须递增。正式包名保持 `com.luoh.music.lrc`。
 
+正式构建启用 R8 代码优化和资源裁剪；`app/proguard-rules.pro` 保留小窗 JavaScript 桥接方法，ML Kit 使用依赖自带的规则。`workflow_dispatch` 可以在开发分支验证签名包和体积，只有版本标签触发的任务会创建 Release。
+
 1. 在新仓库的 Actions Secrets 配置原有正式签名；GitHub 不会随源码迁移 Secrets。
 2. `release.yml` 在 `feat/release-*` 分支或手动触发时构建、签名并验证，但不创建 Release。
 3. 正式发布前将经过验证的代码合入 `main`。

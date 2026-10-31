@@ -887,6 +887,7 @@ private fun AboutSettings(context: Context, onNavigate: (ComposeRoute) -> Unit) 
             .getOrDefault("1.0")
     }
     var checking by remember { mutableStateOf(false) }
+    var clearingCache by remember { mutableStateOf(false) }
     var release by remember { mutableStateOf<UpdateChecker.Release?>(null) }
     val active = LocalSettingsScrollRetentionActive.current
     LaunchedEffect(active) { if (!active) { checking = false; release = null } }
@@ -910,6 +911,17 @@ private fun AboutSettings(context: Context, onNavigate: (ComposeRoute) -> Unit) 
         { SettingsNavigationItem("项目主页 · GitHub", icon = Icons.Default.Link) { settingsOpenUrl(context, "https://github.com/LuoH-AN/lyrics-android") } },
         { SettingsNavigationItem("隐私说明", "权限与数据使用", Icons.Default.Lock) { onNavigate(ComposeRoute("privacy")) } },
     ))
+    SettingsGroup(title = "存储", items = listOf({
+        SettingsNavigationItem("清理临时缓存", "清理补充译文与分享图片，保留设置、自定义歌词和语言包", Icons.Default.Layers, !clearingCache) {
+            clearingCache = true
+            scope.launch {
+                try {
+                    val cleared = withContext(Dispatchers.IO) { TemporaryCache.clear(context) }
+                    settingsToast(context, if (cleared) "临时缓存已清理" else "部分缓存暂时无法清理，请稍后重试")
+                } finally { clearingCache = false }
+            }
+        }
+    }))
     release?.let { update ->
         AlertDialog(
             onDismissRequest = { release = null },

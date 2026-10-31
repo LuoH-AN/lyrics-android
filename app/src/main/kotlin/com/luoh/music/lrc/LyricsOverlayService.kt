@@ -170,6 +170,7 @@ class LyricsOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        lyricsScope.launch { TemporaryCache.prune(applicationContext) }
         instance = this
         isRunning = true
         announceOverlayState()

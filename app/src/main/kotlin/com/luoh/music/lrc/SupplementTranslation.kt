@@ -119,6 +119,16 @@ class SupplementTranslation(private val context: Context) {
 
     suspend fun translate(payload: String, onTranslationRequired: suspend () -> Unit = {},
         emit: (JSONObject) -> Unit): SupplementOutcome = withContext(Dispatchers.IO) {
+        TemporaryCache.pruneTranslations(context)
+        try {
+            translateCached(payload, onTranslationRequired, emit)
+        } finally {
+            TemporaryCache.pruneTranslations(context)
+        }
+    }
+
+    private suspend fun translateCached(payload: String, onTranslationRequired: suspend () -> Unit,
+        emit: (JSONObject) -> Unit): SupplementOutcome = withContext(Dispatchers.IO) {
         val mode = prefs.getString("mode", "off") ?: "off"
         if (mode == "off") return@withContext SupplementOutcome.DISABLED
         val input = JSONArray(payload)
