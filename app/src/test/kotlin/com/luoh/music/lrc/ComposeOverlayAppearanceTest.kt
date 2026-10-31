@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.snapshots.Snapshot
+import androidx.compose.runtime.snapshots.ObserverHandle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -27,6 +29,7 @@ import com.luoh.music.lrc.ui.agora.AgoraMotionPolicy
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
 import org.junit.Assert.*
 import org.junit.Before
+import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -43,7 +46,19 @@ class ComposeOverlayAppearanceTest {
     private val prefs get() = ApplicationProvider.getApplicationContext<Context>()
         .getSharedPreferences(LyricsOverlayService.PREFS_NAME, Context.MODE_PRIVATE)
 
-    @Before fun clearPreferences() { prefs.edit().clear().commit() }
+    private var snapshotObserver: ObserverHandle? = null
+    @Before fun clearPreferences() {
+        prefs.edit().clear().commit()
+        val writes = java.util.IdentityHashMap<Any, Int>()
+        snapshotObserver = Snapshot.registerApplyObserver { changes, _ ->
+            for (state in changes) {
+                val count = (writes[state] ?: 0) + 1
+                writes[state] = count
+                check(count < 500) { "Color picker kept applying the same state: ${state.javaClass.name}: $state" }
+            }
+        }
+    }
+    @After fun stopObserving() { snapshotObserver?.dispose() }
 
     private fun showSettings() {
         compose.setContent {
