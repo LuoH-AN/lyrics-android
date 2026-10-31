@@ -63,6 +63,7 @@ class SharedLyricsCacheTest {
 
     @Test fun clearingSharedAndLegacyCachesDoesNotTouchSettingsOrCustomLyrics() {
         val cache = SharedLyricsCache(context) { now }
+        val priorEpoch = cache.epoch
         cache.resolve("Song", "Artist", "", 0) {
             DirectLyricsRepository.Result(lyrics = "[00:00.00]cached", source = "QQ音乐")
         }
@@ -73,6 +74,7 @@ class SharedLyricsCacheTest {
         val custom = CustomLyricsStore.save(context, "Custom cache test", "Artist", "[00:00.00]mine")
         try {
             cache.clear()
+            assertEquals(priorEpoch + 1, SharedLyricsCache(context).epoch)
             assertNull(cache.read("Song", "Artist"))
             assertTrue(context.getSharedPreferences("home_lyric_cache_v1", Context.MODE_PRIVATE).all.isEmpty())
             assertTrue(context.getSharedPreferences(SharedLyricsCache.PREFS, Context.MODE_PRIVATE).all.isEmpty())

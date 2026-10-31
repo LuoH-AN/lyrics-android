@@ -436,12 +436,45 @@
       updateNativeActiveLine(position);
     }
 
+    function lyricCacheEpoch() {
+      try { return Number(window.LobstaNativeLyrics?.lyricCacheEpoch?.()) || 0; }
+      catch (_) { return 0; }
+    }
+
+    function pruneLyricsCache() {
+      try {
+        const entries = [];
+        const epoch = lyricCacheEpoch();
+        for (let index = 0; index < localStorage.length; index++) {
+          const key = localStorage.key(index);
+          if (!key?.startsWith('lobsta-lyrics:')) continue;
+          const raw = localStorage.getItem(key);
+          let data = null;
+          try { data = JSON.parse(raw); } catch (_) {}
+          entries.push({ key, bytes: (raw || '').length * 2, savedAt: Number(data?.savedAt) || 0,
+            usable: data?.schema === LYRICS_CACHE_SCHEMA && (Number(data?.epoch) || 0) === epoch });
+        }
+        entries.sort((left, right) => right.savedAt - left.savedAt);
+        let bytes = 0, count = 0;
+        for (const entry of entries) {
+          if (!entry.usable || entry.savedAt <= 0 || Date.now() - entry.savedAt > 14 * 86400000 ||
+              count >= 60 || bytes + entry.bytes > 4 * 1024 * 1024) {
+            localStorage.removeItem(entry.key);
+          } else { bytes += entry.bytes; count++; }
+        }
+      } catch (_) {}
+    }
+
     function cachedLyrics(key) {
       try {
         const raw = localStorage.getItem('lobsta-lyrics:' + hash(key));
         if (!raw) return null;
         const value = JSON.parse(raw);
         if (value.schema !== LYRICS_CACHE_SCHEMA) return null;
+        if ((Number(value.epoch) || 0) !== lyricCacheEpoch()) {
+          localStorage.removeItem('lobsta-lyrics:' + hash(key));
+          return null;
+        }
         if (!Number.isFinite(value.savedAt) || value.savedAt <= 0 || Date.now() - value.savedAt > 14 * 86400000) return null;
         if (!isUsableLyricPayload(value.lyrics) || value.source === '自定义歌词') return null;
         const duration = Number(value.duration || 0);
@@ -454,6 +487,7 @@
       try {
         localStorage.setItem('lobsta-lyrics:' + hash(key), JSON.stringify({
           schema:LYRICS_CACHE_SCHEMA,
+          epoch:lyricCacheEpoch(),
           lyrics:isUsableLyricPayload(value.lyrics)?value.lyrics:'',
           translatedLyrics:isUsableLyricPayload(value.translatedLyrics)?value.translatedLyrics:'',
           wordLyrics:isUsableLyricPayload(value.wordLyrics)?value.wordLyrics:'',
@@ -462,6 +496,7 @@
           lossless:!!value.lossless, hiResLossless:!!value.hiResLossless,
           dolbyAtmos:!!value.dolbyAtmos, savedAt:Date.now()
         }));
+        pruneLyricsCache();
       } catch (_) {}
     }
 
@@ -851,6 +886,7 @@
       lyricFontScale=Math.max(35,Math.min(150,Number(percent)||100))/100;
     }
 
+    pruneLyricsCache();
     window.LobstaOverlay = {
       engineTick,
       refreshMatchManagement,

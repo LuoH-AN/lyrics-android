@@ -627,6 +627,9 @@ class LyricsOverlayService : Service() {
         }
 
         @JavascriptInterface
+        fun lyricCacheEpoch(): Long = sharedLyricsCache.epoch
+
+        @JavascriptInterface
         fun cachedLyrics(track: String, artist: String, album: String, durationMs: Double): String {
             if (track.isBlank()) return ""
             val duration = durationMs.takeIf { it.isFinite() && it > 0 }?.toLong() ?: 0L

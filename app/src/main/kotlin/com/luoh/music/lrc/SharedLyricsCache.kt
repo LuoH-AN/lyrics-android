@@ -9,6 +9,8 @@ import kotlin.math.abs
 internal class SharedLyricsCache(context: Context, private val now: () -> Long = System::currentTimeMillis) {
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private val legacy = context.getSharedPreferences("home_lyric_cache_v1", Context.MODE_PRIVATE)
+    private val metadata = context.getSharedPreferences("lyrics_cache_metadata", Context.MODE_PRIVATE)
+    val epoch: Long get() = metadata.getLong("epoch", 0L)
 
     private fun key(track: String, artist: String) = "${track.trim()}\u0000${artist.trim()}".lowercase(Locale.ROOT)
 
@@ -17,6 +19,7 @@ internal class SharedLyricsCache(context: Context, private val now: () -> Long =
     fun clear() = synchronized(prefs) {
         prefs.edit().clear().apply()
         legacy.edit().clear().apply()
+        metadata.edit().putLong("epoch", epoch + 1).apply()
     }
 
     /** Expired downloads remain editable until they are evicted or explicitly cleared. */
