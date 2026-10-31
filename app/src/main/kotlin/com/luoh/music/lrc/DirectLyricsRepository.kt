@@ -23,6 +23,13 @@ import java.util.concurrent.TimeUnit
  * QQ Music and NetEase artwork are only used when the player did not publish one.
  */
 class DirectLyricsRepository {
+    // Providers run concurrently; ICU transliterators must not be shared across threads.
+    private val toSimplified = ThreadLocal.withInitial { Transliterator.getInstance("Hant-Hans") }
+    private val toTraditional = ThreadLocal.withInitial { Transliterator.getInstance("Hans-Hant") }
+
+    private fun simplifiedChinese(value: String): String = toSimplified.get()!!.transliterate(value)
+    private fun traditionalChinese(value: String): String = toTraditional.get()!!.transliterate(value)
+
     private val latinTransliterator by lazy {
         Transliterator.getInstance("Any-Latin; NFD; [:Nonspacing Mark:] Remove; NFC")
     }
@@ -62,7 +69,7 @@ class DirectLyricsRepository {
     }
 
     private data class JsonMatch(val value: JSONObject, val score: Int)
-    private data class SearchPlan(val track: String, val query: String, val includesArtist: Boolean)
+    private data class SearchPlan(val track: String, val artist: String, val query: String, val includesArtist: Boolean)
     private data class ResolvedIdentity(val track: String, val artist: String, val album: String)
     private data class QqRichLyrics(
         val lineLyrics: String,
@@ -301,46 +308,48 @@ class DirectLyricsRepository {
     }
 
     private fun queryLrcLib(track: String, artist: String, expectedDurationMs: Long): Result? {
-        val url = "https://lrclib.net/api/search?track_name=${encode(track)}&artist_name=${encode(artist)}"
+        val headers = mapOf("Accept" to "application/json",
+            "User-Agent" to "DesktopLyrics/1.0 (https://github.com/LuoH-AN/lyrics-android)")
         var best: Result? = null
-        for (broad in listOf(false, true)) {
-        val requestUrl = if (broad) "https://lrclib.net/api/search?track_name=${encode(track)}" else url
-        val list = JSONArray(getText(requestUrl, mapOf("Accept" to "application/json", "User-Agent" to "DesktopLyrics/1.0 (https://github.com/LuoH-AN/lyrics-android)")))
-        val aliases = if (broad && list.length() > 0) providerArtistAliases(artist) else setOf(normalize(artist))
-        for (index in 0 until list.length()) {
-            val item = list.optJSONObject(index) ?: continue
-            if (item.optLong("id").toString() in excludedRecords.get().orEmpty()) continue
-            val syncedLyrics = item.optString("syncedLyrics")
-            val plainLyrics = item.optString("plainLyrics")
-            val lyrics = if (isUsableLyrics(syncedLyrics)) syncedLyrics else plainLyrics
-            if (!isUsableLyrics(lyrics)) continue
-            val synced = isUsableLyrics(syncedLyrics)
-            val durationMs = (item.optDouble("duration", 0.0) * 1000.0).toLong()
-            val candidateArtist = item.optString("artistName")
-            val aliasMatch = normalize(candidateArtist) in aliases
-            if (broad && (!aliasMatch || titleIdentityKey(track) != titleIdentityKey(item.optString("trackName")) ||
-                    expectedDurationMs <= 0 || kotlin.math.abs(expectedDurationMs - durationMs) > 8000L ||
-                    versionTags(track) != versionTags(item.optString("trackName")))) continue
-            val score = platformMatchScore(
-                track,
-                artist,
-                item.optString("trackName"),
-                if (aliasMatch) artist else candidateArtist,
-                expectedDurationMs,
-                durationMs
-            ) + if (synced) 5 else 0
-            val result = Result(
-                lyrics = lyrics,
-                durationMs = durationMs,
-                source = "LRCLIB",
-                recordId = item.optLong("id").toString(),
-                title = item.optString("trackName"),
-                artist = item.optString("artistName"),
-                score = score
-            )
-            if (best == null || result.score > best.score) best = result
-        }
-        if (best != null && best!!.score >= MIN_ACCEPTABLE_SCORE) return best
+        for (plan in searchPlans(track, artist)) {
+            val broad = artist.isNotBlank() && !plan.includesArtist
+            val requestUrl = "https://lrclib.net/api/search?track_name=${encode(plan.track)}" +
+                if (broad) "" else "&artist_name=${encode(plan.artist)}"
+            val list = JSONArray(getText(requestUrl, headers))
+            val aliases = if (broad && list.length() > 0) providerArtistAliases(artist) else setOf(normalize(artist))
+            for (index in 0 until list.length()) {
+                val item = list.optJSONObject(index) ?: continue
+                if (item.optLong("id").toString() in excludedRecords.get().orEmpty()) continue
+                val syncedLyrics = item.optString("syncedLyrics")
+                val plainLyrics = item.optString("plainLyrics")
+                val lyrics = if (isUsableLyrics(syncedLyrics)) syncedLyrics else plainLyrics
+                if (!isUsableLyrics(lyrics)) continue
+                val synced = isUsableLyrics(syncedLyrics)
+                val durationMs = (item.optDouble("duration", 0.0) * 1000.0).toLong()
+                val candidateTrack = item.optString("trackName")
+                val candidateArtist = item.optString("artistName")
+                val aliasMatch = normalize(candidateArtist) in aliases
+                if (versionTags(track) != versionTags(candidateTrack)) continue
+                if (broad && (!aliasMatch || titleIdentityKey(track) != titleIdentityKey(candidateTrack) ||
+                        expectedDurationMs <= 0 || kotlin.math.abs(expectedDurationMs - durationMs) > 8000L)) continue
+                val score = maxOf(
+                    platformMatchScore(track, artist, candidateTrack, if (aliasMatch) artist else candidateArtist,
+                        expectedDurationMs, durationMs),
+                    platformMatchScore(plan.track, artist, candidateTrack, if (aliasMatch) artist else candidateArtist,
+                        expectedDurationMs, durationMs)
+                ) + if (synced) 5 else 0
+                val result = Result(
+                    lyrics = lyrics,
+                    durationMs = durationMs,
+                    source = "LRCLIB",
+                    recordId = item.optLong("id").toString(),
+                    title = candidateTrack,
+                    artist = candidateArtist,
+                    score = score
+                )
+                if (best == null || result.score > best.score) best = result
+            }
+            if (best != null && best.score >= MIN_ACCEPTABLE_SCORE) return best
         }
         return best
     }
@@ -738,26 +747,33 @@ class DirectLyricsRepository {
     }
 
     private fun searchTrackVariants(track: String): List<String> {
-        val simplified = track
+        val stripped = track
             .replace(Regex("\\s*[（(][^）)]*[）)]\\s*"), " ")
             .replace(Regex("\\s*[【\\[].*?[】\\]]\\s*"), " ")
             .trim()
-        return listOf(track.trim(), simplified)
+        return listOf(track.trim(), stripped)
             .filter { it.isNotBlank() }
             .distinct()
     }
 
     private fun searchPlans(track: String, artist: String): List<SearchPlan> {
-        val variants = searchTrackVariants(track)
+        val variants = searchTrackVariants(track).flatMap { title ->
+            listOf(
+                title to artist.trim(),
+                simplifiedChinese(title) to simplifiedChinese(artist).trim(),
+                traditionalChinese(title) to traditionalChinese(artist).trim()
+            )
+        }.distinct()
         return buildList {
-            variants.forEach { variant ->
-                add(SearchPlan(variant, "$variant $artist".trim(), includesArtist = artist.isNotBlank()))
+            variants.forEach { (title, singer) ->
+                add(SearchPlan(title, singer, "$title $singer".trim(), includesArtist = singer.isNotBlank()))
             }
             if (artist.isNotBlank()) {
-                variants.forEach { variant ->
-                    add(SearchPlan(variant, variant, includesArtist = false))
+                variants.forEach { (title, _) ->
+                    add(SearchPlan(title, "", title, includesArtist = false))
                 }
             }
+            // Do not normalize here: simplified and traditional queries must both survive.
         }.distinctBy { it.query }
     }
 
@@ -855,10 +871,10 @@ class DirectLyricsRepository {
     }
 
     private fun versionTags(value: String): Set<String> {
-        val normalized = Normalizer.normalize(value, Normalizer.Form.NFKC).lowercase(Locale.ROOT)
+        val normalized = simplifiedChinese(Normalizer.normalize(value, Normalizer.Form.NFKC)).lowercase(Locale.ROOT)
         return buildSet {
             if (Regex("\\blive\\b|现场|ライヴ|ライブ").containsMatchIn(normalized)) add("live")
-            if (Regex("instrumental|伴奏|纯音乐|純音楽|off\\s*vocal").containsMatchIn(normalized)) add("instrumental")
+            if (Regex("instrumental|伴奏|纯音[乐楽]|off\\s*vocal").containsMatchIn(normalized)) add("instrumental")
             if (Regex("remix|リミックス").containsMatchIn(normalized)) add("remix")
             if (Regex("acoustic|アコースティック").containsMatchIn(normalized)) add("acoustic")
             if (Regex("karaoke|カラオケ").containsMatchIn(normalized)) add("karaoke")
@@ -1010,7 +1026,7 @@ class DirectLyricsRepository {
         return previous[second.length]
     }
 
-    private fun normalize(value: String): String = Normalizer.normalize(value, Normalizer.Form.NFKC)
+    private fun normalize(value: String): String = simplifiedChinese(Normalizer.normalize(value, Normalizer.Form.NFKC))
         .lowercase(Locale.ROOT)
         .replace(Regex("[（(\\[].*?(live|remaster|版|伴奏|纯音乐|翻唱).*?[）)\\]]", RegexOption.IGNORE_CASE), "")
         .replace(Regex("[^\\p{L}\\p{N}]"), "")
