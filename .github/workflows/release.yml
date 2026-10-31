@@ -88,7 +88,7 @@ jobs:
           RELEASE_CERT_SHA256: "482fae2e74bcf1cce5a4006dae7c86795b6eeb0112154cff462b20e4dd07300c"
         run: |
           python3 - <<'PY'
-          import hashlib, os, re, shutil, subprocess
+          import hashlib, os, re, shutil, subprocess, zipfile
           from pathlib import Path
           apk = Path('app/build/outputs/apk/release/app-release.apk')
           assert apk.is_file(), 'Signed release APK was not produced'
@@ -112,6 +112,9 @@ jobs:
           target = dist / f"lyrics-android-{os.environ['RELEASE_VERSION']}-arm64-v8a.apk"
           shutil.copyfile(apk, target)
           (dist / 'SHA256SUMS').write_text(f'{hashlib.sha256(target.read_bytes()).hexdigest()}  {target.name}\n')
+          with zipfile.ZipFile(target) as package:
+              dex_bytes = sum(entry.file_size for entry in package.infolist() if entry.filename.endswith('.dex'))
+          print(f'APK size: {target.stat().st_size} bytes; uncompressed DEX: {dex_bytes} bytes')
           PY
 
       - name: Remove private signing files
