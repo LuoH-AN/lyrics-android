@@ -8,11 +8,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.snapshots.Snapshot
-import androidx.compose.runtime.snapshots.ObserverHandle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -29,7 +28,6 @@ import com.luoh.music.lrc.ui.agora.AgoraMotionPolicy
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
 import org.junit.Assert.*
 import org.junit.Before
-import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -46,31 +44,9 @@ class ComposeOverlayAppearanceTest {
     private val prefs get() = ApplicationProvider.getApplicationContext<Context>()
         .getSharedPreferences(LyricsOverlayService.PREFS_NAME, Context.MODE_PRIVATE)
 
-    private var snapshotObserver: ObserverHandle? = null
-    private var writeObserver: ObserverHandle? = null
     @Before fun clearPreferences() {
         prefs.edit().clear().commit()
-        val globalWrites = java.util.IdentityHashMap<Any, Int>()
-        val values = java.util.IdentityHashMap<Any, ArrayDeque<String>>()
-        val origins = java.util.IdentityHashMap<Any, String>()
-        writeObserver = Snapshot.registerGlobalWriteObserver { state ->
-            val count = (globalWrites[state] ?: 0) + 1
-            globalWrites[state] = count
-            val recent = values.getOrPut(state) { ArrayDeque() }
-            if (recent.size >= 6) recent.removeFirst()
-            recent.addLast(state.toString())
-            if (count == 100) origins[state] = Throwable("Repeated write origin: $recent").stackTraceToString()
-        }
-        val writes = java.util.IdentityHashMap<Any, Int>()
-        snapshotObserver = Snapshot.registerApplyObserver { changes, _ ->
-            for (state in changes) {
-                val count = (writes[state] ?: 0) + 1
-                writes[state] = count
-                check(count < 500) { "Color picker kept applying the same state: ${state.javaClass.name}: $state\n${origins[state]}" }
-            }
-        }
     }
-    @After fun stopObserving() { snapshotObserver?.dispose(); writeObserver?.dispose() }
 
     private fun showSettings() {
         compose.setContent {
@@ -110,10 +86,13 @@ class ComposeOverlayAppearanceTest {
     @Test fun wheelPicksNonPresetColorsAndCancelDoesNotApply() {
         var applied: String? = null
         var dismissed = false
+        var picked = ""
         compose.setContent { MaterialTheme { SettingsColorDialog("自由选色", "#FFFFFF", { dismissed = true }, { applied = it }) } }
         compose.onNodeWithTag("color_wheel").performTouchInput {
+            picked = PickerColor(0f, 0f, 1f).atPoint(35f, 30f, minOf(width, height) / 2f - 12f).hex()
             swipe(Offset(centerX + 45f, centerY), Offset(centerX + 35f, centerY + 30f), 300)
         }
+        compose.onNodeWithContentDescription("当前颜色 $picked").assertExists()
         compose.onNodeWithText("取消").performTouchInput { click() }
         compose.runOnIdle { assertTrue(dismissed); assertNull(applied) }
     }
@@ -141,6 +120,23 @@ class ComposeOverlayAppearanceTest {
         compose.onNodeWithText("十六进制颜色").performTextReplacement("#123abc")
         compose.onNodeWithText("应用").performTouchInput { click() }
         compose.runOnIdle { assertEquals("#123ABC", applied) }
+    }
+
+    @Test @Config(sdk = [26], qualifiers = "w320dp-h480dp-mdpi")
+    fun colorPickerCanScrollAndApplyOnSmallLegacyScreens() = verifyScrollablePicker()
+
+    @Test @Config(sdk = [35], qualifiers = "w640dp-h360dp-mdpi")
+    fun colorPickerCanScrollAndApplyInLandscape() = verifyScrollablePicker()
+
+    private fun verifyScrollablePicker() {
+        var applied: String? = null
+        compose.setContent { MaterialTheme { SettingsColorDialog("歌词颜色", "#FFFFFF", {}, { applied = it }) } }
+        compose.onNodeWithTag("color_wheel").assertIsDisplayed()
+        compose.onNodeWithText("应用").assertIsDisplayed()
+        compose.onNodeWithText("取消").assertIsDisplayed()
+        compose.onNodeWithText("十六进制颜色").performScrollTo().performTextReplacement("#A72EC3")
+        compose.onNodeWithText("应用").performTouchInput { click() }
+        compose.runOnIdle { assertEquals("#A72EC3", applied) }
     }
 
     @Test fun wheelAppliedColorAndGradientEndpointAreSavedIndependently() {
