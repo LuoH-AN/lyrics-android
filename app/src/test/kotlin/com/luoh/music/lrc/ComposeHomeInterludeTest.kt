@@ -41,7 +41,7 @@ class ComposeHomeInterludeTest {
     private fun show(positionMs: Long = 15000): HomePresentationState {
         val state = HomePresentationState().apply {
             setSnapshot(HomePresentationState.Snapshot(track = "Song", positionMs = positionMs, durationMs = 30000))
-            setLyrics(document)
+            setLyrics(this@ComposeHomeInterludeTest.document)
             setActive(true)
         }
         compose.setContent {
