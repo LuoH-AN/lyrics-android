@@ -39,6 +39,8 @@
     let candidateSignature='';
     let supplementRequestTimer=0;
     let supplementInFlight=false;
+    let supplementRequestedIds=[];
+    const supplementSkippedIds=new Set();
     let supplementWindowEnd=-1;
     let supplementPrefetchRemaining=4;
     const LYRICS_CACHE_SCHEMA=3;
@@ -83,6 +85,8 @@
       if(reset){
         supplementWindowEnd=-1;
         supplementInFlight=false;
+        supplementRequestedIds=[];
+        supplementSkippedIds.clear();
         ++supplementEpoch;
         if(window.LobstaNativeLyrics&&window.LobstaNativeLyrics.cancelSupplement)window.LobstaNativeLyrics.cancelSupplement();
       }
@@ -108,12 +112,13 @@
       const missing=[];
       for(let id=from;id<to;id++){
         const line=playback.lyrics[id];
-        if(line&&!line.translation&&!line.supplement&&line.text.trim())missing.push({id,text:line.text});
+        if(line&&!line.translation&&!line.supplement&&!supplementSkippedIds.has(id)&&line.text.trim())missing.push({id,text:line.text});
       }
       if(!missing.length)return;
       const epoch=++supplementEpoch;
       if(missing.length&&window.LobstaNativeLyrics&&window.LobstaNativeLyrics.translateMissing){
         supplementInFlight=true;
+        supplementRequestedIds=missing.map(row=>row.id);
         window.LobstaNativeLyrics.translateMissing(epoch,JSON.stringify(missing));
       }
     }
@@ -127,7 +132,12 @@
       if(epoch!==supplementEpoch||!data)return;
       if(data.status){
         const failed=data.status==='error';
-        if(data.status==='done'||data.status==='off'||failed) supplementInFlight=false;
+        const skipped=data.status==='skipped';
+        if(skipped) supplementRequestedIds.forEach(id=>supplementSkippedIds.add(id));
+        if(data.status==='done'||data.status==='off'||skipped||failed){
+          supplementInFlight=false;
+          supplementRequestedIds=[];
+        }
         if(window.LobstaNativeLyrics.reportSupplementStatus){
           window.LobstaNativeLyrics.reportSupplementStatus(JSON.stringify({
             requestId:playback.requestId,track:playback.track,artist:playback.artist,
@@ -136,7 +146,7 @@
         }
         // Configuration errors wait for an explicit settings refresh, rather than retrying every tick.
         if(data.status==='off'||failed) supplementWindowEnd=playback.lyrics.length+48;
-        else if(data.status==='done') maybePrefetchSupplement();
+        else if(data.status==='done'||skipped) maybePrefetchSupplement();
         return;
       }
       const line=playback.lyrics[data.id];
@@ -767,6 +777,8 @@
       supplementDueAt=0;
       supplementInFlight=false;
       supplementWindowEnd=-1;
+      supplementRequestedIds=[];
+      supplementSkippedIds.clear();
       if(rematchPending){clearTimeout(rematchPending.timer);rematchPending=null;}
       playback.hasSession=false;
       playback.key='';playback.track='';playback.artist='';

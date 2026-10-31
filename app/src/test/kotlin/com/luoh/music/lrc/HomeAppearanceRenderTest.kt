@@ -84,6 +84,14 @@ class HomeAppearanceRenderTest {
         compose.runOnIdle { HomeLyricsPrefs.saveAlbumBackground(compose.activity, false) }
         compose.onNodeWithTag("home_album_background").assertDoesNotExist()
         save("home-background-off-$suffix")
+        compose.runOnIdle {
+            state.setLyrics(LyricDocument(listOf(
+                LyricLine(0, "沿着晚风的方向", endMs = 5000),
+                LyricLine(25000, "让音乐陪你到天亮", endMs = 30000)), true))
+            state.setProgress(15000, false)
+        }
+        compose.onNodeWithTag("home_interlude_progress").assertExists()
+        save("home-interlude-$suffix")
     }
 
     @Test fun lightHomeRendersExpandedCompactAndDisabledBackground() = render(false)

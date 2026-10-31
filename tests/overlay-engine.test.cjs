@@ -142,4 +142,55 @@ engine.receiveLyrics(requests.at(-1)[4], { source: 'LRCLIB', lyrics: '[00:00.00]
 now += 600;
 engine.engineTick();
 assert.equal(translations.length, beforeErrorTick, 'original-only mode must never request machine translation');
-console.log('PASS: native lyric engine, partial official translations, visible translation failures, stale callbacks, custom priority, and no hidden timers');
+
+engine.setTranslationMode('bilingual');
+const mixedSnapshot = { ...snapshot, track: 'ChineseWithEnglishVerse', durationMs: 90000, state: 'paused', speed: 0 };
+engine.updatePlayback(mixedSnapshot);
+engine.receiveLyrics(requests.at(-1)[4], { source: 'LRCLIB', lyrics: Array.from({ length: 30 }, (_, id) =>
+  `[00:${String(id * 2).padStart(2, '0')}.00]${id < 13 ? '让歌词陪着你' : 'Hello again'}`).join('\n') });
+now += 600;
+engine.engineTick();
+const chineseRequest = translations.at(-1);
+assert.equal(chineseRequest.rows.length, 13);
+const beforeSkip = documents.length;
+engine.receiveSupplement(chineseRequest.epoch, { status: 'skipped' });
+assert.equal(translationStatuses.at(-1).status, 'skipped', 'native must clear any previous translation status');
+assert.equal(documents.length, beforeSkip, 'skipping Chinese must never insert a notice into the lyrics');
+engine.updatePlayback({ ...mixedSnapshot, positionMs: 20000 });
+now += 100;
+engine.engineTick();
+const foreignRequest = translations.at(-1);
+assert.ok(foreignRequest.epoch > chineseRequest.epoch, 'skipped Chinese window must not block the later English verse');
+assert.ok(foreignRequest.rows.every(row => row.id >= 13), 'overlapping skipped Chinese rows must not be requested again');
+const statusesBeforeOldSkip = translationStatuses.length;
+engine.receiveSupplement(chineseRequest.epoch, { status: 'skipped' });
+assert.equal(translationStatuses.length, statusesBeforeOldSkip, 'a stale skip must not cancel the new window');
+for (const row of foreignRequest.rows) engine.receiveSupplement(foreignRequest.epoch, { id: row.id, text: '再次问好', source: '机翻' });
+engine.receiveSupplement(foreignRequest.epoch, { status: 'done' });
+const beforeRevisit = translations.length;
+engine.updatePlayback(mixedSnapshot);
+now += 600;
+engine.engineTick();
+assert.equal(translations.length, beforeRevisit, 'seeking back must not retry skipped rows');
+engine.refreshSupplement();
+now += 600;
+engine.engineTick();
+assert.equal(translations.length, beforeRevisit + 1, 'explicit refresh must clear skip decisions');
+
+engine.updatePlayback({ ...snapshot, track: 'ShortChinese', state: 'paused', speed: 0 });
+engine.receiveLyrics(requests.at(-1)[4], { source: 'LRCLIB', lyrics: '[00:00.00]让歌词陪着你' });
+now += 600;
+engine.engineTick();
+const shortRequest = translations.at(-1);
+engine.receiveSupplement(shortRequest.epoch, { status: 'skipped' });
+const shortCount = translations.length;
+for (let tick = 0; tick < 10; tick++) { now += 600; engine.engineTick(); }
+assert.equal(translations.length, shortCount, 'short Chinese songs must not repeatedly invoke language detection');
+engine.updatePlayback({ hasSession: false });
+engine.updatePlayback({ ...snapshot, track: 'AfterChinese', state: 'paused', speed: 0 });
+engine.receiveLyrics(requests.at(-1)[4], { source: 'LRCLIB', lyrics: '[00:00.00]Hello again' });
+now += 600;
+engine.engineTick();
+assert.equal(translations.length, shortCount + 1, 'skip decisions must not leak across sessions or songs');
+assert.equal(translations.at(-1).rows[0].id, 0);
+console.log('PASS: native lyric engine, silent Chinese skips, partial translations, real failures, stale callbacks, custom priority, and no hidden timers');

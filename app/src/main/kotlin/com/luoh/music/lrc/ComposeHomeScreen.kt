@@ -582,6 +582,7 @@ private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = M
     val timeline = remember(document) { document.lines.map { it.startMs } }
     val position = remember(timeline) { mutableLongStateOf(state.clock.positionMs() + state.displayOffsetMs) }
     var focused by remember(timeline) { mutableIntStateOf(homeActiveLine(document, state.clock.positionMs() + state.displayOffsetMs, state.clock.durationMs)) }
+    var interlude by remember(timeline) { mutableStateOf(LyricInterlude.at(document, position.longValue, state.clock.durationMs)) }
     val dragged by listState.interactionSource.collectIsDraggedAsState()
     var manualUntil by remember(timeline) { mutableLongStateOf(0L) }
     val scrollVelocity = remember { mutableFloatStateOf(0f) }
@@ -594,9 +595,10 @@ private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = M
             position.longValue = now
             val next = homeActiveLine(document, now, state.clock.durationMs)
             if (next != focused) focused = next
+            interlude = LyricInterlude.at(document, now, state.clock.durationMs)
         }
         update()
-        // Position is read only during glyph drawing. No page-wide Compose state changes per frame.
+        // Only glyph drawing and the progress indicator read position each frame.
         while (state.presentationActive && state.playing) withFrameNanos { update() }
     }
     LaunchedEffect(dragged, timeline) {
@@ -613,6 +615,7 @@ private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = M
     BoxWithConstraints(modifier) {
         val density = LocalDensity.current
         val centerPx = with(density) { (maxHeight * .45f).toPx() }
+        val interludeHeightPx = with(density) { HomeInterludeRowHeight.toPx() }
         LaunchedEffect(timeline, centerPx, state.presentationActive, dragged, manualUntil, state.seekRevision,
             motion, policy.allowProgrammaticScrollMotion, appearance) {
             if (!state.presentationActive || dragged || manualUntil != 0L) return@LaunchedEffect
@@ -624,7 +627,7 @@ private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = M
                         listState.scrollToItem(target, -centerPx.toInt())
                         follower.reset()
                     }
-                    var restingTarget: Int? = null
+                    var restingTarget: Pair<Int, LyricInterlude?>? = null
                     listState.scroll {
                         var previousFrame = 0L
                         while (true) {
@@ -634,17 +637,23 @@ private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = M
                             val current = focused.coerceIn(0, document.lines.lastIndex)
                             val layout = listState.layoutInfo
                             val item = layout.visibleItemsInfo.firstOrNull { it.index == current } ?: break
-                            val error = item.offset + item.size / 2f - layout.viewportStartOffset - centerPx
+                            val gap = interlude
+                            val anchor = when {
+                                gap == null -> item.size / 2f
+                                gap.afterLine < 0 -> interludeHeightPx / 2f
+                                else -> item.size - interludeHeightPx / 2f
+                            }
+                            val error = item.offset + anchor - layout.viewportStartOffset - centerPx
                             if (!motion.easedScroll || !policy.allowProgrammaticScrollMotion) {
                                 scrollBy(error)
                                 follower.reset()
                                 scrollVelocity.floatValue = 0f
-                                restingTarget = current
+                                restingTarget = current to gap
                                 break
                             }
                             if (follower.settled(error)) {
                                 scrollVelocity.floatValue = follower.velocity
-                                restingTarget = current
+                                restingTarget = current to gap
                                 break
                             }
                             val interval = timeline.getOrNull(current + 1)?.minus(timeline[current])
@@ -655,7 +664,7 @@ private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = M
                             scrollVelocity.floatValue = follower.velocity
                         }
                     }
-                    restingTarget?.let { last -> snapshotFlow { focused }.first { it.coerceAtLeast(0) != last } }
+                    restingTarget?.let { last -> snapshotFlow { focused.coerceAtLeast(0) to interlude }.first { it != last } }
                 }
             } finally {
                 // Only leaving the page, seeking or manual scrolling resets the follower.
@@ -669,48 +678,48 @@ private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = M
             verticalArrangement = Arrangement.spacedBy(appearance.lineSpacing.dp),
         ) {
             itemsIndexed(document.lines, key = { index, line -> "$index:${line.startMs}" }) { index, line ->
-                HomeLyricRow(
-                    line = line,
-                    index = index,
-                    focused = focused,
-                    translationMode = state.translationDisplayMode,
-                    alignment = state.textAlignment,
-                    motion = motion,
-                    allowMotion = state.presentationActive && policy.allowSpatialTransitions,
-                    position = position,
-                    scrollVelocity = scrollVelocity,
-                    timed = document.timed,
-                    onClick = { state.seek(line.startMs - state.displayOffsetMs) },
-                    activeColor = if (albumBackground) foreground else MaterialTheme.colorScheme.primary,
-                    foregroundColor = foreground,
-                    appearance = appearance,
-                )
-            }
-        }
-        if (document.timed) {
-            val dotColor = if (albumBackground) foreground else MaterialTheme.colorScheme.primary
-            Canvas(Modifier.fillMaxSize()) {
-                val now = position.longValue
-                val gapStart = document.lines.getOrNull(focused)?.let(LyricTiming::lineEnd) ?: 0L
-                val gapEnd = document.lines.getOrNull(focused + 1)?.startMs ?: state.clock.durationMs
-                if (gapEnd - gapStart > (if (focused < 0) 4000L else 4500L) &&
-                    now > gapStart + (if (focused < 0) 0L else 300L) && now < gapEnd - 250L) {
-                    val anchor = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == focused }
-                    val y = anchor?.let { it.offset - listState.layoutInfo.viewportStartOffset + it.size + 16.dp.toPx() }
-                        ?: centerPx
-                    val x = when (state.textAlignment) {
-                        HomeLyricsPrefs.CENTER -> size.width / 2f
-                        HomeLyricsPrefs.RIGHT -> size.width - 52.dp.toPx()
-                        else -> 52.dp.toPx()
-                    }
-                    val progress = ((now - gapStart).toFloat() / (gapEnd - gapStart)).coerceIn(0f, 1f)
-                    for (dot in -1..1) {
-                        drawCircle(dotColor.copy(alpha = .35f + progress * .65f), radius = 3.dp.toPx(),
-                            center = Offset(x + dot * 14.dp.toPx(), y))
-                    }
+                // The gap is measured with the lyrics, never painted on top of another row.
+                Column(Modifier.fillMaxWidth()) {
+                    val gap = interlude
+                    val progressColor = if (albumBackground) foreground else MaterialTheme.colorScheme.primary
+                    if (index == 0 && gap?.afterLine == -1) HomeInterludeProgress(gap, position, progressColor)
+                    HomeLyricRow(
+                        line = line,
+                        index = index,
+                        focused = focused,
+                        translationMode = state.translationDisplayMode,
+                        alignment = state.textAlignment,
+                        motion = motion,
+                        allowMotion = state.presentationActive && policy.allowSpatialTransitions,
+                        position = position,
+                        scrollVelocity = scrollVelocity,
+                        timed = document.timed,
+                        onClick = { state.seek(line.startMs - state.displayOffsetMs) },
+                        activeColor = if (albumBackground) foreground else MaterialTheme.colorScheme.primary,
+                        foregroundColor = foreground,
+                        appearance = appearance,
+                    )
+                    if (gap?.afterLine == index) HomeInterludeProgress(gap, position, progressColor)
                 }
             }
         }
+    }
+}
+
+private val HomeInterludeRowHeight = 88.dp
+
+@Composable
+private fun HomeInterludeProgress(interlude: LyricInterlude, position: State<Long>, color: Color) {
+    Box(Modifier.fillMaxWidth().height(HomeInterludeRowHeight).testTag("home_interlude_row"),
+        contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(
+            progress = { interlude.progress(position.value) },
+            modifier = Modifier.size(32.dp).testTag("home_interlude_progress")
+                .semantics { contentDescription = "间奏进度" },
+            color = color,
+            trackColor = color.copy(alpha = .16f),
+            strokeWidth = 3.dp,
+        )
     }
 }
 

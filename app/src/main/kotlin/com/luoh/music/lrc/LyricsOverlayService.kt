@@ -421,8 +421,7 @@ class LyricsOverlayService : Service() {
                 val status = data.optString("status")
                 val message = when (status) {
                     "working" -> "正在补充译文"
-                    "done" -> "补充翻译已完成"
-                    "off" -> "补充翻译未开启；双语模式只显示已有译文"
+                    "done", "skipped", "off" -> ""
                     "error" -> data.optString("message").take(180).ifBlank { "补充翻译失败，请检查配置" }
                     else -> return@post
                 }
@@ -523,9 +522,14 @@ class LyricsOverlayService : Service() {
                     try {
                         val mode = getSharedPreferences("supplement_translation", Context.MODE_PRIVATE).getString("mode", "off")
                         if (mode == "off") { report(JSONObject().put("status", "off")); return@launch }
-                        report(JSONObject().put("status", "working"))
-                        supplements.translate(payload) { report(it) }
-                        report(JSONObject().put("status", "done"))
+                        val outcome = supplements.translate(payload,
+                            onTranslationRequired = { report(JSONObject().put("status", "working")) }) { report(it) }
+                        val status = when (outcome) {
+                            SupplementOutcome.COMPLETE -> "done"
+                            SupplementOutcome.NOT_NEEDED -> "skipped"
+                            SupplementOutcome.DISABLED -> "off"
+                        }
+                        report(JSONObject().put("status", status))
                     } catch (cancel: kotlinx.coroutines.CancellationException) {
                         throw cancel
                     } catch (error: Exception) {

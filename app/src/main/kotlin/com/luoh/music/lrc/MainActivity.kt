@@ -66,15 +66,17 @@ class MainActivity : ComponentActivity() {
     private var baseLyricDocument = LyricDocument(emptyList(), true)
     private var currentLyricsCustom = false
     private val homeTranslation by lazy {
-        HomeTranslationController(translationScope, { missing ->
+        HomeTranslationController(translationScope, { missing, onTranslationRequired ->
             val payload = org.json.JSONArray().apply {
                 missing.forEach { put(JSONObject().put("id", it.id).put("text", it.text)) }
             }
             val translated = mutableMapOf<Int, String>()
-            supplements.translate(payload.toString()) { row ->
+            val outcome = supplements.translate(payload.toString(), onTranslationRequired = {
+                withContext(Dispatchers.Main) { onTranslationRequired() }
+            }) { row ->
                 translated[row.optInt("id", -1)] = row.optString("text")
             }
-            translated
+            HomeTranslationController.Result(translated, outcome)
         }, { document -> home.setLyrics(document, currentLyricsCustom) }, { status ->
             home.setTranslationStatus(status)
             getSharedPreferences("supplement_translation", Context.MODE_PRIVATE).edit()

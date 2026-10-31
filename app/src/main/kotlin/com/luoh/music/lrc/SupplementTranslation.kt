@@ -117,22 +117,26 @@ class SupplementTranslation(private val context: Context) {
     private fun cacheFile(key: String) = File(context.cacheDir, "translations/${hash(key)}.json")
     private fun canonicalText(text: String) = text.trim().replace(Regex("\\s+"), " ")
 
-    suspend fun translate(payload: String, emit: (JSONObject) -> Unit) = withContext(Dispatchers.IO) {
+    suspend fun translate(payload: String, onTranslationRequired: suspend () -> Unit = {},
+        emit: (JSONObject) -> Unit): SupplementOutcome = withContext(Dispatchers.IO) {
         val mode = prefs.getString("mode", "off") ?: "off"
-        if (mode == "off") return@withContext
+        if (mode == "off") return@withContext SupplementOutcome.DISABLED
         val input = JSONArray(payload)
         require(input.length() <= 1000)
         val lines = (0 until input.length()).map {
             val row = input.getJSONObject(it)
             Line(row.getInt("id"), row.getString("text").take(2000))
         }.filter { it.text.isNotBlank() }
-        if (lines.isEmpty()) return@withContext
+        if (lines.isEmpty() || lines.none { TranslationText.hasForeignLetters(it.text) }) {
+            return@withContext SupplementOutcome.NOT_NEEDED
+        }
         val identifier = LanguageIdentification.getClient()
         val detected = try { identifier.identifyLanguage(lines.take(15).joinToString("\n") { it.text }.take(4000)).await() }
             finally { identifier.close() }
         val language = TranslateLanguage.fromLanguageTag(detected)
         if (language != null) prefs.edit().putString("last_language", language).apply()
-        if (language == "zh") return@withContext
+        if (language == "zh") return@withContext SupplementOutcome.NOT_NEEDED
+        onTranslationRequired()
         val profile = TranslationApiProfiles.find(context, prefs.getString("active_api_profile", null))
         val endpoint = prefs.getString(TranslationApiProfiles.endpointKey(profile.id), profile.defaultEndpoint).orEmpty()
         val model = prefs.getString(TranslationApiProfiles.modelKey(profile.id), profile.defaultModel).orEmpty()
@@ -150,7 +154,7 @@ class SupplementTranslation(private val context: Context) {
             if (!cached.isNullOrBlank()) sameLines.forEach { deliver(it, cached) }
             else pending += sameLines.first()
         }
-        if (pending.isEmpty()) return@withContext
+        if (pending.isEmpty()) return@withContext SupplementOutcome.COMPLETE
         fun store(row: Line, text: String) {
             if (text.isBlank()) return
             val canonical = canonicalText(row.text)
@@ -197,6 +201,7 @@ class SupplementTranslation(private val context: Context) {
                 require(batch.all { cacheFile(identity + canonicalText(it.text)).exists() }) { "部分翻译未返回，可稍后重试" }
             }
         }
+        SupplementOutcome.COMPLETE
     }
 
     fun testApi(endpoint: String, model: String, key: String): String {

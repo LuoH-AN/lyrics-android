@@ -27,6 +27,10 @@ assert.match(player, /state\.actions\?\.toggleOverlay\(\)/);
 assert.doesNotMatch(player, /overlayRunning\s*=|setOverlayState\(/, 'clicks must wait for service confirmation');
 assert.match(home, /collectIsDraggedAsState\(/, 'manual scrolling must pause automatic lyric travel');
 assert.match(home, /allowProgrammaticScrollMotion/, 'system and app motion policy must also apply to lyric travel');
+assert.match(home, /progress\s*=\s*\{\s*interlude\.progress\(position\.value\)/,
+  'interlude must use timed, determinate Material progress');
+assert.match(home, /height\(HomeInterludeRowHeight\)/, 'interlude must reserve layout space between lyrics');
+assert.doesNotMatch(home, /for \(dot in -1\.\.1\)|val dotColor/, 'interlude dots must not be painted over lyrics');
 assert.ok(!fs.existsSync('app/src/main/assets/home_lyrics.html'));
 for (const test of ['LyricParserTest.kt', 'LyricClockTest.kt', 'LyricExporterTest.kt', 'HomeTranslationControllerTest.kt']) {
   assert.ok(fs.existsSync('app/src/test/kotlin/com/luoh/music/lrc/' + test));
