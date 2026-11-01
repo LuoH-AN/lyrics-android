@@ -102,16 +102,4 @@
     window.addEventListener('resize', renderPosition, { passive: true });
   }
   renderPosition();
-
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  if ('IntersectionObserver' in window && !reducedMotion.matches) {
-    const observer = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
-        if (!entry.isIntersecting) return;
-        if (!reducedMotion.matches) entry.target.classList.add('reveal-in');
-        observer.unobserve(entry.target);
-      });
-    }, { threshold: 0.12 });
-    document.querySelectorAll('.section-copy, .feature-card, .gallery-heading, .download-inner').forEach(element => observer.observe(element));
-  }
 })();

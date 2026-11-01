@@ -15,12 +15,12 @@ for (const width of widths) {
     await page.goto('/lyrics-android/');
     await expect(page.locator('h1')).toContainText('歌照常听');
     await expect(page.getByRole('button', { name: '下一句' })).toBeEnabled();
-    // Trigger lazy images and inspect each section, not just the first screen.
+    // Inspect each section, not just the first screen.
     for (const section of await page.locator('main > section').all()) {
       await section.scrollIntoViewIfNeeded();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     }
-    await expect.poll(() => page.locator('img').evaluateAll(images => images.every(image => image.complete && image.naturalWidth > 0))).toBe(true);
+    await expect(page.locator('img, small, sup, sub, svg')).toHaveCount(0);
     expect(errors).toEqual([]);
     expect(failed).toEqual([]);
     expect(external).toEqual([]);
@@ -30,6 +30,39 @@ for (const width of widths) {
     if (width === 1440 || width === 390) {
       await page.screenshot({ path: `screenshots/hero-${width}.png` });
       await page.locator('.demo-wrap').screenshot({ path: `screenshots/demo-${width}.png` });
+    }
+  });
+
+  test(`all visible text is at least 18px at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/');
+    await page.locator('details').evaluateAll(items => items.forEach(item => { item.open = true; }));
+    for (const name of ['阅读', '聊天']) {
+      await page.getByRole('button', { name, exact: true }).click();
+      for (let index = 0; index < 4; index++) {
+        const undersized = await page.evaluate(() => {
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          const failures = [];
+          let node;
+          while ((node = walker.nextNode())) {
+            if (!node.textContent.trim()) continue;
+            const element = node.parentElement;
+            if (element.closest('script, style, noscript')) continue;
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            const style = getComputedStyle(element);
+            if (!range.getClientRects().length || style.visibility === 'hidden') continue;
+            const size = parseFloat(style.fontSize);
+            if (size < 18) failures.push({ text: node.textContent.trim(), size });
+          }
+          return failures;
+        });
+        expect(undersized).toEqual([]);
+        await expectInside(page);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+        await page.getByRole('button', { name: '下一句', exact: true }).click();
+      }
     }
   });
 }

@@ -10,8 +10,5 @@ for (const name of ['index.html', 'styles.css', 'app.js']) {
   await copyFile(path.join(source, name), path.join(output, name));
 }
 await copyFile(path.join(root, 'docs/assets/app-icon.svg'), path.join(output, 'assets/app-icon.svg'));
-for (const name of ['home', 'desktop-lyrics', 'appearance', 'lyrics-translation']) {
-  await copyFile(path.join(root, `docs/assets/screenshots/${name}.webp`), path.join(output, `assets/${name}.webp`));
-}
 await writeFile(path.join(output, '.nojekyll'), '');
 console.log(`Built static website: ${output}`);

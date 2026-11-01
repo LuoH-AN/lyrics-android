@@ -16,6 +16,12 @@ assert.match(html, /name="viewport"/);
 assert.match(html, /name="description"/);
 assert.match(html, /<noscript>/);
 assert.match(css, /prefers-reduced-motion/);
+assert.doesNotMatch(html, /<(?:small|sup|sub|img|svg)\b/, 'No small print, decorative icons or tiny-text screenshot thumbnails');
+assert.doesNotMatch(html + css, /eyebrow|fine-print|tiny-label|brand-en|orbit|grid-paper|floating-note|read-stamp/, 'Removed decoration must not return');
+assert.doesNotMatch(css, /(?:linear|radial)-gradient|box-shadow|@keyframes/, 'No decorative textures, shadows or animations');
+for (const [, value] of css.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)) {
+  assert.ok(Number(value) >= 18, `Font size below 18px: ${value}px`);
+}
 assert.doesNotMatch(js, /\b(?:fetch|XMLHttpRequest|WebSocket|localStorage|setInterval)\b/, 'No network, storage or continuous timers');
 let links = 0;
 for (const [, target] of html.matchAll(/(?:href|src)="([^"]+)"/g)) {
