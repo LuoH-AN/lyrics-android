@@ -3,8 +3,18 @@ name: Build Debug APK
 on:
   push:
     branches: [main, "dev/**", "feat/**"]
+    paths-ignore:
+      - "website/**"
+      - "docs/**"
+      - "**/*.md"
+      - ".github/workflows/website*.yml"
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "website/**"
+      - "docs/**"
+      - "**/*.md"
+      - ".github/workflows/website*.yml"
   workflow_dispatch:
 
 permissions:
