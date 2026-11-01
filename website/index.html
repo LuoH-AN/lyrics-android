@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f5f0">
+  <meta name="description" content="播放器不用换，给听歌补上悬浮歌词。桌面歌词是一款 Android 独立歌词工具，支持多源歌词、悬浮显示、双语与外观自定义。">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="zh_CN">
+  <meta property="og:title" content="桌面歌词 — 歌照常听，词随处看。">
+  <meta property="og:description" content="不必换掉喜欢的播放器。多源查词、悬浮歌词、双语显示，让歌词跟上你的日常。">
+  <meta property="og:url" content="https://luoh-an.github.io/lyrics-android/">
+  <meta property="og:site_name" content="桌面歌词">
+  <meta name="twitter:card" content="summary">
+  <link rel="canonical" href="https://luoh-an.github.io/lyrics-android/">
+  <title>桌面歌词 — 歌照常听，词随处看。</title>
+  <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳转到内容</a>
+  <header class="site-header section-width">
+    <a class="brand" href="#main" aria-label="桌面歌词首页">桌面歌词</a>
+    <nav aria-label="主导航">
+      <a class="nav-link" href="#experience">体验</a>
+      <a class="nav-link nav-faq" href="#faq">常见问题</a>
+      <a class="button" href="#download">下载</a>
+    </nav>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-inner section-width">
+        <h1 id="hero-title">歌照常听。<br><span class="muted-heading">词随处看。</span></h1>
+        <p>不必换掉喜欢的播放器。<br>让歌词跟着音乐，也跟着你的日常。</p>
+        <div class="hero-actions">
+          <a class="button" href="https://github.com/LuoH-AN/lyrics-android/releases/latest">下载 Android 版</a>
+          <a class="text-link" href="#experience">看看怎么用</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="experience section-pad" id="experience" aria-labelledby="experience-title">
+      <div class="section-width split-layout">
+        <div class="section-copy">
+          <h2 id="experience-title">切出去。<br>也没错过<span class="orange-text">这句。</span></h2>
+          <p>回一条消息，读一篇文章。把歌词留在小窗，听歌不用停，看词不用切回来。</p>
+          <a class="text-link" href="https://github.com/LuoH-AN/lyrics-android/blob/main/docs/guide/lyrics-display.md">了解悬浮歌词</a>
+          <p>试试拖动歌词、切换场景。这里是网页交互示意，不读取音乐。</p>
+        </div>
+        <div class="demo-wrap">
+          <div class="demo-topbar">
+            <h3>悬浮歌词演示</h3>
+            <div class="context-controls" role="group" aria-label="演示背景">
+              <button type="button" disabled data-context="read" aria-pressed="true">阅读</button>
+              <button type="button" disabled data-context="chat" aria-pressed="false">聊天</button>
+            </div>
+          </div>
+          <div class="demo-stage" id="demo-stage" data-theme="light" data-context="read">
+            <div class="reading-background" aria-hidden="true">
+              <h3>把生活<br>调到喜欢的频率。</h3>
+              <p>一杯咖啡，一首歌。<br>留一点时间给自己。</p>
+            </div>
+            <div class="chat-background" aria-hidden="true">
+              <div class="chat-bubble">周末去散步吗？</div>
+              <div class="chat-bubble own">好呀，等我听完这首歌。</div>
+              <div class="chat-bubble">带上耳机，一起。</div>
+            </div>
+            <div class="lyric-overlay" id="lyric-overlay" role="group" aria-label="悬浮歌词演示" tabindex="0" aria-describedby="drag-help">
+              <div class="overlay-words" aria-live="polite" aria-atomic="true">
+                <p id="demo-line">让风慢慢经过</p>
+                <span id="demo-translation">Let the breeze take its time</span>
+              </div>
+            </div>
+          </div>
+          <div class="demo-controls">
+            <div class="swatches" role="group" aria-label="演示配色">
+              <button type="button" disabled data-theme="light" aria-label="浅色配色" aria-pressed="true">浅色</button>
+              <button type="button" disabled data-theme="dark" aria-label="深色配色" aria-pressed="false">深色</button>
+              <button type="button" disabled data-theme="warm" aria-label="暖橙配色" aria-pressed="false">暖橙</button>
+            </div>
+            <div class="demo-buttons">
+              <button type="button" disabled id="translation-toggle" aria-pressed="true">双语</button>
+              <button type="button" disabled id="next-line">下一句</button>
+              <button type="button" disabled id="reset-position" aria-label="重置歌词位置">复位</button>
+            </div>
+          </div>
+          <p id="drag-help">也可聚焦歌词，用方向键移动。</p>
+          <noscript><p>启用 JavaScript 后可操作演示。</p></noscript>
+        </div>
+      </div>
+    </section>
+
+    <section class="sources-section section-pad" id="sources" aria-labelledby="sources-title">
+      <div class="section-width split-layout">
+        <div class="section-copy">
+          <h2 id="sources-title">歌词有很多来源。<br>你只管<span class="orange-text">听。</span></h2>
+          <p>自动按歌名、歌手和版本查找歌词。遇到冷门歌，也能导入自己的 LRC。</p>
+          <a class="text-link" href="https://github.com/LuoH-AN/lyrics-android/blob/main/docs/guide/lyrics-search.md">了解歌词查找</a>
+        </div>
+        <ul class="provider-list" aria-label="歌词来源">
+          <li>QQ 音乐</li>
+          <li>网易云音乐</li>
+          <li>LRCLIB</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="personal-section section-pad" id="personal" aria-labelledby="personal-title">
+      <div class="section-width">
+        <h2 id="personal-title">你的歌词。<br><span>你的样子。</span></h2>
+        <div class="feature-grid">
+          <article>
+            <h3>调成喜欢的样子。</h3>
+            <p>字体、颜色、对齐、透明度。从桌面小窗到主页，都可以自己调整。</p>
+          </article>
+          <article>
+            <h3>喜欢的歌，也读得懂。</h3>
+            <p>原文与译文一起看。缺少译文时，可主动开启离线或自选 API 补充翻译。</p>
+          </article>
+          <article>
+            <h3>留住打动你的那句。</h3>
+            <p>长按选句，复制文字，或生成一张属于这首歌的分享卡片。</p>
+          </article>
+        </div>
+        <a class="text-link" href="https://github.com/LuoH-AN/lyrics-android#看看界面">查看应用界面</a>
+      </div>
+    </section>
+
+    <section class="faq-section section-pad" id="faq" aria-labelledby="faq-title">
+      <div class="section-width faq-layout">
+        <div class="section-copy">
+          <h2 id="faq-title">你可能<br>想先知道。</h2>
+          <a class="text-link" href="https://github.com/LuoH-AN/lyrics-android/blob/main/docs/guide/getting-started.md">完整使用指南</a>
+        </div>
+        <div class="faq-list">
+          <details>
+            <summary>需要换播放器吗？</summary>
+            <p>不需要。播放器需通过 Android MediaSession 提供歌曲信息和播放进度。不同播放器、系统与版本的行为可能不同，不保证全部兼容。</p>
+          </details>
+          <details>
+            <summary>支持什么设备？</summary>
+            <p>需要 Android 8.0 及以上、64 位 ARM 设备和可用的 Android System WebView，无需 Root 或 LSPosed。目前不提供 iOS、32 位 ARM 或 x86 安装包。</p>
+          </details>
+          <details>
+            <summary>为什么要通知使用权？</summary>
+            <p>用于访问播放器公开的媒体会话，读取歌曲信息、封面和进度。当前实现不处理通知正文，也不通过麦克风录音识曲。它与普通“允许发送通知”不同；悬浮显示还需要悬浮窗权限。</p>
+          </details>
+          <details>
+            <summary>每首歌都有歌词和逐字效果吗？</summary>
+            <p>不保证。内容与可用性取决于歌词源，来源名称不代表官方合作。普通 LRC 按整句显示，逐字高亮需要逐字时间轴。“双语显示”不会自动开启机器翻译。</p>
+          </details>
+          <details>
+            <summary>匹配不对或小窗消失怎么办？</summary>
+            <p>可在歌词源管理中查看候选，或导入 LRC；整体提前或延后可调整偏移。主页与小窗对手动固定版本的使用仍有差异。小窗消失时，检查悬浮窗权限和本应用的后台省电限制，部分系统界面也会限制悬浮显示。</p>
+          </details>
+          <details>
+            <summary>会把什么信息发到网络？</summary>
+            <p>查词、封面与别名匹配会向歌词平台或 Apple iTunes Search API 发送歌曲信息，检查更新会访问 GitHub。自定义 LRC 文件保存在本机。</p>
+            <p>补充翻译默认关闭。启用 API 翻译后，待译文本（也可能来自自定义 LRC）会发送到你配置的服务，并可能产生费用。离线语言包的下载、更新和兼容性检查会联网，ML Kit 可能发送性能与使用指标。</p>
+            <p><a href="https://github.com/LuoH-AN/lyrics-android/blob/main/docs/guide/getting-started.md#权限与联网说明">查看权限与联网说明</a></p>
+          </details>
+          <details>
+            <summary>网页演示是真实播放器效果吗？</summary>
+            <p>不是。演示使用原创示例文案，非真实歌曲歌词，也不读取设备上的音乐。仓库截图由应用界面渲染，不代表跨播放器实测；实际表现取决于设备、播放器和歌词源。</p>
+          </details>
+          <details>
+            <summary>项目来自哪里？</summary>
+            <p>由 LuoH-AN 继续开发，最初来自 Tcrrrry 的 <a href="https://github.com/tcrrry/desktop-lyrics">desktop-lyrics</a>。上游及第三方代码保留原有声明，各部分许可详见仓库。</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="download-section section-pad" id="download" aria-labelledby="download-title">
+      <div class="section-width download-inner">
+        <h2 id="download-title">下一首歌。<br>带上<span class="orange-text">歌词。</span></h2>
+        <p>播放器不用换，给听歌补上悬浮歌词。</p>
+        <a class="button" href="https://github.com/LuoH-AN/lyrics-android/releases/latest">前往 GitHub 下载</a>
+        <p>在 Assets 中选择 <code>arm64-v8a.apk</code>。<br>Source code 是源码，不是安装包。</p>
+        <a class="text-link" href="https://github.com/LuoH-AN/lyrics-android/blob/main/docs/guide/getting-started.md">查看安装指南</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer section-width">
+    <a class="brand" href="#main">桌面歌词</a>
+    <nav aria-label="更多信息">
+      <a href="https://github.com/LuoH-AN/lyrics-android">GitHub</a>
+      <a href="https://github.com/LuoH-AN/lyrics-android/issues/new?template=bug_report.md">反馈问题</a>
+      <a href="https://github.com/LuoH-AN/lyrics-android/blob/main/README.md#从哪里来">来源与许可</a>
+    </nav>
+  </footer>
+</body>
+</html>
