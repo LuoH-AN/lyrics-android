@@ -1,0 +1,15 @@
+{
+  "name": "desktop-lyrics-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static product website for lyrics-android; no runtime dependencies",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "preview": "node scripts/serve.mjs",
+    "check": "node scripts/check.mjs",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}

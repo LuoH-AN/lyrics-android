@@ -14,5 +14,6 @@
 
 - [Compose 界面结构](development/material-ui.md)
 - [测试、构建与发布](development/releasing.md)
+- [官网开发与预览](../website/README.md)：独立静态站、浏览器检查与待确认的部署方式。
 
 `assets/` 存放 README 使用的应用图标和应用界面截图，截图位于 `assets/screenshots/`。
