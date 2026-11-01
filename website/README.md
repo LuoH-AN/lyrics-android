@@ -1,5 +1,7 @@
 # 桌面歌词官网
 
+官网地址：[https://luoh-an.github.io/lyrics-android/](https://luoh-an.github.io/lyrics-android/)。
+
 独立静态站，源码位于 `website/`。参考 [Agora 官网](https://agora.newoether.com/) 的留白、大标题与浅深色分区，以原创 HTML/CSS/JavaScript 实现；未复制其品牌、文案、字体文件或源代码。
 
 ## 视觉约束
@@ -46,7 +48,7 @@ npx playwright install chromium
 npm test
 ```
 
-Linux 浏览器所需系统库与中文字体需另行准备。`Website checks` 工作流在官网相关 PR 或手动触发时运行，在 GitHub 托管的临时 runner 安装测试依赖，不修改开发设备。
+Linux 浏览器所需系统库与中文字体需另行准备。`Website checks and deploy` 工作流在官网相关 PR、`main` 更新或手动触发时运行，在 GitHub 托管的临时 runner 安装测试依赖，不修改开发设备。
 
 检查包括：320／390／768／1024／1440 宽度、页面错误、资源加载、无外部自动请求、无横向溢出、**所有可见文字计算字号不低于 18px**（含展开的 FAQ、阅读／聊天、全部示例歌词）、拖动／触摸／键盘、配色与双语切换、无 JS、FAQ 与减少动态效果。
 
@@ -55,13 +57,20 @@ Linux 浏览器所需系统库与中文字体需另行准备。`Website checks` 
 - `lyrics-website-static`：`website/dist/` 的完整可托管静态产物。
 - `lyrics-website-preview`：页面截图、Playwright 报告和失败时的 trace。
 
-此工作流**只检查与上传产物，不部署、不修改 Pages、不创建域名或 Release**。网页检查独立于 Android 构建，不引入 Android 运行依赖。
+PR 只检查与上传预览，**不能部署**。`main` 上的官网改动通过全部静态与浏览器检查后，才会上传 Pages 产物并进入独立的 `deploy` 作业。网页检查独立于 Android 构建，不引入 Android 运行依赖，也不发布 APK。
 
-## 以后如何上线
+## 部署与更新
 
-确认页面并选定托管平台后，把 `website/dist/` 的内容作为站点根目录发布即可。资源使用相对路径，可在独立域名或 GitHub Pages 项目子路径下使用；可以部署到 GitHub Pages、Cloudflare Pages 等静态托管平台。
+托管在 GitHub Pages，地址为 https://luoh-an.github.io/lyrics-android/ 。使用 Actions 构建源和 HTTPS，不配置自定义域名。
 
-当前未填入虚构的生产域名，因此不生成 canonical、og:url 或 sitemap。确定域名后应补齐这些元数据，再按所选平台配置缓存和安全响应头。当前 PR 不包含自动部署，也不表示站点已经上线。
+- 官网相关文件合入 `main` 后自动构建、测试、部署；也可在 Actions 选择 `Website checks and deploy`，从 `main` 手动运行。
+- 只有部署作业拥有 `pages: write` 和 `id-token: write`，并受 `github-pages` 环境限制；该环境只允许 `main` 分支。
+- 部署严格依赖成功的 `website` 测试作业，PR 与其他分支不上传 Pages 产物、不进入部署作业。
+- 只发布 `website/dist/`，不暴露仓库、测试报告、源码凭据或 Android 签名文件。
+- 部署后检查公开首页、CSS、JavaScript、图标和 sitemap，等待 CDN 发布生效。
+- 若需回退，通过 PR 恢复到之前的官网版本，再合入 `main` 重新部署；不绕过测试。
+
+资源使用相对路径，支持 GitHub Pages 项目子路径。`index.html` 的 canonical／og:url 与 `sitemap.xml` 指向上述正式网址；以后变更域名时需一并更新。
 
 ## 维护
 

@@ -7,7 +7,7 @@
 
 Android 独立歌词工具 · 多源歌词查找 · 悬浮显示 · 双语与外观自定义
 
-[下载正式版 APK](https://github.com/LuoH-AN/lyrics-android/releases/latest) · [安装与常见问题](docs/guide/getting-started.md) · [反馈问题](https://github.com/LuoH-AN/lyrics-android/issues)
+[官网](https://luoh-an.github.io/lyrics-android/) · [下载正式版 APK](https://github.com/LuoH-AN/lyrics-android/releases/latest) · [安装与常见问题](docs/guide/getting-started.md) · [反馈问题](https://github.com/LuoH-AN/lyrics-android/issues)
 
 Android 8.0+ · 64 位 ARM（arm64-v8a）· 无需 Root
 
