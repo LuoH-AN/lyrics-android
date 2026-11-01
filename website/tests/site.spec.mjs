@@ -13,6 +13,8 @@ for (const width of widths) {
     page.on('response', response => { if (response.status() >= 400) failed.push(response.url()); });
     page.on('request', request => { if (!request.url().startsWith('http://127.0.0.1:4173/')) external.push(request.url()); });
     await page.goto('/lyrics-android/');
+    await page.evaluate(() => document.fonts.ready);
+    expect(await page.evaluate(() => document.fonts.check('520 32px "Lyrics Sans"', '桌面歌词'))).toBe(true);
     await expect(page.locator('h1')).toContainText('歌照常听');
     await expect(page.getByRole('button', { name: '下一句' })).toBeEnabled();
     // Inspect each section, not just the first screen.

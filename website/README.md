@@ -1,84 +1,65 @@
 # 桌面歌词官网
 
-官网地址：[https://luoh-an.github.io/lyrics-android/](https://luoh-an.github.io/lyrics-android/)。
+https://luoh-an.github.io/lyrics-android/
 
-独立静态站，源码位于 `website/`。参考 [Agora 官网](https://agora.newoether.com/) 的留白、大标题与浅深色分区，以原创 HTML/CSS/JavaScript 实现；未复制其品牌、文案、字体文件或源代码。
+原生 HTML/CSS/JavaScript 静态站，无运行时 npm 依赖。参考 Agora 官网的留白和大标题，以独立排版实现。
 
 ## 视觉约束
 
-- **禁止小字**：正文、导航、按钮、演示译文、FAQ、页脚在所有断点均不低于 18px。
-- **移除装饰**：不用英文副标题、编号、角标、脚注、网格、轨道、装饰图标、阴影、旋转卡片或入场动画。
-- 不内嵌缩小后带细字的应用截图，改为正常字号的仓库截图链接。
-- 非必要内容直接删除，不把所有脚注放大塞回页面；必要的兼容、权限、来源与演示边界集中放进正常字号的 FAQ。
+- 所有网页文字至少 18px，禁止小字脚注、英文角标、装饰编号。
+- 不堆卡片、网格、轨道、图标、阴影和入场动画。
+- 标题使用较轻的可变字重；中文不再沿用拉丁标题的过紧字距。
+- 字体、字号、行高、宽度和对齐共同控制版面，不靠增加装饰。
+- 兼容性、权限、来源与演示真实性在正常字号 FAQ 展示。应用截图链接到仓库，不内嵌缩略小字图。
+
+## 字体
+
+站点本地托管 Noto Sans SC 可变字体子集，覆盖当前 `index.html` 与 `app.js` 文案，约 114 KB，字重范围 100–900。浏览器从本站加载，不访问 Google Fonts。
+
+- `fonts/lyrics-sans.woff2`：字体文件。
+- `fonts/OFL.txt`：随站点一起发布的 SIL OFL 1.1 许可。
+- `fonts/glyphs.txt`：请求的字符集。
+- `fonts/manifest.json`：官方来源与校验值。
+
+修改文案后可手动运行 `python3 website/scripts/update-font.py` 刷新字体子集。该步骤需要网络，仅开发时执行，**不在部署中下载字体**。未包含的新字符会使用系统后备字体。
+
+## 部署：只构建和发布
+
+`Deploy website` 在 `main` 的官网文件变化后运行，或从 main 手动触发。只有一个部署作业：
+
+1. 检出源码并准备 Node 22。
+2. 执行静态构建，复制页面、字体和许可。
+3. 上传 GitHub Pages 产物并发布。
+
+**不安装 npm 依赖、不安装浏览器、不跑截图或回归测试、不做多轮公网检查。** PR 不部署。Pages 环境只允许 main；不改域名，不发布 APK。Android `build.yml` 已忽略官网、文档及网页工作流的独立修改；涉及 Android 代码的提交仍正常测试。
+
+如果页面需要回退，恢复对应官网文件并推送 main，再由同一流程发布。官网内容使用相对路径；canonical、og:url 与 sitemap 指向正式地址，变更域名时需同步修改。
 
 ## 本地预览
 
-需要 Node.js 22。页面无运行时依赖；仅浏览器测试需要 npm 安装开发依赖。
-
-从仓库根目录运行：
-
 ```sh
 node website/scripts/build.mjs
-node website/scripts/check.mjs
 node website/scripts/serve.mjs
 ```
 
-打开 `http://127.0.0.1:4173`。预览服务只绑定本机，并且只提供构建后的站点文件，不暴露整个仓库。也可直接打开 `website/dist/index.html`。
+打开 http://127.0.0.1:4173 ，或直接打开 `website/dist/index.html`。预览服务只提供构建产物，不暴露整个仓库。
 
-## 页面内容
+## 可选检查
 
-- 品牌首屏与真实 GitHub Releases 下载入口。
-- 悬浮歌词网页演示：阅读／聊天背景、浅色／深色／暖橙、双语切换、下一句、复位。
-- 拖动支持鼠标、触摸和键盘方向键；按住 Shift 可加大键盘移动步长。
-- 多源查词说明、个性化／翻译／摘句介绍、应用界面链接、原生 FAQ、下载与项目来源。
-- 响应式大字布局、屏幕阅读器标签、跳过导航、减少动态效果、无 JavaScript 降级。
+完整检查保留为 **Website tests (manual)**，只在 Actions 手动点击时运行，不影响日常部署。它检查多屏宽、18px 最小字号、交互、拖动、键盘、无 JS 降级并输出预览截图。不要在每次文字或样式修改后自动触发。
 
-演示文案为网页原创示例，非真实歌曲歌词；页面不读取音乐、麦克风或通知。应用截图仍在仓库 `docs/assets/` 维护，官网不内嵌带小字的缩略图。
-
-网站不含统计脚本、外链字体、Cookie、存储、运行时 API 或第三方 CDN。用户点击外链后会访问对应服务。应用本身的联网行为另见使用指南，不能把网站的无 API 行为当作应用隐私承诺。
-
-## 测试与产物
+本地可选运行：
 
 ```sh
+node website/scripts/check.mjs
 cd website
 npm ci --ignore-scripts
-npm run build
-npm run check
 npx playwright install chromium
 npm test
 ```
 
-Linux 浏览器所需系统库与中文字体需另行准备。`Website checks and deploy` 工作流在官网相关 PR、`main` 更新或手动触发时运行，在 GitHub 托管的临时 runner 安装测试依赖，不修改开发设备。
+## 内容与隐私
 
-检查包括：320／390／768／1024／1440 宽度、页面错误、资源加载、无外部自动请求、无横向溢出、**所有可见文字计算字号不低于 18px**（含展开的 FAQ、阅读／聊天、全部示例歌词）、拖动／触摸／键盘、配色与双语切换、无 JS、FAQ 与减少动态效果。
+网页演示使用原创示例文案，不读取音乐、麦克风或通知；页面无分析脚本、Cookie、持久存储、外部字体请求或自动 API 请求。点击外链才访问对应服务。网站行为与 Android 应用的联网行为是两回事。
 
-工作流上传：
-
-- `lyrics-website-static`：`website/dist/` 的完整可托管静态产物。
-- `lyrics-website-preview`：页面截图、Playwright 报告和失败时的 trace。
-
-PR 只检查与上传预览，**不能部署**。`main` 上的官网改动通过全部静态与浏览器检查后，才会上传 Pages 产物并进入独立的 `deploy` 作业。网页检查独立于 Android 构建，不引入 Android 运行依赖，也不发布 APK。
-
-## 部署与更新
-
-托管在 GitHub Pages，地址为 https://luoh-an.github.io/lyrics-android/ 。使用 Actions 构建源和 HTTPS，不配置自定义域名。
-
-- 官网相关文件合入 `main` 后自动构建、测试、部署；也可在 Actions 选择 `Website checks and deploy`，从 `main` 手动运行。
-- 只有部署作业拥有 `pages: write` 和 `id-token: write`，并受 `github-pages` 环境限制；该环境只允许 `main` 分支。
-- 部署严格依赖成功的 `website` 测试作业，PR 与其他分支不上传 Pages 产物、不进入部署作业。
-- 只发布 `website/dist/`，不暴露仓库、测试报告、源码凭据或 Android 签名文件。
-- 部署后检查公开首页、CSS、JavaScript、图标和 sitemap，等待 CDN 发布生效。
-- 若需回退，通过 PR 恢复到之前的官网版本，再合入 `main` 重新部署；不绕过测试。
-
-资源使用相对路径，支持 GitHub Pages 项目子路径。`index.html` 的 canonical／og:url 与 `sitemap.xml` 指向上述正式网址；以后变更域名时需一并更新。
-
-## 维护
-
-- 文案与链接：`index.html`
-- 配色、布局与响应式：`styles.css`
-- 交互与原创示例文案：`app.js`
-- 网站图标：仓库 `docs/assets/app-icon.svg`；应用截图仅链接到仓库查看
-- 构建／预览／静态检查：`scripts/`
-- 浏览器测试：`tests/` 与 `playwright.config.mjs`
-
-保留仓库现有上游署名和许可边界。歌词平台名称只说明内容来源，不代表合作或兼容保证。
+维护入口：`index.html`（文案与布局）、`styles.css`（字体与响应式）、`app.js`（交互）、`scripts/`（构建和预览）。保留仓库原有上游署名及许可边界，歌词平台名称不代表合作或兼容保证。

@@ -10,7 +10,7 @@
 
 ## 测试包
 
-`build.yml` 在 `main`、`feat/**`、`dev/**` 分支推送或面向 `main` 的 PR 时运行，也可手动触发。通过后从 Artifacts 下载 `lyrics-android-debug`。
+`build.yml` 在 `main`、`feat/**`、`dev/**` 分支推送或面向 `main` 的 PR 时运行，也可手动触发。仅官网、文档、Markdown 或网页工作流变更时跳过；包含 Android 源码变更时照常运行。通过后从 Artifacts 下载 `lyrics-android-debug`。
 
 测试包使用 `com.luoh.music.lrc.dev` 和已有公开调试签名，与正式包分开安装。
 
