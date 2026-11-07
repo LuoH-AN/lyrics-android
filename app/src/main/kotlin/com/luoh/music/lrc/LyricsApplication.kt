@@ -7,25 +7,33 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import androidx.core.content.ContextCompat
 
 class LyricsApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         UsageAnalytics.initialize(this)
-        ContextCompat.registerReceiver(this, object : BroadcastReceiver() {
+        val screenReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 when (intent?.action) {
                     Intent.ACTION_SCREEN_ON -> UsageAnalytics.setInteractive(true)
                     Intent.ACTION_SCREEN_OFF -> UsageAnalytics.setInteractive(false)
                 }
             }
-        }, IntentFilter().apply {
+        }
+        val screenFilter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_SCREEN_OFF)
-        }, ContextCompat.RECEIVER_NOT_EXPORTED)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(screenReceiver, screenFilter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            // These protected broadcasts can only be sent by the system; no app permission is needed.
+            @Suppress("DEPRECATION")
+            registerReceiver(screenReceiver, screenFilter)
+        }
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             private var started = 0
             private val handler = Handler(Looper.getMainLooper())
