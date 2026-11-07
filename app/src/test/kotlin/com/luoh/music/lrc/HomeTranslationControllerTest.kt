@@ -131,7 +131,7 @@ class HomeTranslationControllerTest {
         }, {}, statuses::add)
         for (text in listOf("Hello world", "世界の歌", "노래")) {
             controller.update(text, LyricDocument(listOf(LyricLine(0, text)), true), "bilingual", "offline")
-            assertTrue(statuses.last().contains("未获得补充译文"))
+            assertTrue(statuses.last().contains("未获取到补充译文"))
         }
         assertEquals(3, calls)
         scope.cancel()
