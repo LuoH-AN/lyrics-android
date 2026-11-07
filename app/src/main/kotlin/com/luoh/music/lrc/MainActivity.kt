@@ -170,7 +170,7 @@ class MainActivity : ComponentActivity() {
         }
         if (!UsageAnalytics.preferences.value.noticeSeen) {
             if (UsageAnalytics.preferences.value.enabled) {
-                Toast.makeText(this, "使用统计已开启，可在设置 → 关于应用中关闭", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "使用统计已开启，用于改进使用体验", Toast.LENGTH_SHORT).show()
             }
             UsageAnalytics.markNoticeSeen()
         }
