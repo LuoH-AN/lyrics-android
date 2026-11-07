@@ -170,6 +170,7 @@ class LyricsOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        UsageAnalytics.configuration(this)
         lyricsScope.launch { TemporaryCache.prune(applicationContext) }
         instance = this
         isRunning = true
@@ -417,6 +418,9 @@ class LyricsOverlayService : Service() {
                     result.requestId < nativeDocumentRequestId) return@post
                 nativeDocumentRequestId = result.requestId
                 nativeLyrics?.setDocument(result.document, result.message, result.durationMs)
+                if (nativeLyrics != null && result.document.lines.isNotEmpty()) {
+                    UsageAnalytics.lyricsDisplayed(UsageAnalytics.Surface.OVERLAY)
+                }
             }
         }
 

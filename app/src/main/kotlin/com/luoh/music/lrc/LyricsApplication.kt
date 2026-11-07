@@ -10,6 +10,8 @@ import android.os.Bundle
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
+import androidx.core.app.NotificationManagerCompat
 
 class LyricsApplication : Application() {
     override fun onCreate() {
@@ -52,7 +54,14 @@ class LyricsApplication : Application() {
             }
 
             override fun onActivityCreated(activity: Activity, state: Bundle?) = Unit
-            override fun onActivityResumed(activity: Activity) = Unit
+            override fun onActivityResumed(activity: Activity) {
+                runCatching {
+                    UsageAnalytics.permissions(
+                        NotificationManagerCompat.getEnabledListenerPackages(activity).contains(packageName),
+                        Settings.canDrawOverlays(activity))
+                    UsageAnalytics.configuration(activity)
+                }
+            }
             override fun onActivityPaused(activity: Activity) = Unit
             override fun onActivitySaveInstanceState(activity: Activity, state: Bundle) = Unit
             override fun onActivityDestroyed(activity: Activity) = Unit

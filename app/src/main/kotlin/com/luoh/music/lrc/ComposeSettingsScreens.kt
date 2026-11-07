@@ -340,11 +340,13 @@ private fun DesktopAccessSettings(context: Context) {
     SettingsGroup(title = "桌面歌词", items = listOf(
         {
             SettingsNavigationItem("添加快捷开关", "在系统快捷设置中开启或关闭桌面歌词", Icons.Default.Lyrics) {
+                UsageAnalytics.feature(UsageAnalytics.Feature.ADD_TILE)
                 LyricsTileService.requestAdd(context)
             }
         },
         {
             SettingsSwitchItem("桌面歌词", "在其他应用上显示当前播放的歌词", Icons.Default.Lyrics, running) {
+                UsageAnalytics.feature(if (running) UsageAnalytics.Feature.OVERLAY_STOP else UsageAnalytics.Feature.OVERLAY_START)
                 when {
                     running -> context.stopService(Intent(context, LyricsOverlayService::class.java))
                     !notificationAllowed -> {
@@ -944,6 +946,10 @@ private fun settingsOverlayAction(context: Context, action: String, extras: Inte
 }
 
 private fun settingsOpenIntent(context: Context, intent: Intent) {
+    when (intent.action) {
+        Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS -> UsageAnalytics.permissionRequested(UsageAnalytics.Permission.NOTIFICATION)
+        Settings.ACTION_MANAGE_OVERLAY_PERMISSION -> UsageAnalytics.permissionRequested(UsageAnalytics.Permission.OVERLAY)
+    }
     runCatching { context.startActivity(intent) }.onFailure { settingsToast(context, "无法打开此页面") }
 }
 

@@ -57,8 +57,12 @@ class ComposeNavigator(saved: Bundle? = null, initial: ComposeRoute? = null) {
         isOpen = saved?.getBoolean("open") == true
         selectedCategory = saved?.getString("selected") ?: "access"
         if (stack.isEmpty() && initial != null) { stack += initial; isOpen = true; if(initial.kind == "category") selectedCategory=initial.category }
+        if (isOpen) UsageAnalytics.screen(route.kind, route.category)
     }
     fun navigate(destination: ComposeRoute) {
+        if (!isOpen || route != destination || (wide && selectedCategory != destination.category)) {
+            UsageAnalytics.screen(destination.kind, destination.category)
+        }
         if (!isOpen) {
             stack.clear(); stack += destination; retention = SettingsScrollRetention()
             selectedCategory = destination.category.ifBlank { "access" }

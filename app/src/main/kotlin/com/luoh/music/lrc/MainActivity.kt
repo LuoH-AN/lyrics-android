@@ -153,8 +153,14 @@ class MainActivity : ComponentActivity() {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     Box(Modifier.fillMaxSize().preferredFrameRate(FrameRateCategory.High)) {
                         ComposeHomeScreen(home,
-                            onListenerPermission = { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
-                            onOverlayPermission = { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName"))) },
+                            onListenerPermission = {
+                                UsageAnalytics.permissionRequested(UsageAnalytics.Permission.NOTIFICATION)
+                                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                            },
+                            onOverlayPermission = {
+                                UsageAnalytics.permissionRequested(UsageAnalytics.Permission.OVERLAY)
+                                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName")))
+                            },
                             onStartOverlay = ::tryStartOverlay)
                         SettingsOverlayHost(pageNavigator.isOpen, pageNavigator::dismiss,
                             onExitFinished = pageNavigator::onExitFinished) { pageNavigator.Content() }
@@ -236,6 +242,7 @@ class MainActivity : ComponentActivity() {
         updateOverlayState()
         val listenerOk = hasListener()
         val overlayOk = hasOverlay()
+        UsageAnalytics.permissions(listenerOk, overlayOk)
         home.gateVisible = !listenerOk
         home.gateStatus = if (!overlayOk) {
             "通知使用权用于获取歌曲信息，不读取通知正文。\n开启桌面歌词还需悬浮窗权限。"
@@ -243,10 +250,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun tryStartOverlay() {
+        UsageAnalytics.feature(UsageAnalytics.Feature.OVERLAY_START)
         if (!hasListener()) {
+            UsageAnalytics.permissionRequested(UsageAnalytics.Permission.NOTIFICATION)
             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)); return
         }
         if (!hasOverlay()) {
+            UsageAnalytics.permissionRequested(UsageAnalytics.Permission.OVERLAY)
             startActivity(
                 Intent(
                     Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
@@ -479,6 +489,7 @@ class MainActivity : ComponentActivity() {
         currentLyricsCustom = payload.source == CustomLyricsStore.SOURCE
         baseLyricDocument = document
         home.setLyrics(baseLyricDocument, currentLyricsCustom)
+        if (homeForeground && document.lines.isNotEmpty()) UsageAnalytics.lyricsDisplayed(UsageAnalytics.Surface.APP)
         refreshHomeTranslation()
         applyLyricOffset()
     }
@@ -548,6 +559,7 @@ class MainActivity : ComponentActivity() {
      *   - 否则只重新应用偏移（用户可能刚在偏移记忆页改过）
      */
     private fun refreshLyricsSettings() {
+        UsageAnalytics.configuration(this)
         // 翻译模式
         val mode = overlayPrefs.getString(
             LyricsOverlayService.PREF_TRANSLATION_MODE, LyricsOverlayService.TRANSLATION_BILINGUAL
@@ -589,6 +601,7 @@ class MainActivity : ComponentActivity() {
 
     private fun refreshHomeTranslation() {
         if (!homeForeground) return
+        if (baseLyricDocument.lines.isNotEmpty()) UsageAnalytics.lyricsDisplayed(UsageAnalytics.Surface.APP)
         val display = overlayPrefs.getString(LyricsOverlayService.PREF_TRANSLATION_MODE,
             LyricsOverlayService.TRANSLATION_BILINGUAL).orEmpty()
         val translationPrefs = getSharedPreferences("supplement_translation", Context.MODE_PRIVATE)
@@ -652,6 +665,7 @@ class MainActivity : ComponentActivity() {
     private inner class HomeActions : HomePresentationState.Actions {
         override fun toggleOverlay() {
             if (LyricsOverlayService.isRunning) {
+                UsageAnalytics.feature(UsageAnalytics.Feature.OVERLAY_STOP)
                 stopService(Intent(this@MainActivity, LyricsOverlayService::class.java))
             } else {
                 tryStartOverlay()
@@ -663,12 +677,14 @@ class MainActivity : ComponentActivity() {
 
         override fun seekTo(positionMs: Long) {
             val c = controller ?: return
+            UsageAnalytics.feature(UsageAnalytics.Feature.SEEK)
             runCatching { c.transportControls.seekTo(positionMs.coerceAtLeast(0L)) }
             mainHandler.postDelayed({ pushSnapshot() }, 180)
         }
 
         override fun togglePlay() {
             val c = controller ?: return
+            UsageAnalytics.feature(UsageAnalytics.Feature.PLAY_PAUSE)
             val playing = c.playbackState?.state == PlaybackState.STATE_PLAYING
             runCatching {
                 if (playing) c.transportControls.pause() else c.transportControls.play()
@@ -678,12 +694,14 @@ class MainActivity : ComponentActivity() {
 
         override fun skipPrev() {
             val c = controller ?: return
+            UsageAnalytics.feature(UsageAnalytics.Feature.PREVIOUS)
             runCatching { c.transportControls.skipToPrevious() }
             mainHandler.postDelayed({ pushSnapshot() }, 180)
         }
 
         override fun skipNext() {
             val c = controller ?: return
+            UsageAnalytics.feature(UsageAnalytics.Feature.NEXT)
             runCatching { c.transportControls.skipToNext() }
             mainHandler.postDelayed({ pushSnapshot() }, 180)
         }
@@ -701,6 +719,7 @@ class MainActivity : ComponentActivity() {
 
         override fun retryLyrics() {
             if (currentTrack.isBlank()) return
+            UsageAnalytics.feature(UsageAnalytics.Feature.RETRY_LYRICS)
             fetchLyrics(currentTrack, currentArtist, currentAlbum, currentDurationMs, forceNetwork = true)
         }
 
@@ -719,6 +738,7 @@ class MainActivity : ComponentActivity() {
                 return
             }
             pendingLrcExport = LyricExporter.buildLrc(currentTrack, currentArtist, lrc, currentLrcTranslated)
+            UsageAnalytics.feature(UsageAnalytics.Feature.EXPORT_LRC)
             exportLrcLauncher.launch(LyricExporter.fileName(currentTrack, currentArtist))
         }
     }
@@ -728,6 +748,7 @@ class MainActivity : ComponentActivity() {
             val saved = content.isNotBlank() && runCatching {
                 contentResolver.openOutputStream(uri, "wt")?.use { it.write(content.toByteArray(Charsets.UTF_8)) } != null
             }.getOrDefault(false)
+            UsageAnalytics.exportResult(saved)
             withContext(Dispatchers.Main) {
                 Toast.makeText(this@MainActivity, if (saved) "LRC 歌词已保存" else "保存失败，请重试", Toast.LENGTH_SHORT).show()
             }

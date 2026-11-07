@@ -44,6 +44,7 @@ class LyricsTileService : TileService() {
     }
 
     private fun toggleOverlay() {
+        UsageAnalytics.feature(UsageAnalytics.Feature.TILE_TOGGLE)
         if (LyricsOverlayService.isRunning) {
             stopService(Intent(this, LyricsOverlayService::class.java))
         } else if (!NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName) ||

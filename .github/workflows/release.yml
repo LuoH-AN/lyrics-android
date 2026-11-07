@@ -139,6 +139,14 @@ jobs:
           path: dist/
           if-no-files-found: error
 
+      - name: Preserve crash symbol mapping
+        uses: actions/upload-artifact@v4
+        with:
+          name: lyrics-android-mapping-${{ steps.version.outputs.version }}
+          path: app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: error
+          retention-days: 90
+
   publish:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build

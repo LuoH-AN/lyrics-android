@@ -36,6 +36,8 @@
 
 正式签名证书 SHA-256：`482fae2e74bcf1cce5a4006dae7c86795b6eeb0112154cff462b20e4dd07300c`。此指纹不是私钥。工作流会校验版本、包名、非调试属性和证书；测试或验证失败不会发布。
 
+正式构建保留崩溃定位所需的行号信息。Actions 同时保存 `lyrics-android-mapping-<版本>`，其中的 R8 `mapping.txt` 用于还原该版本的混淆代码位置，保留 90 天，可下载长期归档。统计事件与后台查看说明见 [使用情况统计](usage-analytics.md)。
+
 ## 参考
 
 [原生界面结构](material-ui.md) · [歌词搜索流程](../guide/lyrics-search.md) · [项目来源](../../README.md#从哪里来)
