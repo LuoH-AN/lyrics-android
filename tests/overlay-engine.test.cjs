@@ -89,7 +89,7 @@ assert.equal(timers, 0);
 engine.updatePlayback({ hasSession: false });
 assert.deepEqual(documents.at(-1).lines, []);
 assert.equal(documents.at(-1).key, '');
-assert.equal(documents.at(-1).message, '未在播放');
+assert.equal(documents.at(-1).message, '暂未播放');
 const clearedCount = documents.length;
 engine.receiveLyrics(secondRequest, { source: 'LRCLIB', lyrics: '[00:00.00]stale after stop' });
 engine.receiveSupplement(translations[0].epoch, { id: 0, text: 'stale translation', source: '离线译' });

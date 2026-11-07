@@ -74,7 +74,7 @@ class ComposeTranslationScreenTest {
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("API Key"))
         compose.onNodeWithText("draft-key-test").assertExists()
         selectMode("offline")
-        compose.onNodeWithText("离线语言包 · 需要代理").assertExists()
+        compose.onNodeWithText("离线语言包").assertExists()
         compose.onNodeWithText("HTTPS 服务地址").assertDoesNotExist()
         compose.runOnIdle {
             assertEquals("offline", prefs.getString("mode", null))

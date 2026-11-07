@@ -44,7 +44,7 @@ Android 8.0+ · 64 位 ARM（arm64-v8a）· 无需 Root
 
 需要 **Android 8.0 及以上、64 位 ARM 设备**和可用的 Android System WebView。目前不提供 iOS、32 位 ARM 或 x86 安装包。首次使用遇到不显示、不同步或后台消失，请看[安装与常见问题](docs/guide/getting-started.md)。
 
-想更快开关小窗，可在「设置 → 权限与后台」添加系统下拉快捷开关。详见[歌词外观与双语显示](docs/guide/lyrics-display.md)。
+想更快开关小窗，可在「设置 → 权限与开关」添加系统下拉快捷开关。详见[歌词外观与双语显示](docs/guide/lyrics-display.md)。
 
 ## 权限与联网，先说清楚
 
@@ -53,7 +53,7 @@ Android 8.0+ · 64 位 ARM（arm64-v8a）· 无需 Root
 - **联网查词**：为查找歌词、封面和必要的歌曲别名，会向歌词平台或 Apple iTunes Search API 发送歌曲名称、歌手等信息；检查更新会访问 GitHub。自定义 LRC 保存在本机，不会作为文件上传到歌词平台。
 - **可选翻译**：补充翻译默认关闭。离线翻译需要先联网下载语言包；API 翻译会把缺少译文的歌词文本（也可能来自自定义 LRC）发送给你配置的服务，可能产生费用。
 
-更完整的数据处理说明见应用内「设置 → 关于 → 隐私说明」；首次使用前也可阅读[权限与联网说明](docs/guide/getting-started.md#权限与联网说明)。
+更完整的数据处理说明见应用内「设置 → 关于应用 → 隐私说明」；首次使用前也可阅读[权限与联网说明](docs/guide/getting-started.md#权限与联网说明)。
 
 ## 一起把它用顺手
 

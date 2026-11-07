@@ -829,7 +829,7 @@
         return;
       }
       if (!data.hasSession || !data.track) {
-        clearEngineSession('未在播放');
+        clearEngineSession('暂未播放');
         return;
       }
 
@@ -873,7 +873,7 @@
         candidateSignature = '';
         playback.cover = '';
         playback.coverIsNative = false;
-        renderLyrics([], '正在匹配歌词…');
+        renderLyrics([], '正在获取歌词');
         if (data.cover) setCover(data.cover, true);
         resolveTrack(playback.track, playback.artist, key, playback.requestId);
       } else if (data.cover && (!playback.cover || !playback.coverIsNative)) {

@@ -178,7 +178,7 @@ private fun LibraryLazyGroupItem(index: Int, count: Int, content: @Composable ()
         modifier = Modifier.fillMaxWidth().padding(bottom = if (index == count - 1) 24.dp else 2.dp), content = content)
 }
 
-private val translationModes = listOf("off" to "关闭", "offline" to "离线机翻", "api" to "自定义 API")
+private val translationModes = listOf("off" to "关闭", "offline" to "离线翻译", "api" to "自定义 API")
 
 @Composable
 private fun LibraryGroupTitle(title: String) {
@@ -276,8 +276,8 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
         LyricsOverlayService.instance?.refreshSupplementTranslation()
         status = when (value) {
             "off" -> "补充翻译已关闭"
-            "offline" -> "离线机翻已应用，请确认所需语言包已下载"
-            else -> "自定义 API 已应用；修改配置后请确认并验证连通性"
+            "offline" -> "已启用离线翻译，请下载所需语言包"
+            else -> "已启用 API 翻译，修改配置后请保存并验证"
         }
     }
     fun switchProfile(selected: TranslationApiProfile) {
@@ -290,7 +290,7 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
                 profileId = selected.id
                 prefs.edit().putString("active_api_profile", selected.id).putString("mode", "api").apply()
                 LyricsOverlayService.instance?.refreshSupplementTranslation()
-                status = "已切换到 ${selected.label}；首次使用请填写密钥并验证"
+                status = "已切换至 ${selected.label}，首次使用请配置密钥并验证"
             } catch (error: CancellationException) { throw error }
             catch (error: Exception) { status = "配置保存失败，请重试" }
         }
@@ -306,12 +306,12 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
                         Tasks.whenAll(needed(code).map { manager.download(TranslateRemoteModel.Builder(it).build(), conditions) }).await()
                     }
                 }
-                status = "语言包已就绪，可以立即使用离线机翻"
+                status = "语言包已就绪，可使用离线翻译"
                 LyricsOverlayService.instance?.refreshSupplementTranslation()
             } catch (error: kotlinx.coroutines.TimeoutCancellationException) {
-                status = "下载等待超过 2 分钟，请检查手机代理后重试；后台若完成，可刷新状态确认"
+                status = "下载等待超时，请检查网络并刷新状态；仍未完成时重试"
             } catch (error: CancellationException) { throw error
-            } catch (error: Exception) { status = "下载未完成，请确认手机当前网络可访问 Google ML Kit"
+            } catch (error: Exception) { status = "下载未完成，请确认网络可访问 Google ML Kit"
             } finally { downloading = downloading - code; modelRefresh++ }
         }
     }
@@ -391,7 +391,7 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
             item(key = "api-profile", contentType = "setting") {
                 LibraryLazyGroupItem(0, 6) {
                     SettingsItem(modifier = Modifier.clickable(enabled = profileLoaded) { profileMenu = true },
-                        headlineContent = { Text(profile.label) }, supportingContent = { Text("选择服务或管理 API 配置") })
+                        headlineContent = { Text(profile.label) }, supportingContent = { Text("选择翻译服务或管理 API 配置") })
                 }
             }
             item(key = "api-endpoint", contentType = "field") { LibraryLazyGroupItem(1, 6) {
@@ -404,12 +404,12 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
                 LibraryField("API Key", apiKey, { apiKey = it }, profileLoaded && !verifying, secret = true)
             } }
             item(key = "api-delete", contentType = "action") { LibraryLazyGroupItem(4, 6) {
-                LibraryAction("删除已保存的密钥", profileLoaded && !verifying) {
+                LibraryAction("删除密钥", profileLoaded && !verifying) {
                     val id = profileId
-                    confirmation = LibraryConfirmation("删除已保存的密钥？", "只删除当前配置的本机密钥，地址和模型仍会保留。", "删除密钥") {
+                    confirmation = LibraryConfirmation("删除已保存的密钥？", "删除当前配置的本机密钥，保留服务地址与模型。", "删除密钥") {
                         scope.launch {
                             withContext(Dispatchers.IO) { SecretStorage(context, id).save("") }
-                            if (profileId == id) { apiKey = ""; status = "已删除当前服务保存的 API Key" }
+                            if (profileId == id) { apiKey = ""; status = "当前服务的密钥已删除" }
                         }
                     }
                 }
@@ -418,7 +418,7 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
                     Button(enabled = profileLoaded && !verifying, modifier = Modifier.fillMaxWidth().padding(16.dp), onClick = {
                         val id = profileId; val address = endpoint.trim(); val modelName = model.trim(); val secret = apiKey.trim()
                         if (!address.startsWith("https://") || modelName.isBlank() || secret.isBlank()) {
-                            status = "请完整填写 HTTPS 服务地址、模型和 API Key"
+                            status = "请填写 HTTPS 服务地址、模型与 API Key"
                         } else {
                             verifying = true
                             verifyJob = scope.launch {
@@ -428,22 +428,22 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
                                     LyricsOverlayService.instance?.refreshSupplementTranslation()
                                     status = "配置已保存，正在连接翻译服务…"
                                     val translated = withContext(Dispatchers.IO) { SupplementTranslation(context).testApi(address, modelName, secret) }
-                                    if (profileId == id) { status = "API 连接成功，测试翻译：$translated"; LyricsOverlayService.instance?.refreshSupplementTranslation() }
+                                    if (profileId == id) { status = "连接成功，测试译文：$translated"; LyricsOverlayService.instance?.refreshSupplementTranslation() }
                                 } catch (error: CancellationException) { throw error
-                                } catch (error: Exception) { if (profileId == id) status = "API 获取失败：${error.message.orEmpty().ifBlank { "未知错误" }.take(180)}"
+                                } catch (error: Exception) { if (profileId == id) status = "API 验证失败：${error.message.orEmpty().ifBlank { "未知错误" }.take(180)}"
                                 } finally { if (profileId == id) verifying = false }
                             }
                         }
-                    }) { Text(if (verifying) "正在验证 API…" else "确认配置并验证连通性") }
+                    }) { Text(if (verifying) "验证中…" else "保存并验证") }
             } }
         }
         if (mode == "offline") {
             item(key = "offline-tools") {
-                SettingsGroup("离线语言包 · 需要代理", items = listOf({
+                SettingsGroup("离线语言包", items = listOf({
                     Column {
                         if (modelsBusy || downloading.isNotEmpty()) LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp))
-                        if (downloading.isNotEmpty()) LibraryStatus("语言包下载中… 已用时 ${elapsed}s（系统未提供百分比/速度）")
-                        LibraryField("搜索更多语言", search, { search = it })
+                        if (downloading.isNotEmpty()) LibraryStatus("正在下载语言包 · 已用时 ${elapsed} 秒")
+                        LibraryField("搜索语言", search, { search = it })
                         Row(Modifier.fillMaxWidth()) {
                             LibraryAction("刷新状态") { modelRefresh++ }
                             LibraryAction("清理译文缓存") {
@@ -465,21 +465,21 @@ private fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack:
                 val inProgress = code in downloading
                 LibraryLazyGroupItem(index, filteredLanguages.size) {
                     SettingsItem(headlineContent = { Text(title) },
-                        supportingContent = { Text(when { inProgress -> "下载中…"; ready -> "已下载"; hasModel -> "缺中文模型"; else -> "未下载" }) },
+                        supportingContent = { Text(when { inProgress -> "下载中…"; ready -> "已下载"; hasModel -> "缺少中文模型"; else -> "未下载" }) },
                         trailingContent = {
                             TextButton(enabled = !inProgress, onClick = {
                                 if (hasModel) {
                                     val removable = if (code == "en") "zh" else code
                                     confirmation = LibraryConfirmation("删除语言包", if (removable == "zh")
-                                        "删除共用中文模型后，所有离线中文翻译都需要重新下载。已缓存译文仍会保留。"
-                                        else "删除 ${languageTitle(code)} 语言包？已缓存译文仍会保留。", "确认删除") {
+                                        "删除共用中文模型后，使用离线中文翻译需重新下载。已缓存译文保留。"
+                                        else "删除 ${languageTitle(code)} 语言包，保留已缓存译文。", "确认删除") {
                                         scope.launch {
                                             try { withContext(Dispatchers.IO) { manager.deleteDownloadedModel(TranslateRemoteModel.Builder(removable).build()).await() }; status = "语言包已删除"; modelRefresh++ }
                                             catch (error: CancellationException) { throw error }
                                             catch (error: Exception) { status = "删除失败，请停止离线翻译后重试" }
                                         }
                                     }
-                                } else confirmation = LibraryConfirmation("下载 ${languageTitle(code)}", "将下载该语言及缺失的共用中文模型，每个模型约 30 MB。请确保手机代理可用。", "仅 Wi-Fi 下载") { downloadLanguage(code, true) }
+                                } else confirmation = LibraryConfirmation("下载 ${languageTitle(code)}", "下载该语言及缺失的共用中文模型，每个约 30 MB。网络需能访问 Google ML Kit。", "仅 Wi-Fi 下载") { downloadLanguage(code, true) }
                             }) { Text(if (hasModel) "删除" else "下载") }
                         })
                 }
@@ -538,7 +538,7 @@ private fun ApiProfilesComposeScreen(onBack: () -> Unit) {
     var model by rememberSaveable { mutableStateOf("") }
     var key by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
-    var status by rememberSaveable { mutableStateOf("填写完整后保存；密钥会加密保存在本机。") }
+    var status by rememberSaveable { mutableStateOf("填写配置后保存，密钥在本机加密存储。") }
     var confirmation by remember { mutableStateOf<LibraryConfirmation?>(null) }
     var profiles by remember { mutableStateOf(emptyList<TranslationApiProfile>()) }
     LaunchedEffect(revision, active) {
@@ -561,9 +561,9 @@ private fun ApiProfilesComposeScreen(onBack: () -> Unit) {
         }
     }
     CollapsingSettingsLazyScaffold(title = "API 配置", onBack = onBack) {
-        item(key = "intro") { LibraryStatus("可添加多套兼容 Chat Completions 的服务，并随时切换。") }
+        item(key = "intro") { LibraryStatus("支持添加和切换兼容 Chat Completions 的 API 服务。") }
         item(key = "editor") {
-            SettingsGroup(if (editingId == null) "添加 API" else "编辑 API 配置", items = listOf({
+            SettingsGroup(if (editingId == null) "添加 API 配置" else "编辑 API 配置", items = listOf({
                 Column {
                     LibraryField("配置名称", name, { name = it }, !busy)
                     LibraryField("HTTPS 服务地址", endpoint, { endpoint = it }, !busy)
@@ -586,26 +586,26 @@ private fun ApiProfilesComposeScreen(onBack: () -> Unit) {
                                         if (secret.isNotBlank()) SecretStorage(context, profile.id).save(secret)
                                         profile
                                     }
-                                    editingId = saved.id; status = "${saved.label} 已保存并切换使用"
+                                    editingId = saved.id; status = "已保存并启用 ${saved.label}"
                                     LyricsOverlayService.instance?.refreshSupplementTranslation()
                                 } catch (error: CancellationException) { throw error }
                                 catch (error: Exception) { status = error.message ?: "保存失败，请重试" }
                                 finally { busy = false }
                             }
                         }
-                    }) { Text(if (busy) "正在处理…" else if (editingId == null) "保存并使用" else "保存修改并使用") }
-                    if (editingId != null) LibraryAction("添加另一套 API", !busy) { clearEditor() }
+                    }) { Text(if (busy) "处理中…" else "保存并启用") }
+                    if (editingId != null) LibraryAction("新建配置", !busy) { clearEditor() }
                     LibraryStatus(status)
                 }
             }))
         }
-        if (profiles.isEmpty()) item(key = "empty") { LibraryStatus("还没有 API 配置，请在上方添加") }
+        if (profiles.isEmpty()) item(key = "empty") { LibraryStatus("暂无 API 配置，请填写并保存") }
         itemsIndexed(profiles, key = { _, profile -> "profile-${profile.id}" }, contentType = { _, _ -> "profile" }) { index, profile ->
             LibraryLazyGroupItem(index, profiles.size) {
                 SettingsItem(modifier = Modifier.clickable(enabled = !busy) { edit(profile) }, headlineContent = { Text(profile.label) },
                     supportingContent = { Text(if (profile.id == activeId) "使用中 · 点击编辑" else "点击编辑") },
                     trailingContent = { TextButton(enabled = !busy, onClick = {
-                        confirmation = LibraryConfirmation("删除 ${profile.label}？", "地址、模型和本机加密密钥都会删除，此操作无法恢复。", "确认删除") {
+                        confirmation = LibraryConfirmation("删除 ${profile.label}？", "删除服务地址、模型与本机密钥，此操作无法撤销。", "确认删除") {
                             busy = true
                             scope.launch {
                                 try {
@@ -660,8 +660,8 @@ private fun OffsetMemoriesComposeScreen(onBack: () -> Unit) {
         item(key = "summary") {
             SettingsGroup("同步调整", items = listOf({
                 Column {
-                    SettingsItem(headlineContent = { Text(if (!loaded) "正在读取…" else if (entries.isEmpty()) "还没有保存的同步调整" else "已保存 ${entries.size} 条") })
-                    if (entries.isNotEmpty()) LibraryAction("重置全部同步记忆") {
+                    SettingsItem(headlineContent = { Text(if (!loaded) "正在读取…" else if (entries.isEmpty()) "暂无同步记忆" else "已保存 ${entries.size} 条同步记忆") })
+                    if (entries.isNotEmpty()) LibraryAction("全部重置") {
                         confirmation = LibraryConfirmation("重置全部同步调整？", "所有歌曲和歌词源都会恢复原始同步时间，此操作无法撤销。", "确认重置") {
                             scope.launch {
                                 withContext(Dispatchers.IO) {
@@ -682,7 +682,7 @@ private fun OffsetMemoriesComposeScreen(onBack: () -> Unit) {
                 SettingsItem(headlineContent = { Text(entry.title.ifBlank { "未知歌曲" }) },
                     supportingContent = { Text(listOf(entry.artist, "${entry.source.ifBlank { "歌词源" }} · ${LyricSyncText.format(entry.offsetMs)}").filter { it.isNotBlank() }.joinToString("\n")) },
                     trailingContent = { TextButton(onClick = {
-                        confirmation = LibraryConfirmation("删除这条同步记忆？", "《${entry.title}》在 ${entry.source} 的歌词将恢复原始同步时间。", "删除记忆") {
+                        confirmation = LibraryConfirmation("删除同步记忆？", "《${entry.title}》在 ${entry.source} 的歌词将恢复原始同步时间。", "删除记忆") {
                             scope.launch {
                                 val key = LyricsOverlayService.PREF_LYRIC_OFFSET_ENTRY_PREFIX + entry.id
                                 withContext(Dispatchers.IO) {
@@ -784,7 +784,7 @@ private fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute)
     }
     fun searchNext(item: JSONObject) {
         if (busy) return
-        if (item.optString("title").isBlank()) { message = "旧版记录缺少歌曲信息，请先播放这首歌，获取歌词后再打开此页。"; return }
+        if (item.optString("title").isBlank()) { message = "旧记录缺少歌曲信息，请播放歌曲并获取歌词后重试。"; return }
         busy = true; message = ""
         val key = item.optString("key")
         val history = item.optJSONArray("history") ?: JSONArray().put(item.optJSONObject("candidate"))
@@ -807,17 +807,17 @@ private fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute)
                         saveSourceEntries(context, prefs, values, false); true
                     }
                 }
-                message = if (stored) "已找到新候选，预览后点击选用。当前歌词保持不变。" else "没有更多可靠的匹配结果，已保留现有版本。"
+                message = if (stored) "已找到候选版本，预览后可选用；当前歌词未更改。" else "暂无更合适的匹配结果，已保留当前版本。"
             } catch (error: CancellationException) { throw error }
-            catch (error: Exception) { message = "请求失败或来源暂时不可用，请稍后重试。" }
+            catch (error: Exception) { message = "歌词源请求失败，请稍后重试。" }
             finally { busy = false }
         }
     }
     CollapsingSettingsLazyScaffold(title = if (selectedKey == null) "歌词源管理" else "版本与预览", onBack = onBack) {
         if (message.isNotBlank()) item(key = "message") { LibraryStatus(message) }
         if (selectedKey == null) {
-            item(key = "search") { LibraryField("搜索已记录的歌名或歌手", query, { query = it }) }
-            if (filtered.isEmpty()) item(key = "empty") { LibraryStatus(if (!loaded) "正在读取…" else if (entries.isEmpty()) "暂无重匹配记录" else "没有符合搜索条件的歌曲") }
+            item(key = "search") { LibraryField("搜索歌名或歌手", query, { query = it }) }
+            if (filtered.isEmpty()) item(key = "empty") { LibraryStatus(if (!loaded) "正在读取…" else if (entries.isEmpty()) "暂无歌词匹配记录" else "未找到符合条件的歌曲") }
             itemsIndexed(filtered, key = { _, item -> item.key }, contentType = { _, _ -> "source" }) { index, item ->
                 LibraryLazyGroupItem(index, filtered.size) {
                     SettingsItem(modifier = Modifier.clickable { onNavigate(ComposeRoute("sources", id = item.key)) },
@@ -830,29 +830,29 @@ private fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute)
                 SettingsGroup("匹配记录与缓存", items = listOf({
                     Column {
                         SettingsItem(headlineContent = { Text("已记录 ${entries.size} 个来源") })
-                        LibraryAction("清除匹配记录与缓存…", !busy) {
+                        LibraryAction("清除记录与缓存", !busy) {
                             val count = snapshot.songCount
-                            confirmation = LibraryConfirmation("清除匹配记录与缓存？", "将清除 $count 首歌曲的匹配记录（包括手动选定的版本与历史版本），以及主页缓存的歌词。此操作无法撤销。\n\n自定义歌词、翻译语言包和同步设置都会保留。", "确认清除") {
+                            confirmation = LibraryConfirmation("清除匹配记录与缓存？", "清除 $count 首歌曲的匹配记录、手动选择与历史版本，以及缓存歌词，此操作无法撤销。\n\n保留自定义歌词、翻译语言包与同步设置。", "确认清除") {
                                 scope.launch {
                                     withContext(Dispatchers.IO) {
                                         saveSourceEntries(context, prefs, emptyList())
                                         SharedLyricsCache(context).clear()
                                     }
-                                    message = "已清除匹配记录与缓存，下次搜索恢复自动匹配"
+                                    message = "记录与缓存已清除，下次搜索将自动匹配"
                                 }
                             }
                         }
                     }
                 }))
             }
-        } else if (entry == null) item(key = "missing") { LibraryStatus(if (loaded) "这首歌的来源记忆已不存在" else "正在读取…") }
+        } else if (entry == null) item(key = "missing") { LibraryStatus(if (loaded) "该歌曲的来源记忆已删除" else "正在读取…") }
         else {
             item(key = "song") {
                 SettingsGroup("歌曲", items = listOf({
                     Column {
                         SettingsItem(headlineContent = { Text(entry.optString("title")) }, supportingContent = { Text(entry.optString("artist")) })
-                        LibraryAction(if (busy) "正在处理…" else "搜索下一个匹配结果（仅预览）", !busy) { searchNext(entry) }
-                        if (entry.optJSONObject("original") != null) LibraryAction("恢复最初的歌词", !busy) {
+                        LibraryAction(if (busy) "正在处理…" else "搜索候选版本", !busy) { searchNext(entry) }
+                        if (entry.optJSONObject("original") != null) LibraryAction("恢复初始版本", !busy) {
                             val original = entry.optJSONObject("original") ?: return@LibraryAction
                             update(entry.optString("key")) { it.put("candidate", original).put("needsReview", false) }
                         }
@@ -864,7 +864,7 @@ private fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute)
                     Column {
                         SettingsItem(headlineContent = { Text(version.title) }, supportingContent = { Text(version.artist + "\n" + version.summary) })
                         Text(version.preview, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
-                        LibraryAction(if (version.current) "正在使用" else "选用这个版本", !version.current && !busy) {
+                        LibraryAction(if (version.current) "使用中" else "选用此版本", !version.current && !busy) {
                             update(entry.optString("key")) {
                                 it.remove("auto"); it.put("candidate", version.candidate).put("needsReview", false).put("at", System.currentTimeMillis())
                             }
@@ -874,8 +874,8 @@ private fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute)
             }
             item(key = "delete") {
                 SettingsGroup("来源记忆", items = listOf({
-                    LibraryAction("删除记忆 / 恢复自动匹配", !busy) {
-                        confirmation = LibraryConfirmation("删除这首歌的来源记忆？", "将删除《${entry.optString("title")}》在 ${entry.optString("source")} 的选择及历史版本，下次搜索恢复自动匹配。", "删除记忆") {
+                    LibraryAction("删除来源记忆", !busy) {
+                        confirmation = LibraryConfirmation("删除来源记忆？", "将删除《${entry.optString("title")}》在 ${entry.optString("source")} 的选择及历史版本，下次搜索恢复自动匹配。", "删除记忆") {
                             scope.launch {
                                 withContext(Dispatchers.IO) { saveSourceEntries(context, prefs, readSourceEntries(prefs).filter { it.optString("key") != entry.optString("key") }) }
                                 onBack()
@@ -910,10 +910,10 @@ private fun CachedLibraryComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBac
         entries.filter { query.isBlank() || it.title.contains(query, true) || it.artist.contains(query, true) }
     }
     CollapsingSettingsLazyScaffold(title = "缓存歌词勘误", onBack = onBack) {
-        item(key = "intro") { LibraryStatus("选择已下载的歌词进行修改。保存为自定义歌词后，主页和桌面歌词会优先使用；删除自定义版本即可恢复自动匹配。") }
+        item(key = "intro") { LibraryStatus("修改缓存歌词并保存为自定义版本后，主页与桌面歌词将优先使用。删除自定义版本可恢复自动匹配。") }
         item(key = "search") { LibraryField("搜索歌名或歌手", query, { query = it }) }
         if (filtered.isEmpty()) item(key = "empty") {
-            LibraryStatus(when { !loaded -> "正在读取缓存…"; entries.isEmpty() -> "还没有可修改的缓存歌词，先播放歌曲并获取歌词"; else -> "没有找到匹配的缓存歌词" })
+            LibraryStatus(when { !loaded -> "正在读取缓存…"; entries.isEmpty() -> "暂无缓存歌词，请播放歌曲并获取歌词"; else -> "未找到符合条件的缓存歌词" })
         }
         itemsIndexed(filtered, key = { _, entry -> "${entry.title}\u0000${entry.artist}" }, contentType = { _, _ -> "cached-lyric" }) { index, entry ->
             LibraryLazyGroupItem(index, filtered.size) {
@@ -921,7 +921,7 @@ private fun CachedLibraryComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBac
                     modifier = Modifier.clickable { onNavigate(ComposeRoute("cached-editor", title = entry.title, artist = entry.artist)) },
                     headlineContent = { Text(entry.title) },
                     supportingContent = { Text(listOf(entry.artist, entry.result.source).filter { it.isNotBlank() }.joinToString(" · ")) },
-                    trailingContent = { TextButton(onClick = { onNavigate(ComposeRoute("cached-editor", title = entry.title, artist = entry.artist)) }) { Text("修改勘误") } }
+                    trailingContent = { TextButton(onClick = { onNavigate(ComposeRoute("cached-editor", title = entry.title, artist = entry.artist)) }) { Text("编辑歌词") } }
                 )
             }
         }
@@ -959,17 +959,17 @@ private fun CustomLibraryComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBac
         } }
         item(key = "new") {
             SettingsGroup("歌词库", items = listOf({
-                SettingsItem(headlineContent = { Text("新建自定义歌词") }, supportingContent = { Text("手动填写歌名或导入 LRC · 已保存 ${entries.size} 份") },
+                SettingsItem(headlineContent = { Text("新建自定义歌词") }, supportingContent = { Text("填写歌曲信息或导入 LRC，已保存 ${entries.size} 份") },
                     trailingContent = { TextButton(onClick = { onNavigate(ComposeRoute("editor")) }) { Text("新建") } })
             }))
         }
         item(key = "cached") {
             SettingsGroup("缓存歌词", items = listOf({
-                SettingsItem(headlineContent = { Text("修改已下载的歌词") }, supportingContent = { Text("从缓存载入正文与译文，保存本地勘误版本") },
+                SettingsItem(headlineContent = { Text("修改已下载的歌词") }, supportingContent = { Text("编辑缓存正文与译文，保存为自定义版本") },
                     trailingContent = { TextButton(onClick = { onNavigate(ComposeRoute("cached")) }) { Text("查看缓存") } })
             }))
         }
-        if (entries.isEmpty()) item(key = "empty") { LibraryStatus(if (loaded) "还没有自定义歌词" else "正在读取…") }
+        if (entries.isEmpty()) item(key = "empty") { LibraryStatus(if (loaded) "暂无自定义歌词" else "正在读取…") }
         itemsIndexed(entries, key = { _, item -> item.id }, contentType = { _, _ -> "custom-lyric" }) { index, item ->
             val entry = item
             LibraryLazyGroupItem(index, entries.size) {
@@ -980,7 +980,7 @@ private fun CustomLibraryComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBac
                     Row {
                         LibraryAction("编辑") { onNavigate(ComposeRoute("editor", id = entry.id)) }
                         LibraryAction("删除") {
-                            confirmation = LibraryConfirmation("删除这份自定义歌词？", "${entry.title.ifBlank { "未命名" }}${if (entry.artist.isNotBlank()) " · ${entry.artist}" else ""}\n删除后这首歌会恢复自动匹配。", "确认删除") {
+                            confirmation = LibraryConfirmation("删除自定义歌词？", "${entry.title.ifBlank { "未命名" }}${if (entry.artist.isNotBlank()) " · ${entry.artist}" else ""}\n删除后该歌曲将恢复自动匹配。", "确认删除") {
                                 scope.launch {
                                     withContext(Dispatchers.IO) { CustomLyricsStore.delete(context, entry.id) }
                                     LyricsOverlayService.instance?.reloadCustomLyrics()
@@ -1031,7 +1031,7 @@ private fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) {
     fun leave() {
         if (saving) return
         if (!loaded || snapshot() == savedSnapshot) onBack()
-        else confirmation = LibraryConfirmation("放弃未保存的修改？", "刚才输入或导入的歌词不会保存。", "放弃修改", onBack)
+        else confirmation = LibraryConfirmation("放弃未保存的修改？", "未保存的输入与导入内容将丢失。", "放弃修改", onBack)
     }
     fun importFile(uri: Uri) {
         if (saving || !loaded) return
@@ -1041,7 +1041,7 @@ private fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) {
             try {
                 val text = withContext(Dispatchers.IO) { readCustomLyricsFile(context, uri) }
                 if (snapshot() != before || saving) return@launch
-                if (text.isBlank()) { message = "无法读取这个文件，请确认是文本格式的 LRC 歌词"; return@launch }
+                if (text.isBlank()) { message = "文件读取失败，请使用文本格式的 LRC 文件"; return@launch }
                 val separated = if (structured) withContext(Dispatchers.IO) { CustomLyricsStore.parse(text) } else null
                 if (snapshot() != before || saving) return@launch
                 lyrics = TextFieldValue(if (separated != null && separated.lineCount > 0) separated.lyrics else text.trim())
@@ -1049,9 +1049,9 @@ private fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) {
                 fillTags(text)
                 val raw = lyrics.text; val translation = translated.text; val separate = structured
                 val parsed = withContext(Dispatchers.IO) { if (separate) CustomLyricsStore.parse(raw, translation) else CustomLyricsStore.parse(raw) }
-                message = if (parsed.lineCount > 0) "已导入 ${parsed.lineCount} 行歌词" else "文件里没有识别到带时间轴的歌词行"
+                message = if (parsed.lineCount > 0) "已导入 ${parsed.lineCount} 行歌词" else "未识别到带时间轴的歌词行"
             } catch (error: CancellationException) { throw error }
-            catch (error: Exception) { message = "无法读取这个文件，请确认是文本格式的 LRC 歌词且不超过 1 MB" }
+            catch (error: Exception) { message = "文件读取失败，请使用不超过 1 MB 的文本格式 LRC 文件" }
             finally { importing = false }
         }
     }
@@ -1062,7 +1062,7 @@ private fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) {
         val translation = if (structured) translated.text.trim() else ""
         val separate = structured; val source = original
         if (name.isBlank()) { message = "请填写歌名"; return }
-        if (raw.length + translation.length > CustomLyricsStore.MAX_LENGTH) { message = "歌词太长，请删减后再保存"; return }
+        if (raw.length + translation.length > CustomLyricsStore.MAX_LENGTH) { message = "歌词超出长度限制，请删减后保存"; return }
         saving = true; importJob?.cancel()
         scope.launch {
             try {
@@ -1073,7 +1073,7 @@ private fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) {
                         wordLyrics = if (separate) correctedWordLyrics(source, raw) else "", durationMs = source?.durationMs ?: 0L)
                     parsed
                 }
-                if (parsed.lineCount == 0) { message = if (separate) "没有识别到歌词正文，请输入歌词后再保存" else "没有识别到带时间轴的歌词行，格式示例：[01:23.45]歌词"; return@launch }
+                if (parsed.lineCount == 0) { message = if (separate) "未识别到歌词正文，请输入后保存" else "未识别到带时间轴的歌词行，格式示例：[01:23.45]歌词"; return@launch }
                 savedSnapshot = snapshot()
                 LyricsOverlayService.instance?.reloadCustomLyrics(); onBack()
             } catch (error: CancellationException) { throw error }
@@ -1099,12 +1099,12 @@ private fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) {
                 if (existing != null) {
                     editingId = existing.id; title = existing.title; artist = existing.artist
                     lyrics = TextFieldValue(existing.lyrics); translated = TextFieldValue(existing.translatedLyrics); structured = existing.structured
-                    if (route.kind == "cached-editor") message = "这首歌已有自定义歌词，已打开现有版本"
+                    if (route.kind == "cached-editor") message = "该歌曲已有自定义歌词，已打开现有版本"
                 } else if (cached != null) {
                     if (cached.lyrics.length + cached.translatedLyrics.length <= CustomLyricsStore.MAX_LENGTH) {
                         lyrics = TextFieldValue(cached.lyrics); translated = TextFieldValue(cached.translatedLyrics)
-                    } else message = "这份缓存歌词超过可编辑长度，请粘贴删减后的歌词或导入较小的文件"
-                } else if (route.kind == "cached-editor") message = "这份缓存已被清除，请重新获取歌词后再修改"
+                    } else message = "缓存歌词超出编辑限制，请删减后粘贴或导入"
+                } else if (route.kind == "cached-editor") message = "缓存已清除，请重新获取歌词后编辑"
                 savedSnapshot = snapshot(); loaded = true
             }
         } catch (error: CancellationException) { throw error }
@@ -1115,21 +1115,21 @@ private fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) {
         val raw = lyrics.text
         val translation = if (structured) translated.text else ""; val separate = structured
         val length = raw.length + translation.length
-        status = when { raw.isBlank() -> if (separate) "修改歌词正文或译文后保存" else "粘贴、输入或导入 LRC 歌词"; length > CustomLyricsStore.MAX_LENGTH -> "歌词太长，请删减到 ${CustomLyricsStore.MAX_LENGTH / 1000}K 字符以内"; else -> "" }
+        status = when { raw.isBlank() -> if (separate) "修改歌词正文或译文后保存" else "粘贴、输入或导入 LRC 歌词"; length > CustomLyricsStore.MAX_LENGTH -> "歌词超出限制，请删减至 ${CustomLyricsStore.MAX_LENGTH / 1000}K 字符以内"; else -> "" }
         if (raw.isBlank() || length > CustomLyricsStore.MAX_LENGTH) return@LaunchedEffect
         delay(120)
         val parsed = withContext(Dispatchers.IO) { if (separate) CustomLyricsStore.parse(raw, translation) else CustomLyricsStore.parse(raw) }
-        status = if (parsed.lineCount == 0) { if (separate) "没有识别到歌词正文" else "没有识别到带时间轴的歌词行" } else buildString {
-            append("识别到 ${parsed.lineCount} 行歌词")
+        status = if (parsed.lineCount == 0) { if (separate) "未识别到歌词正文" else "未识别到带时间轴的歌词行" } else buildString {
+            append("已识别 ${parsed.lineCount} 行歌词")
             if (parsed.translationCount > 0) append(" · ${parsed.translationCount} 行译文")
-            if (parsed.ignoredCount > 0) append(" · ${parsed.ignoredCount} 行没有时间轴，已忽略")
+            if (parsed.ignoredCount > 0) append(" · 已忽略 ${parsed.ignoredCount} 行无时间轴内容")
             if (!parsed.timed) append(" · 纯文本歌词")
         }
     }
     BackHandler(enabled = active) { leave() }
     CollapsingSettingsScaffold(title = if (editingId != null) "编辑自定义歌词" else if (route.kind == "cached-editor") "修改缓存歌词" else "添加自定义歌词", onBack = ::leave,
         actions = { TextButton(enabled = loaded && !saving && (!structured || originalLoaded), onClick = ::save) { Text(if (saving) "保存中…" else "保存") } }) {
-        if (structured) LibraryStatus("保存为自定义歌词后优先使用，可在自定义歌词管理中删除并恢复自动匹配。修改正文或时间戳的行按整句显示，其余行尽量保留逐字高亮。")
+        if (structured) LibraryStatus("保存后优先使用自定义版本，删除可恢复自动匹配。修改正文或时间戳的行按整句显示，其余行尽量保留逐字高亮。")
         SettingsGroup("歌曲信息", items = listOf({
             Column {
                 LibraryField("歌名（必填）", title, { title = it }, loaded && !saving)
@@ -1141,7 +1141,7 @@ private fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) {
             TextButton(enabled = loaded && !saving, onClick = {
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 val text = clipboard.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
-                if (text.isBlank()) message = "剪贴板里没有文字"
+                if (text.isBlank()) message = "剪贴板暂无文本"
                 else {
                     if (structured && editingTranslation) {
                         val start = translated.selection.min.coerceIn(0, translated.text.length); val end = translated.selection.max.coerceIn(0, translated.text.length)
@@ -1152,23 +1152,23 @@ private fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) {
                     } else lyrics = TextFieldValue(text.trim())
                     fillTags(text)
                 }
-            }) { Text(if (structured && editingTranslation) "粘贴译文" else "粘贴剪贴板") }
+            }) { Text(if (structured && editingTranslation) "粘贴译文" else "粘贴歌词") }
         }
         OutlinedTextField(value = lyrics, onValueChange = { lyrics = it }, enabled = loaded && !saving,
             label = { Text(if (structured) "歌词正文（LRC 或纯文本）" else "LRC 时间轴歌词") }, minLines = 10, maxLines = 16,
-            placeholder = { Text(if (structured) "[00:12.30]第一句歌词\n[00:16.85]第二句歌词" else "[00:12.30]第一句歌词\n[00:16.85]第二句歌词\n[00:16.85]同一时间戳的第二行作为译文") },
+            placeholder = { Text(if (structured) "[00:12.30]第一句歌词\n[00:16.85]第二句歌词" else "[00:12.30]第一句歌词\n[00:16.85]第二句歌词\n[00:16.85]同一时间戳的第二行译文") },
             textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
             modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused; if (it.isFocused) editingTranslation = false })
         if (structured) OutlinedTextField(value = translated, onValueChange = { translated = it }, enabled = loaded && !saving,
             label = { Text("译文（可选）") }, minLines = 4, maxLines = 10,
-            supportingText = { Text("有时间轴时保留与原文对应的时间戳；纯文本译文按行对应。") },
+            supportingText = { Text("译文时间戳应与原文一致，纯文本译文按行对应。") },
             textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
             modifier = Modifier.fillMaxWidth().onFocusChanged { if (it.isFocused) editingTranslation = true })
         LibraryStatus(if (!loaded) "正在读取歌词…" else status)
         LibraryStatus(message)
-        if (editingId != null) LibraryAction("删除这份自定义歌词", loaded && !saving) {
+        if (editingId != null) LibraryAction("删除自定义歌词", loaded && !saving) {
             val id = editingId ?: return@LibraryAction
-            confirmation = LibraryConfirmation("删除这份自定义歌词？", "《$title》会恢复自动匹配歌词。", "确认删除") {
+            confirmation = LibraryConfirmation("删除自定义歌词？", "《$title》会恢复自动匹配歌词。", "确认删除") {
                 scope.launch {
                     try { withContext(Dispatchers.IO) { CustomLyricsStore.delete(context, id) }; LyricsOverlayService.instance?.reloadCustomLyrics(); onBack() }
                     catch (error: CancellationException) { throw error }
@@ -1205,7 +1205,7 @@ private fun PrivacyComposeScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val paragraphs = remember(context) { context.getString(R.string.privacy_summary).split("\n\n") }
     CollapsingSettingsScaffold(title = "隐私说明", onBack = onBack) {
-        LibraryStatus("本应用如何处理你的数据")
+        LibraryStatus("权限与数据处理说明")
         paragraphs.forEachIndexed { index, paragraph -> LibraryLazyGroupItem(index, paragraphs.size) {
             Text(paragraph, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(16.dp))

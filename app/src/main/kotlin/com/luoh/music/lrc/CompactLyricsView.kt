@@ -21,7 +21,7 @@ class CompactLyricsView @JvmOverloads constructor(context: Context, attrs: Attri
     var onContentSizeChanged: ((hasLyrics: Boolean, hasTranslation: Boolean, heightPx: Int) -> Unit)? = null
 
     private var document = LyricDocument(emptyList(), true)
-    private var emptyMessage = "未在播放"
+    private var emptyMessage = "暂未播放"
     private var trackKey = ""
     private val clock = LyricClock { SystemClock.elapsedRealtime() }
     private var resolvedDurationMs = 0L
@@ -65,7 +65,7 @@ class CompactLyricsView @JvmOverloads constructor(context: Context, attrs: Attri
 
     fun setDocument(value: LyricDocument, message: String = "", fallbackDurationMs: Long = 0L) {
         document = value
-        emptyMessage = message.ifBlank { "找不到歌词" }
+        emptyMessage = message.ifBlank { "未找到歌词" }
         resolvedDurationMs = fallbackDurationMs
         if (durationMs <= 0L && fallbackDurationMs > 0L) clock.durationMs = fallbackDurationMs
         render(true)

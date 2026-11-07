@@ -146,14 +146,14 @@ internal fun SettingsCategoryContent(
     // Reading this state keeps business values current when the service or another page changes them.
     val title = remember(normalizedCategory) {
         when (normalizedCategory) {
-            "ACCESS" -> "桌面歌词"
+            "ACCESS" -> "权限与开关"
             "OVERLAY" -> "桌面歌词外观"
             "SYNC" -> "歌词同步"
             "LYRICS" -> "歌词与翻译"
             "APPEARANCE" -> "应用外观"
             "HOME" -> "主页歌词"
             "MOTION" -> "主页歌词动效"
-            "ABOUT" -> "关于"
+            "ABOUT" -> "关于应用"
             else -> "设置"
         }
     }
@@ -339,7 +339,7 @@ private fun DesktopAccessSettings(context: Context) {
     val scope = rememberSettingsBusinessScope()
     SettingsGroup(title = "桌面歌词", items = listOf(
         {
-            SettingsNavigationItem("添加下拉快捷开关", "从系统快捷设置开关桌面歌词", Icons.Default.Lyrics) {
+            SettingsNavigationItem("添加快捷开关", "在系统快捷设置中开启或关闭桌面歌词", Icons.Default.Lyrics) {
                 LyricsTileService.requestAdd(context)
             }
         },
@@ -352,7 +352,7 @@ private fun DesktopAccessSettings(context: Context) {
                         settingsOpenIntent(context, Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                     }
                     !overlayAllowed -> {
-                        settingsToast(context, "请先允许显示悬浮窗")
+                        settingsToast(context, "请先授予悬浮窗权限")
                         settingsOpenIntent(context, Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
                     }
                     else -> ContextCompat.startForegroundService(context, Intent(context, LyricsOverlayService::class.java).setAction(LyricsOverlayService.ACTION_START))
@@ -361,12 +361,12 @@ private fun DesktopAccessSettings(context: Context) {
             }
         },
         {
-            SettingsNavigationItem("通知使用权", if (notificationAllowed) "已授权" else "去开启", Icons.Default.Notifications) {
+            SettingsNavigationItem("通知使用权", if (notificationAllowed) "已授权" else "未授权", Icons.Default.Notifications) {
                 settingsOpenIntent(context, Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
             }
         },
         {
-            SettingsNavigationItem("悬浮窗权限", if (overlayAllowed) "已授权" else "去开启", Icons.Default.Layers) {
+            SettingsNavigationItem("悬浮窗权限", if (overlayAllowed) "已授权" else "未授权", Icons.Default.Layers) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     settingsOpenIntent(context, Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
                 }
@@ -529,7 +529,7 @@ private fun DesktopAppearanceSettings(context: Context, prefs: SharedPreferences
             )
         },
         {
-            SettingsSwitchItem("渐变歌词", "双色渐变，保留逐字高亮", Icons.Default.Palette, style.gradientEnd != null) {
+            SettingsSwitchItem("渐变歌词", "使用双色渐变显示歌词，保留逐字高亮", Icons.Default.Palette, style.gradientEnd != null) {
                 prefs.edit().putBoolean(OverlayAppearance.PREF_GRADIENT, it).apply()
                 refreshAppearance()
             }
@@ -552,15 +552,15 @@ private fun DesktopAppearanceSettings(context: Context, prefs: SharedPreferences
             }
         },
     ))
-    SettingsGroup(title = "上下文", items = listOf(
+    SettingsGroup(title = "上下文显示", items = listOf(
         {
-            SettingsCountItem("上文", before) { value ->
+            SettingsCountItem("前文行数", before) { value ->
                 prefs.edit().putInt(LyricsOverlayService.PREF_CONTEXT_BEFORE, value).apply()
                 settingsOverlayAction(context, LyricsOverlayService.ACTION_SET_CONTEXT)
             }
         },
         {
-            SettingsCountItem("下文", after) { value ->
+            SettingsCountItem("后文行数", after) { value ->
                 prefs.edit().putInt(LyricsOverlayService.PREF_CONTEXT_AFTER, value).apply()
                 settingsOverlayAction(context, LyricsOverlayService.ACTION_SET_CONTEXT)
             }
@@ -579,7 +579,7 @@ private fun DesktopAppearanceSettings(context: Context, prefs: SharedPreferences
 private fun SettingsCountItem(title: String, count: Int, onChange: (Int) -> Unit) {
     SettingsItem(
         headlineContent = { Text(title) },
-        supportingContent = { Text("显示 $count 句") },
+        supportingContent = { Text("显示 $count 行") },
         leadingContent = { SettingsLeadingIcon(Icons.Default.Lyrics) },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -648,7 +648,7 @@ private fun LyricsSyncSettings(context: Context, prefs: SharedPreferences, revis
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             SettingsItem(
                 headlineContent = { Text(LyricSyncText.format(offset)) },
-                supportingContent = { Text(if (available) "每次调整 100ms，自动记住这首歌的歌词同步" else "开始播放并匹配歌词后，可调整同步") },
+                supportingContent = { Text(if (available) "每次调整 0.1 秒，自动保存单曲同步设置" else "播放歌曲并获取歌词后可调整同步") },
                 leadingContent = { SettingsLeadingIcon(Icons.Default.Sync) },
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -662,7 +662,7 @@ private fun LyricsSyncSettings(context: Context, prefs: SharedPreferences, revis
         }
     }))
     SettingsGroup(title = "同步记忆", items = listOf({
-        SettingsNavigationItem("同步记忆管理", "查看或清除已记住的单曲偏移", Icons.Default.Timeline) { onNavigate(ComposeRoute("offsets")) }
+        SettingsNavigationItem("同步记忆管理", "查看或清除已保存的单曲同步设置", Icons.Default.Timeline) { onNavigate(ComposeRoute("offsets")) }
     }))
 }
 
@@ -682,10 +682,10 @@ private fun LyricsContentSettings(context: Context, prefs: SharedPreferences, re
         }
     }))
     SettingsGroup(title = "歌词管理", items = listOf(
-        { SettingsNavigationItem("补充翻译", "翻译服务、模型与配置", Icons.Default.Translate) { onNavigate(ComposeRoute("translation")) } },
-        { SettingsNavigationItem("自定义歌词", "导入和编辑本地歌词", Icons.Default.Lyrics) { onNavigate(ComposeRoute("custom")) } },
-        { SettingsNavigationItem("缓存歌词勘误", "修改已下载的歌词与译文", Icons.Default.Edit) { onNavigate(ComposeRoute("cached")) } },
-        { SettingsNavigationItem("歌词源管理", "管理匹配记录与歌词版本", Icons.Default.Link) { onNavigate(ComposeRoute("sources")) } },
+        { SettingsNavigationItem("补充翻译", "配置翻译服务并管理离线语言包", Icons.Default.Translate) { onNavigate(ComposeRoute("translation")) } },
+        { SettingsNavigationItem("自定义歌词", "导入、编辑并管理本地歌词文件", Icons.Default.Lyrics) { onNavigate(ComposeRoute("custom")) } },
+        { SettingsNavigationItem("缓存歌词勘误", "修正已缓存的歌词正文与译文", Icons.Default.Edit) { onNavigate(ComposeRoute("cached")) } },
+        { SettingsNavigationItem("歌词源管理", "查看匹配记录并选择歌词版本", Icons.Default.Link) { onNavigate(ComposeRoute("sources")) } },
     ))
 }
 
@@ -721,13 +721,13 @@ private fun AppAppearanceSettings(context: Context, prefs: SharedPreferences, re
             }
         },
         {
-            SettingsSwitchItem("AMOLED", "浅色主题使用纯白背景，深色主题使用纯黑背景",
+            SettingsSwitchItem("AMOLED", "浅色使用纯白背景，深色使用纯黑背景",
                 Icons.Default.Contrast, appearance.amoled) {
                 prefs.edit().putBoolean(ThemePrefs.KEY_AMOLED, it).apply()
             }
         },
         {
-            SettingsSwitchItem("动态颜色", "根据壁纸使用系统生成的颜色（Android 12+）",
+            SettingsSwitchItem("动态颜色", "使用系统壁纸配色（Android 12 及以上）",
                 Icons.Default.ColorLens, appearance.dynamicColor, enabled = dynamicSupported) {
                 prefs.edit().putBoolean(ThemePrefs.KEY_DYNAMIC_COLOR, it).apply()
             }
@@ -784,7 +784,7 @@ private fun HomeAlignmentSettings(context: Context, revision: Int) {
         HomeLyricsPrefs.saveAppearance(context, change(HomeLyricsPrefs.appearance(context)))
     }
     SettingsGroup(title = "背景", items = listOf({
-        SettingsSwitchItem("封面模糊背景", null, Icons.Default.BlurOn, albumBackground) {
+        SettingsSwitchItem("封面模糊背景", "将专辑封面模糊处理后作为主页背景", Icons.Default.BlurOn, albumBackground) {
             HomeLyricsPrefs.saveAlbumBackground(context, it)
         }
     }))
@@ -793,17 +793,17 @@ private fun HomeAlignmentSettings(context: Context, revision: Int) {
             Icons.Default.FormatAlignLeft) { HomeLyricsPrefs.save(context, it) }
     }))
     SettingsGroup(title = "歌词文字", items = listOf(
-        { SettingsSliderItem("主页歌词字号", appearance.fontSize, 16..48, unit = "sp", icon = Icons.Default.FormatSize) {
+        { SettingsSliderItem("原文字号", appearance.fontSize, 16..48, unit = "sp", icon = Icons.Default.FormatSize) {
             value -> saveStyle { it.copy(fontSize = value) }
         } },
-        { SettingsSliderItem("主页翻译字号", appearance.translationSize, 12..32, unit = "sp", icon = Icons.Default.Translate) {
+        { SettingsSliderItem("译文字号", appearance.translationSize, 12..32, unit = "sp", icon = Icons.Default.Translate) {
             value -> saveStyle { it.copy(translationSize = value) }
         } },
-        { SettingsChoiceItem("主页歌词字重", appearance.fontWeight.toString(), listOf("300" to "细体", "400" to "常规",
+        { SettingsChoiceItem("歌词字重", appearance.fontWeight.toString(), listOf("300" to "细体", "400" to "常规",
             "500" to "中等", "600" to "半粗", "700" to "粗体", "800" to "特粗"), Icons.Default.TextFields) {
             value -> saveStyle { it.copy(fontWeight = value.toInt()) }
         } },
-        { SettingsSliderItem("主页歌词行间距", appearance.lineSpacing, 0..28, step = 2, unit = "dp", icon = Icons.Default.FormatAlignLeft) {
+        { SettingsSliderItem("歌词行间距", appearance.lineSpacing, 0..28, step = 2, unit = "dp", icon = Icons.Default.FormatAlignLeft) {
             value -> saveStyle { it.copy(lineSpacing = value) }
         } },
     ))
@@ -823,24 +823,24 @@ private fun HomeMotionSettings(context: Context, revision: Int) {
     val reduceMotion = remember(revision) { appPrefs.getBoolean("reduce_motion", false) }
     fun save(transform: (MotionStyle) -> MotionStyle) { HomeMotionPrefs.save(context, transform(HomeMotionPrefs.style(context))) }
     SettingsGroup(title = "应用动效", items = listOf({
-        SettingsSwitchItem("减少动效", "减少页面切换和弹出界面的运动", Icons.Default.MotionPhotosOff, reduceMotion) {
+        SettingsSwitchItem("减少动效", "减少页面切换与弹出面板的动画", Icons.Default.MotionPhotosOff, reduceMotion) {
             appPrefs.edit().putBoolean("reduce_motion", it).apply()
         }
     }))
     SettingsGroup(title = "动效预览", items = listOf({ ComposeMotionPreview(style) }))
     SettingsGroup(title = "滚动与错位", items = listOf(
-        { SettingsSwitchItem("缓动滚动", "让歌词切行沿平滑曲线滚动", Icons.Default.Speed, style.easedScroll) { value -> save { it.copy(easedScroll = value) } } },
+        { SettingsSwitchItem("缓动滚动", "切换歌词行时使用平滑滚动动画", Icons.Default.Speed, style.easedScroll) { value -> save { it.copy(easedScroll = value) } } },
         { SettingsSliderItem("切行时长", style.scrollDurationMs, MotionStyle.DURATION_MIN..MotionStyle.DURATION_MAX, MotionStyle.DURATION_STEP,
             "ms", Icons.Default.Speed, style.easedScroll) { value -> save { it.copy(scrollDurationMs = value) } } },
-        { SettingsSwitchItem("逐行错位", "相邻歌词按顺序跟随当前行", Icons.Default.Layers, style.stagger) { value -> save { it.copy(stagger = value) } } },
+        { SettingsSwitchItem("逐行错位", "相邻歌词依次跟随当前行移动", Icons.Default.Layers, style.stagger) { value -> save { it.copy(stagger = value) } } },
         { SettingsSliderItem("错位延迟", style.staggerDelayMs, MotionStyle.STAGGER_MIN..MotionStyle.STAGGER_MAX, MotionStyle.STAGGER_STEP,
             "ms", Icons.Default.Layers, style.stagger) { value -> save { it.copy(staggerDelayMs = value) } } },
     ))
     SettingsGroup(title = "缩放与模糊", items = listOf(
-        { SettingsSwitchItem("行间缩放", "突出当前演唱的歌词", Icons.Default.FormatSize, style.scale) { value -> save { it.copy(scale = value) } } },
+        { SettingsSwitchItem("行间缩放", "缩小非当前行，突出正在演唱的歌词", Icons.Default.FormatSize, style.scale) { value -> save { it.copy(scale = value) } } },
         { SettingsSliderItem("缩放强度", style.scalePercent, MotionStyle.PERCENT_MIN..MotionStyle.PERCENT_MAX, MotionStyle.PERCENT_STEP,
             "%", Icons.Default.FormatSize, style.scale) { value -> save { it.copy(scalePercent = value) } } },
-        { SettingsSwitchItem("远景模糊", "柔化离当前行较远的歌词", Icons.Default.BlurOn, style.depthBlur) { value -> save { it.copy(depthBlur = value) } } },
+        { SettingsSwitchItem("远景模糊", "模糊远离当前行的歌词，突出当前行", Icons.Default.BlurOn, style.depthBlur) { value -> save { it.copy(depthBlur = value) } } },
         { SettingsSliderItem("模糊强度", style.blurPercent, MotionStyle.PERCENT_MIN..MotionStyle.PERCENT_MAX, MotionStyle.PERCENT_STEP,
             "%", Icons.Default.BlurOn, style.depthBlur) { value -> save { it.copy(blurPercent = value) } } },
     ))
@@ -902,17 +902,17 @@ private fun AboutSettings(context: Context, onNavigate: (ComposeRoute) -> Unit) 
                     result.onSuccess {
                         if (UpdateChecker.isNewer(it.version, version)) release = it else settingsToast(context, "当前已是最新版")
                     }.onFailure {
-                        settingsToast(context, if (it is UpdateChecker.NoReleaseException) "还没有发布版本" else "暂时无法检查更新，请稍后重试")
+                        settingsToast(context, if (it is UpdateChecker.NoReleaseException) "暂无已发布版本" else "更新检查失败，请稍后重试")
                     }
                 }
             }
         },
         { SettingsNavigationItem("维护者 · LuoH-AN", icon = Icons.Default.Person) { settingsOpenUrl(context, "https://github.com/LuoH-AN") } },
         { SettingsNavigationItem("项目主页 · GitHub", icon = Icons.Default.Link) { settingsOpenUrl(context, "https://github.com/LuoH-AN/lyrics-android") } },
-        { SettingsNavigationItem("隐私说明", "权限与数据使用", Icons.Default.Lock) { onNavigate(ComposeRoute("privacy")) } },
+        { SettingsNavigationItem("隐私说明", "了解应用权限与数据处理方式", Icons.Default.Lock) { onNavigate(ComposeRoute("privacy")) } },
     ))
     SettingsGroup(title = "存储", items = listOf({
-        SettingsNavigationItem("清理临时缓存", "清理补充译文与分享图片，保留设置、自定义歌词和语言包", Icons.Default.Layers, !clearingCache) {
+        SettingsNavigationItem("清理临时缓存", "清理译文与分享图片，保留设置、歌词及语言包", Icons.Default.Layers, !clearingCache) {
             clearingCache = true
             scope.launch {
                 try {

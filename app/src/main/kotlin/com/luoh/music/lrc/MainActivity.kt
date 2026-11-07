@@ -232,8 +232,8 @@ class MainActivity : ComponentActivity() {
         val overlayOk = hasOverlay()
         home.gateVisible = !listenerOk
         home.gateStatus = if (!overlayOk) {
-            "通知使用权用于获取正在播放的歌曲，不读取聊天通知正文。\n开启桌面歌词还需悬浮窗权限。"
-        } else "通知使用权用于获取正在播放的歌曲，不读取聊天通知正文。"
+            "通知使用权用于获取歌曲信息，不读取通知正文。\n开启桌面歌词还需悬浮窗权限。"
+        } else "通知使用权用于获取歌曲信息，不读取通知正文。"
     }
 
     private fun tryStartOverlay() {
@@ -708,7 +708,7 @@ class MainActivity : ComponentActivity() {
         override fun exportLrc() {
             val lrc = currentLrcText
             if (currentTrack.isBlank() || lrc.isBlank()) {
-                Toast.makeText(this@MainActivity, "还没有可下载的歌词", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "暂无可导出的歌词", Toast.LENGTH_SHORT).show()
                 return
             }
             pendingLrcExport = LyricExporter.buildLrc(currentTrack, currentArtist, lrc, currentLrcTranslated)
@@ -722,7 +722,7 @@ class MainActivity : ComponentActivity() {
                 contentResolver.openOutputStream(uri, "wt")?.use { it.write(content.toByteArray(Charsets.UTF_8)) } != null
             }.getOrDefault(false)
             withContext(Dispatchers.Main) {
-                Toast.makeText(this@MainActivity, if (saved) "已保存 .lrc 歌词文件" else "保存失败，请重试", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, if (saved) "LRC 歌词已保存" else "保存失败，请重试", Toast.LENGTH_SHORT).show()
             }
         }
     }

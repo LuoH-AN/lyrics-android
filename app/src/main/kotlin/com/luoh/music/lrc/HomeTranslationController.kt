@@ -46,7 +46,7 @@ class HomeTranslationController(
             try {
                 val result = translate(missing) {
                     // The backend first checks the actual language; Chinese songs can include Latin credits/ad-libs.
-                    if (token == generation) onStatus(if (mode == "offline") "正在补充译文 · 离线机翻" else "正在补充译文 · 自定义 API")
+                    if (token == generation) onStatus(if (mode == "offline") "正在补充译文 · 离线翻译" else "正在补充译文 · 自定义 API")
                 }
                 if (token != generation) return@launch
                 if (result.outcome != SupplementOutcome.COMPLETE) {
@@ -59,7 +59,7 @@ class HomeTranslationController(
                     else results[id]?.takeIf { it.isNotBlank() }?.let { line.copy(translation = it) } ?: line
                 }
                 if (lines != document.lines) onDocument(document.copy(lines = lines))
-                onStatus(if (lines == document.lines) "未获得补充译文 · 点此检查翻译配置" else "")
+                onStatus(if (lines == document.lines) "未获取到补充译文，请检查翻译配置" else "")
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (error: Exception) {

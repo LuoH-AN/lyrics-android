@@ -99,9 +99,9 @@ class ComposeHomeScreenTest {
         compose.onNodeWithContentDescription("重新获取歌词").performTouchInput { click() }
         compose.onNodeWithContentDescription("添加自定义歌词").performTouchInput { click() }
         compose.onNodeWithContentDescription("播放").performTouchInput { click() }
-        compose.onNodeWithContentDescription("显示桌面歌词").performTouchInput { click() }
+        compose.onNodeWithContentDescription("开启桌面歌词").performTouchInput { click() }
         compose.runOnIdle { assertEquals(listOf("retry", "custom", "play", "overlay"), actions.calls) }
-        compose.onNodeWithContentDescription("显示桌面歌词").assertExists()
+        compose.onNodeWithContentDescription("开启桌面歌词").assertExists()
         compose.runOnIdle { state.setOverlayState(true) }
         compose.onNodeWithContentDescription("关闭桌面歌词").assertExists()
     }
@@ -129,9 +129,9 @@ class ComposeHomeScreenTest {
         compose.onNodeWithContentDescription("上一首").assertDoesNotExist()
         compose.onNodeWithContentDescription("下一首").assertDoesNotExist()
         assertTrue(compose.onNodeWithTag("home_player").fetchSemanticsNode().size.height < fullHeight - 80)
-        compose.onNodeWithContentDescription("显示桌面歌词").performTouchInput { click() }
+        compose.onNodeWithContentDescription("开启桌面歌词").performTouchInput { click() }
         compose.runOnIdle { assertEquals(listOf("overlay"), actions.calls) }
-        compose.onNodeWithContentDescription("显示桌面歌词").assertExists()
+        compose.onNodeWithContentDescription("开启桌面歌词").assertExists()
         compose.onNodeWithContentDescription("更多").performTouchInput { click() }
         compose.onNodeWithText("更多").assertIsDisplayed()
         compose.onNodeWithText("取消").assertDoesNotExist()

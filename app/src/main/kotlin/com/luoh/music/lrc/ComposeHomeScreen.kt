@@ -337,7 +337,7 @@ private fun HomePermissionGate(
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Icon(Icons.Default.Lyrics, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
                 Text("桌面歌词", style = MaterialTheme.typography.headlineMedium)
-                Text(status.ifBlank { "授予通知使用权和悬浮窗权限后，即可获取正在播放的歌曲并显示歌词。" },
+                Text(status.ifBlank { "通知使用权用于获取歌曲信息；开启桌面歌词还需悬浮窗权限。" },
                     style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedButton(onClick = onListenerPermission, modifier = Modifier.fillMaxWidth()) { Text("通知使用权") }
                 OutlinedButton(onClick = onOverlayPermission, modifier = Modifier.fillMaxWidth()) { Text("悬浮窗权限") }
@@ -426,7 +426,7 @@ private fun HomePlayer(state: HomePresentationState, modifier: Modifier = Modifi
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     IconButton(onClick = { state.actions?.toggleOverlay() }) {
-                        Icon(Icons.Default.Lyrics, if (state.isOverlayRunning) "关闭桌面歌词" else "显示桌面歌词",
+                        Icon(Icons.Default.Lyrics, if (state.isOverlayRunning) "关闭桌面歌词" else "开启桌面歌词",
                             tint = if (state.isOverlayRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = { showMore = true }) { Icon(Icons.Default.MoreVert, "更多") }
@@ -445,7 +445,7 @@ private fun HomePlayer(state: HomePresentationState, modifier: Modifier = Modifi
                     if (state.translationMessage.isNotBlank()) {
                         SettingsItem(
                             headlineContent = { Text(state.translationMessage, style = MaterialTheme.typography.bodySmall) },
-                            trailingContent = { Text("去设置", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) },
+                            trailingContent = { Text("查看设置", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) },
                             modifier = Modifier.clickable { state.onTranslationSettings?.invoke() },
                         )
                     }
@@ -884,7 +884,7 @@ private fun HomeMoreSheet(state: HomePresentationState, onDismiss: () -> Unit) {
             item { HomeSheetOption("管理自定义歌词", Icons.Default.LibraryMusic) { select { state.actions?.manageCustomLyrics() } } }
             item { HomeSheetOption("歌词源管理", Icons.Default.Layers) { select { state.actions?.manageLyricSources() } } }
             item { HomeSheetOption("补充翻译", Icons.Default.Translate) { select { state.onTranslationSettings?.invoke() } } }
-            item { HomeSheetOption("下载当前歌词为 .lrc", Icons.Default.Download) { select { state.actions?.exportLrc() } } }
+            item { HomeSheetOption("导出 LRC 歌词", Icons.Default.Download) { select { state.actions?.exportLrc() } } }
             item { HomeSheetOption("设置", Icons.Default.Settings) { select { state.actions?.openSettings() } } }
         }
     }

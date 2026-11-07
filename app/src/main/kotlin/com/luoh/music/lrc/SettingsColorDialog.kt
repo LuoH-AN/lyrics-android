@@ -120,7 +120,7 @@ internal fun SettingsColorDialog(title: String, initialColor: String, onDismiss:
         },
         confirmButton = { TextButton(onClick = { onApply(requireNotNull(PickerColor.parse(draft)).hex()); onDismiss() }, enabled = valid) { Text("应用") } },
         dismissButton = { Row {
-            if (onReset != null) TextButton(onClick = { onReset(); onDismiss() }) { Text("恢复森林") }
+            if (onReset != null) TextButton(onClick = { onReset(); onDismiss() }) { Text("恢复方案配色") }
             TextButton(onClick = onDismiss) { Text("取消") }
         } },
     )

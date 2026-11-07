@@ -13,7 +13,7 @@ assert.doesNotMatch(home, /现在，专注听歌|先在音乐应用中播放一�
 assert.match(home, /state\.actions\?\.retryLyrics\(\)/);
 assert.match(home, /state\.actions\?\.editCustomLyrics\(\)/);
 assert.match(home, /state\.actions\?\.exportLrc\(\)/);
-assert.ok(home.includes('下载当前歌词为 .lrc'));
+assert.ok(home.includes('导出 LRC 歌词'));
 assert.match(main,
   /LyricParser\.parse\(\s*payload\.lyrics,\s*payload\.translated,\s*payload\.word,\s*allowPartialWords\s*=\s*payload\.source\s*==\s*CustomLyricsStore\.SOURCE\s*\)/,
   'home must parse lyrics, translations and word timing, allowing partial words only for custom lyrics');

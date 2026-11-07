@@ -544,7 +544,7 @@ class LyricsOverlayService : Service() {
                     } catch (error: Exception) {
                         val message = when (error) {
                             is IllegalArgumentException -> error.message.orEmpty().take(180)
-                            is java.net.SocketTimeoutException -> "翻译服务连接超时，请检查手机网络或 API 服务"
+                            is java.net.SocketTimeoutException -> "翻译连接超时，请检查网络或 API 服务"
                             is java.io.IOException -> "翻译服务网络连接失败：${error.message.orEmpty().take(120)}"
                             else -> "补充翻译暂不可用：${error.message.orEmpty().take(120)}"
                         }
@@ -740,7 +740,7 @@ class LyricsOverlayService : Service() {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("桌面歌词已开启")
-            .setContentText("桌面歌词正在显示，点按返回应用")
+            .setContentText("正在显示歌词，点击返回应用")
             .setContentIntent(openPendingIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -1666,13 +1666,13 @@ class LyricsOverlayService : Service() {
             nativeTrack = ""
             nativeArtist = ""
             updateKeepScreenOn(false)
-            nativeLyrics?.clear(if (snapshot.optBoolean("permissionRequired")) "请授予通知使用权" else "未在播放")
+            nativeLyrics?.clear(if (snapshot.optBoolean("permissionRequired")) "请授予通知使用权" else "暂未播放")
             return
         }
         if (track != nativeTrack || artist != nativeArtist) {
             nativeTrack = track
             nativeArtist = artist
-            nativeLyrics?.clear("正在匹配歌词…")
+            nativeLyrics?.clear("正在获取歌词")
         }
         val playing = snapshot.optString("state") == "playing"
         updateKeepScreenOn(playing)

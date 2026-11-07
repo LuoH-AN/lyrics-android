@@ -112,14 +112,14 @@ internal fun routeForIntent(intent: Intent): ComposeRoute? = when(intent.compone
 
 private data class SettingsCategory(val key:String,val title:String,val summary:String,val icon:ImageVector)
 private val categories = listOf(
-    SettingsCategory("access","权限与后台","通知使用权与后台运行",Icons.Default.Security),
-    SettingsCategory("overlay","悬浮窗","布局、字号与显示位置",Icons.Default.PictureInPicture),
-    SettingsCategory("sync","歌词同步","调整时间与管理同步记忆",Icons.Default.Sync),
-    SettingsCategory("lyrics","歌词与翻译","显示方式、自定义歌词与歌词源",Icons.Default.Translate),
-    SettingsCategory("appearance","应用外观","主题与主调颜色",Icons.Default.Palette),
-    SettingsCategory("home","主页歌词","歌词对齐方式",Icons.Default.MusicNote),
-    SettingsCategory("motion","主页歌词动效","滚动、错位、缩放与模糊",Icons.Default.Animation),
-    SettingsCategory("about","关于","版本、更新与项目信息",Icons.Default.Info),
+    SettingsCategory("access","权限与开关","管理歌词显示权限与快捷开关",Icons.Default.Security),
+    SettingsCategory("overlay","桌面歌词外观","调整文字样式、背景与显示行数",Icons.Default.PictureInPicture),
+    SettingsCategory("sync","歌词同步","调整歌词时间并管理单曲同步记忆",Icons.Default.Sync),
+    SettingsCategory("lyrics","歌词与翻译","设置翻译显示并管理歌词与来源",Icons.Default.Translate),
+    SettingsCategory("appearance","应用外观","设置应用主题、配色方案与主调颜色",Icons.Default.Palette),
+    SettingsCategory("home","主页歌词","调整歌词排版、文字样式与封面背景",Icons.Default.MusicNote),
+    SettingsCategory("motion","主页歌词动效","设置歌词滚动、错位、缩放与模糊",Icons.Default.Animation),
+    SettingsCategory("about","关于应用","查看版本更新、项目信息与隐私说明",Icons.Default.Info),
 )
 
 @Composable
