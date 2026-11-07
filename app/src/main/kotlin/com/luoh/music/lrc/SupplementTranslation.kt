@@ -1,6 +1,7 @@
 package com.luoh.music.lrc
 
 import android.content.Context
+import android.os.SystemClock
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -11,6 +12,7 @@ import com.google.mlkit.nl.translate.TranslateRemoteModel
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.TranslatorOptions
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -112,6 +114,7 @@ class SupplementTranslation(private val context: Context) {
     data class Line(val id: Int, val text: String)
     private data class ApiPolicy(val batchSize: Int, val transientAttempts: Int, val retryDelaysMs: List<Long>)
     private class ApiHttpException(val status: Int, message: String) : IllegalArgumentException(message)
+    private class TranslationFailure(val reason: UsageAnalytics.Failure, message: String) : IllegalArgumentException(message)
     private fun hash(text: String) = MessageDigest.getInstance("SHA-256")
         .digest(text.toByteArray()).joinToString("") { "%02x".format(it) }
     private fun cacheFile(key: String) = File(context.cacheDir, "translations/${hash(key)}.json")
@@ -120,8 +123,38 @@ class SupplementTranslation(private val context: Context) {
     suspend fun translate(payload: String, onTranslationRequired: suspend () -> Unit = {},
         emit: (JSONObject) -> Unit): SupplementOutcome = withContext(Dispatchers.IO) {
         TemporaryCache.pruneTranslations(context)
+        val mode = prefs.getString("mode", "off").orEmpty()
+        val startedAt = SystemClock.elapsedRealtime()
+        val delivered = mutableSetOf<Int>()
         try {
-            translateCached(payload, onTranslationRequired, emit)
+            val outcome = translateCached(payload, onTranslationRequired) { row ->
+                delivered += row.optInt("id", -1)
+                emit(row)
+            }
+            UsageAnalytics.translationResult(mode,
+                if (outcome == SupplementOutcome.COMPLETE) UsageAnalytics.Result.SUCCESS else UsageAnalytics.Result.SKIPPED,
+                SystemClock.elapsedRealtime() - startedAt, delivered.size)
+            outcome
+        } catch (cancel: CancellationException) {
+            UsageAnalytics.translationResult(mode, UsageAnalytics.Result.CANCELLED,
+                SystemClock.elapsedRealtime() - startedAt, delivered.size)
+            throw cancel
+        } catch (error: Exception) {
+            val reason = when (error) {
+                is TranslationFailure -> error.reason
+                is org.json.JSONException -> UsageAnalytics.Failure.RESPONSE_FORMAT
+                is ApiHttpException -> when (error.status) {
+                    400, 404, 422 -> UsageAnalytics.Failure.CONFIGURATION
+                    401, 403 -> UsageAnalytics.Failure.AUTHENTICATION
+                    429 -> UsageAnalytics.Failure.RATE_LIMIT
+                    in 500..599 -> UsageAnalytics.Failure.SERVER
+                    else -> UsageAnalytics.Failure.OTHER
+                }
+                else -> UsageAnalytics.failure(error)
+            }
+            UsageAnalytics.translationResult(mode, UsageAnalytics.Result.ERROR,
+                SystemClock.elapsedRealtime() - startedAt, delivered.size, reason)
+            throw error
         } finally {
             TemporaryCache.pruneTranslations(context)
         }
@@ -181,15 +214,15 @@ class SupplementTranslation(private val context: Context) {
         }
         if (mode == "offline") {
             val pendingByLanguage = pending.groupBy { languages[canonicalText(it.text)] }
-            require(null !in pendingByLanguage) { "暂时无法自动识别部分歌词的语言，可尝试 API 翻译" }
+            if (null in pendingByLanguage) throw TranslationFailure(UsageAnalytics.Failure.LANGUAGE_UNKNOWN,
+                "暂时无法自动识别部分歌词的语言，可尝试 API 翻译")
             val installed = RemoteModelManager.getInstance().getDownloadedModels(TranslateRemoteModel::class.java).await()
                 .map { it.language }.toSet()
             val needed = (pendingByLanguage.keys.filterNotNull() + "zh").filter { it != "en" }.toSet()
-            require(installed.containsAll(needed)) {
+            if (!installed.containsAll(needed)) throw TranslationFailure(UsageAnalytics.Failure.MODEL_MISSING,
                 "请先下载" + needed.filter { it !in installed }.joinToString("、") {
                     Locale.forLanguageTag(it).getDisplayLanguage(Locale.SIMPLIFIED_CHINESE)
-                } + "语言包"
-            }
+                } + "语言包")
             for ((language, rows) in pendingByLanguage) {
                 val sourceLanguage = requireNotNull(language)
                 prefs.edit().putString("last_language", sourceLanguage).apply()
@@ -204,7 +237,8 @@ class SupplementTranslation(private val context: Context) {
             }
         } else if (mode == "api") {
             val key = SecretStorage(context, profile.id).read()
-            require(endpoint.startsWith("https://") && model.isNotBlank() && key.isNotBlank()) { "请先配置 HTTPS 服务地址、模型和 API Key" }
+            if (!endpoint.startsWith("https://") || model.isBlank() || key.isBlank())
+                throw TranslationFailure(UsageAnalytics.Failure.CONFIGURATION, "请先配置 HTTPS 服务地址、模型和 API Key")
             val policy = apiPolicy(profile, endpoint, model)
             for (batch in pending.chunked(policy.batchSize)) {
                 currentCoroutineContext().ensureActive()
@@ -219,7 +253,8 @@ class SupplementTranslation(private val context: Context) {
                     currentCoroutineContext().ensureActive()
                     for (row in missing) retry[row.id]?.let { store(row, it) }
                 }
-                require(batch.all { cacheFile(cacheKey(canonicalText(it.text))).exists() }) { "部分翻译未返回，可稍后重试" }
+                if (!batch.all { cacheFile(cacheKey(canonicalText(it.text))).exists() })
+                    throw TranslationFailure(UsageAnalytics.Failure.INCOMPLETE_RESPONSE, "部分翻译未返回，可稍后重试")
             }
         }
         SupplementOutcome.COMPLETE
@@ -302,7 +337,8 @@ class SupplementTranslation(private val context: Context) {
             val content = JSONObject(raw).getJSONArray("choices").getJSONObject(0)
                 .getJSONObject("message").getString("content").trim()
             val start = content.indexOf('['); val end = content.lastIndexOf(']')
-            require(start >= 0 && end > start) { "翻译结果格式无效，请换用支持 JSON 输出的模型" }
+            if (start < 0 || end <= start) throw TranslationFailure(UsageAnalytics.Failure.RESPONSE_FORMAT,
+                "翻译结果格式无效，请换用支持 JSON 输出的模型")
             val result = JSONArray(content.substring(start, end + 1))
             val valid = lines.map { it.id }.toSet()
             val output = mutableMapOf<Int, String>()

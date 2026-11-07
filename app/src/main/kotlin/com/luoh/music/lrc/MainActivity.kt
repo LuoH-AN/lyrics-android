@@ -162,6 +162,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        if (!UsageAnalytics.preferences.value.noticeSeen) {
+            if (UsageAnalytics.preferences.value.enabled) {
+                Toast.makeText(this, "使用统计已开启，可在设置 → 关于应用中关闭", Toast.LENGTH_LONG).show()
+            }
+            UsageAnalytics.markNoticeSeen()
+        }
     }
 
     override fun startActivity(intent: Intent) {
@@ -396,6 +402,7 @@ class MainActivity : ComponentActivity() {
         firstSnapshotSinceMonitor = false
 
         val playing = pb?.state == PlaybackState.STATE_PLAYING
+        if (playing) UsageAnalytics.playerUsed(c.packageName)
         val cover = coverBitmap(md)
         val actions = pb?.actions ?: 0L
         val canPrev = actions and PlaybackState.ACTION_SKIP_TO_PREVIOUS != 0L

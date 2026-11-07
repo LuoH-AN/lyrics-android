@@ -130,6 +130,29 @@ class DirectLyricsRepository {
         expectedDurationMs: Long = 0L,
         onPartial: (Result) -> Unit = {}
     ): Result {
+        val startedAt = android.os.SystemClock.elapsedRealtime()
+        return try {
+            val result = resolveLyricsFromProviders(track, artist, album, expectedDurationMs, onPartial)
+            UsageAnalytics.lyricsLookup(result.source,
+                if (isUsableLyrics(result.lyrics)) UsageAnalytics.Result.SUCCESS else UsageAnalytics.Result.NOT_FOUND,
+                android.os.SystemClock.elapsedRealtime() - startedAt)
+            result
+        } catch (error: Exception) {
+            UsageAnalytics.lyricsLookup("",
+                if (error is InterruptedException || Thread.currentThread().isInterrupted)
+                    UsageAnalytics.Result.CANCELLED else UsageAnalytics.Result.ERROR,
+                android.os.SystemClock.elapsedRealtime() - startedAt, UsageAnalytics.failure(error))
+            throw error
+        }
+    }
+
+    private fun resolveLyricsFromProviders(
+        track: String,
+        artist: String,
+        album: String,
+        expectedDurationMs: Long,
+        onPartial: (Result) -> Unit
+    ): Result {
         val direct = resolveFromProviders(track, artist, expectedDurationMs)
         val current = (listOf(direct) + direct.alternatives).filter { isUsableLyrics(it.lyrics) }
         // A usable lyric is not proof that all providers found the correct identity.
@@ -265,8 +288,13 @@ class DirectLyricsRepository {
     }
 
     private fun querySource(source: String, track: String, block: () -> Result?): Result? {
+        val startedAt = android.os.SystemClock.elapsedRealtime()
         return try {
             val result = block()
+            UsageAnalytics.lyricsResult(source,
+                if (result != null && isUsableLyrics(result.lyrics) && result.score >= MIN_ACCEPTABLE_SCORE)
+                    UsageAnalytics.Result.SUCCESS else UsageAnalytics.Result.NOT_FOUND,
+                android.os.SystemClock.elapsedRealtime() - startedAt)
             Log.d(
                 LOG_TAG,
                 "Lyrics provider=$source track=${track.take(48)} " +
@@ -275,6 +303,9 @@ class DirectLyricsRepository {
             result
         } catch (error: Throwable) {
             if (error is InterruptedException) Thread.currentThread().interrupt()
+            UsageAnalytics.lyricsResult(source,
+                if (Thread.currentThread().isInterrupted) UsageAnalytics.Result.CANCELLED else UsageAnalytics.Result.ERROR,
+                android.os.SystemClock.elapsedRealtime() - startedAt, UsageAnalytics.failure(error))
             Log.w(
                 LOG_TAG,
                 "Lyrics provider=$source track=${track.take(48)} failed: " +

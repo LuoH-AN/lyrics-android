@@ -1205,6 +1205,7 @@ private fun PrivacyComposeScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val paragraphs = remember(context) { context.getString(R.string.privacy_summary).split("\n\n") }
     CollapsingSettingsScaffold(title = "隐私说明", onBack = onBack) {
+        SettingsGroup(title = "使用情况统计", items = listOf({ UsageAnalyticsSettings() }))
         LibraryStatus("权限与数据处理说明")
         paragraphs.forEachIndexed { index, paragraph -> LibraryLazyGroupItem(index, paragraphs.size) {
             Text(paragraph, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,

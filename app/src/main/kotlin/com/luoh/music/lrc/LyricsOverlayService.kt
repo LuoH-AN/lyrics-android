@@ -357,6 +357,7 @@ class LyricsOverlayService : Service() {
     }
 
     override fun onDestroy() {
+        UsageAnalytics.setActive(UsageAnalytics.Surface.OVERLAY, false)
         instance = null
         mainHandler.removeCallbacksAndMessages(null)
         lyricsScope.cancel()
@@ -992,6 +993,7 @@ class LyricsOverlayService : Service() {
         updateControlLayout()
 
         windowManager.addView(root, params)
+        UsageAnalytics.setActive(UsageAnalytics.Surface.OVERLAY, true)
         revealChrome()
     }
 
@@ -1535,6 +1537,7 @@ class LyricsOverlayService : Service() {
     private fun buildSnapshot(controller: MediaController): JSONObject {
         val metadata = controller.metadata
         val playback = controller.playbackState
+        if (playback?.state == PlaybackState.STATE_PLAYING) UsageAnalytics.playerUsed(controller.packageName)
         val title = mediaTitle(metadata).orEmpty()
         val artist = firstMetadataString(
             metadata,

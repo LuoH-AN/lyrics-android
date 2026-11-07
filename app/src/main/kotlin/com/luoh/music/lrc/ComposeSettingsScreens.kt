@@ -911,6 +911,10 @@ private fun AboutSettings(context: Context, onNavigate: (ComposeRoute) -> Unit) 
         { SettingsNavigationItem("项目主页 · GitHub", icon = Icons.Default.Link) { settingsOpenUrl(context, "https://github.com/LuoH-AN/lyrics-android") } },
         { SettingsNavigationItem("隐私说明", "了解应用权限与数据处理方式", Icons.Default.Lock) { onNavigate(ComposeRoute("privacy")) } },
     ))
+    SettingsGroup(title = "帮助改进", items = listOf(
+        { UsageAnalyticsSettings() },
+        { UsageAnalyticsExplanation() },
+    ))
     SettingsGroup(title = "存储", items = listOf({
         SettingsNavigationItem("清理临时缓存", "清理译文与分享图片，保留设置、歌词及语言包", Icons.Default.Layers, !clearingCache) {
             clearingCache = true
