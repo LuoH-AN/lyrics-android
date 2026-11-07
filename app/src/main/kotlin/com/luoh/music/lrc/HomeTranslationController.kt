@@ -29,9 +29,9 @@ class HomeTranslationController(
             return
         }
         val missing = document.lines.mapIndexedNotNull { id, line ->
-            if (line.translation.isBlank() && line.text.isNotBlank()) MissingLine(id, line.text) else null
+            if (line.translation.isBlank() && TranslationText.hasForeignLetters(line.text)) MissingLine(id, line.text) else null
         }
-        if (missing.isEmpty() || missing.none { TranslationText.hasForeignLetters(it.text) }) {
+        if (missing.isEmpty()) {
             onStatus("")
             return
         }
@@ -45,7 +45,7 @@ class HomeTranslationController(
         job = scope.launch {
             try {
                 val result = translate(missing) {
-                    // The backend first checks the actual language; Chinese songs can include Latin credits/ad-libs.
+                    // Only missing foreign lines need progress, even when most of the song is Chinese.
                     if (token == generation) onStatus(if (mode == "offline") "正在补充译文 · 离线翻译" else "正在补充译文 · 自定义 API")
                 }
                 if (token != generation) return@launch
