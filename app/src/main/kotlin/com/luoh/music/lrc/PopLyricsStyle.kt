@@ -31,7 +31,8 @@ internal data class PopLyricsStyle(
         transition = transition.takeIf { it in listOf("fade", "slide", "zoom") } ?: "slide",
     )
     val maxWordScale get() = activeScalePercent / 100f + .06f
-    val frameIntervalNs get() = if (camera != "off" && breathing) 50_000_000L else PopLyricMotion.FRAME_INTERVAL_NS
+    val continuousCameraMotion get() = camera != "off" && cameraPercent > 0 && breathing
+    val frameIntervalNs get() = if (continuousCameraMotion) 50_000_000L else PopLyricMotion.FRAME_INTERVAL_NS
 
     companion object {
         fun preset(name: String) = when (name) {

@@ -94,16 +94,20 @@ internal fun rememberPopPlayback(state: HomePresentationState, style: PopLyricsS
             val now = position.longValue
             if (state.clock.durationMs > 0L && state.clock.positionMs() >= state.clock.durationMs) break
             val nextBoundary = gapStartMs?.takeIf { it > now } ?: nextLineMs
-            // Stable words need no frames until a word boundary. Gaps keep a determinate progress bar.
+            val wordDelay = timeline?.nextChangeDelayMs(now, nextBoundary, style) ?: 1000L
+            val cameraMoving = style.camera == "follow" && style.cameraPercent > 0 && timeline?.tokens?.any {
+                now - (it.startMs - style.lookaheadMs + it.visualDelayMs) in 0 until style.entranceMs.toLong()
+            } == true
+            // A static camera sleeps between word events; breathing shares one capped clock.
             val waitMs = when {
                 interlude != null -> 0L
                 !allowMotion || timeline == null -> ((nextBoundary ?: state.clock.durationMs) - now).coerceIn(1L, 1000L)
-                style.camera != "off" && style.breathing && interlude == null -> 0L
-                else -> timeline.nextChangeDelayMs(now, nextBoundary, style)
+                (style.continuousCameraMotion || cameraMoving) && interlude == null -> 0L
+                else -> wordDelay
             }
             if (waitMs > 0L) delay((waitMs / state.clock.speed).toLong().coerceIn(1L, 1000L))
             withFrameNanos { frame ->
-                if (frame - lastFrame >= if (timeline?.nextChangeDelayMs(now, nextBoundary, style) == 0L || interlude != null)
+                if (frame - lastFrame >= if (wordDelay == 0L || cameraMoving || interlude != null)
                     PopLyricMotion.FRAME_INTERVAL_NS else style.frameIntervalNs) {
                     lastFrame = frame
                     update()
@@ -119,7 +123,6 @@ internal fun rememberPopPlayback(state: HomePresentationState, style: PopLyricsS
 internal fun PopLyricsStage(state: HomePresentationState, modifier: Modifier, albumBackground: Boolean,
     appearance: HomeLyricAppearance, style: PopLyricsStyle, frame: PopPlaybackFrame) {
     val position = frame.position
-    val index = frame.index
     val line = frame.line
     val interlude = frame.interlude
     val allowMotion = LocalAgoraMotionPolicy.current.allowSpatialTransitions

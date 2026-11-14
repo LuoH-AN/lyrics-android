@@ -306,7 +306,7 @@ internal fun ComposeHomeScreen(
         animationSpec = tween(if (draggedDock != null || !policy.allowSpatialTransitions) 0 else 360, easing = FastOutSlowInEasing),
         label = "homePlayerDock",
     )
-    val popPlayback = if (displayMode == HomeLyricsPrefs.POP && state.document.timed && state.document.lines.isNotEmpty())
+    val popPlayback = if (!state.gateVisible && displayMode == HomeLyricsPrefs.POP && state.document.timed && state.document.lines.isNotEmpty())
         rememberPopPlayback(state, popStyle) else null
     val darkAlbumBackground = backgroundEnabled && state.snapshot.cover?.let { !it.isRecycled } == true
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {

@@ -39,7 +39,7 @@ internal object PopStageMotion {
 
 internal fun Modifier.popStageCamera(frame: PopPlaybackFrame?, style: PopLyricsStyle, allowMotion: Boolean,
     background: Boolean = false): Modifier {
-    if (frame == null || !allowMotion || style.camera == "off") return this
+    if (frame == null || !allowMotion || style.camera == "off" || style.cameraPercent == 0) return this
     return graphicsLayer {
         val pose = PopStageMotion.sample(frame.position.value, if (frame.interlude == null) frame.timeline else null, style)
         translationX = pose.x * size.width
