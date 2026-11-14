@@ -791,7 +791,6 @@ private fun HomeAlignmentSettings(context: Context, revision: Int) {
             listOf(HomeLyricsPrefs.SCROLL to "滚动", HomeLyricsPrefs.POP to "逐词跃动"), Icons.Default.Lyrics) {
             HomeLyricsPrefs.saveDisplayMode(context, it)
         }
-    }
     }))
     SettingsGroup(title = "背景", items = listOf({
         SettingsSwitchItem("封面模糊背景", "将专辑封面模糊处理后作为主页背景", Icons.Default.BlurOn, albumBackground) {

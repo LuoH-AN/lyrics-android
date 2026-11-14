@@ -300,10 +300,11 @@ internal fun ComposeHomeScreen(
             if (state.gateVisible) {
                 HomePermissionGate(state.gateStatus, onListenerPermission, onOverlayPermission, onStartOverlay) { state.actions?.openSettings() }
             } else if (maxWidth >= 840.dp || (maxWidth > maxHeight && maxWidth >= 560.dp)) {
+                val playerWidth = minOf(360.dp, maxWidth * .42f)
                 Row(Modifier.fillMaxSize().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     HomeLyricsStage(state, Modifier.weight(1f).fillMaxHeight(), darkAlbumBackground, appearance, displayMode)
                     HomePlayer(state, playerMode, { playerMode = it },
-                        Modifier.widthIn(max = minOf(360.dp, maxWidth * .42f)).align(Alignment.CenterVertically), darkAlbumBackground)
+                        Modifier.widthIn(max = playerWidth).align(Alignment.CenterVertically), darkAlbumBackground)
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
@@ -486,21 +487,21 @@ private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (I
                                     }
                                 }, verticalAlignment = Alignment.CenterVertically,
                         ) {
-                        Column(Modifier.weight(1f).clickable(
-                            onClickLabel = if (expanded) "收起播放控制栏" else "展开播放控制栏",
-                        ) { setExpanded(!expanded) }.semantics {
-                            contentDescription = if (expanded) "收起播放控制栏" else "展开播放控制栏"
-                        }.padding(start = 12.dp)) {
-                            Text(snapshot.track.ifBlank { "暂未播放" }, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            val artist = if (state.custom) listOf(snapshot.artist, "自定义歌词").filter(String::isNotBlank).joinToString(" · ") else snapshot.artist
-                            if (artist.isNotBlank()) Text(artist, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        IconButton(onClick = { state.actions?.toggleOverlay() }) {
-                            Icon(Icons.Default.Lyrics, if (state.isOverlayRunning) "关闭桌面歌词" else "开启桌面歌词",
-                                tint = if (state.isOverlayRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        IconButton(onClick = { showMore = true }) { Icon(Icons.Default.MoreVert, "更多") }
+                            Column(Modifier.weight(1f).clickable(
+                                onClickLabel = if (expanded) "收起播放控制栏" else "展开播放控制栏",
+                            ) { setExpanded(!expanded) }.semantics {
+                                contentDescription = if (expanded) "收起播放控制栏" else "展开播放控制栏"
+                            }.padding(start = 12.dp)) {
+                                Text(snapshot.track.ifBlank { "暂未播放" }, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                val artist = if (state.custom) listOf(snapshot.artist, "自定义歌词").filter(String::isNotBlank).joinToString(" · ") else snapshot.artist
+                                if (artist.isNotBlank()) Text(artist, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            IconButton(onClick = { state.actions?.toggleOverlay() }) {
+                                Icon(Icons.Default.Lyrics, if (state.isOverlayRunning) "关闭桌面歌词" else "开启桌面歌词",
+                                    tint = if (state.isOverlayRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            IconButton(onClick = { showMore = true }) { Icon(Icons.Default.MoreVert, "更多") }
                         }
                     }
                     if (expanded || dragging || fraction > 0f) Column(
