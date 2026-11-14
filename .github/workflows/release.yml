@@ -53,6 +53,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
+          cache-cleanup: never
 
       - name: Run regression tests
         run: node tests/run.cjs

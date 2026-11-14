@@ -52,6 +52,8 @@ jobs:
         with:
           # Feature-branch pushes must also populate caches for the next build.
           cache-read-only: ${{ github.event_name == 'pull_request' }}
+          # Avoid starting a second Gradle build just to prune a short-lived CI cache.
+          cache-cleanup: never
 
       - name: Run regression tests
         run: node tests/run.cjs
