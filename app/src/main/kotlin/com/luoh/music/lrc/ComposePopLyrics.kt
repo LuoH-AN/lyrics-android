@@ -211,12 +211,13 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, position: State<Long>, ap
                 width * .92f, height * .9f, gap, style.layout, style.maxWordScale, style.rotationDegrees)
             val travelX = with(density) { (72.dp * (style.travelPercent / 100f)).toPx() }
             val travelY = with(density) { (48.dp * (style.travelPercent / 100f)).toPx() }
+            val rotationReach = (sin(style.rotationDegrees * 1.15 * Math.PI / 180) * style.maxWordScale).toFloat()
             val glyphs = layouts.mapIndexed { index, layout ->
                 val packed = packing.slots.getOrElse(index) { PopLyricSlot(0f, 0f) }
                 val slot = PopLyricSlot(packed.x + width * .04f, packed.y + height * .05f)
                 val seed = Math.floorMod(timeline.tokens[index].text.hashCode().toLong() + index * 17L, 997L).toFloat()
-                val halfWidth = (layout.size.width * style.maxWordScale + layout.size.height * .52f) * packing.scale / 2f
-                val halfHeight = (layout.size.height * style.maxWordScale + layout.size.width * .52f) * packing.scale / 2f
+                val halfWidth = (layout.size.width * style.maxWordScale + layout.size.height * rotationReach) * packing.scale / 2f
+                val halfHeight = (layout.size.height * style.maxWordScale + layout.size.width * rotationReach) * packing.scale / 2f
                 // Cache a seeded entrance, kept inside the viewport even in small landscape windows.
                 val dx = (if (style.entrance == "scatter") sin(seed) * travelX else 0f).coerceIn(
                     (halfWidth - slot.x).coerceAtMost(0f), (width - halfWidth - slot.x).coerceAtLeast(0f))
@@ -224,9 +225,24 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, position: State<Long>, ap
                     (halfHeight - slot.y).coerceAtMost(0f), (height - halfHeight - slot.y).coerceAtLeast(0f))
                 PopGlyph(layout, slot, if (timeline.wordTimed) ((seed % 7f) - 3f) * style.rotationDegrees / 20f else 0f, Offset(dx, dy))
             }
+            fun halfWidth(glyph: PopGlyph) = (glyph.layout.size.width * style.maxWordScale +
+                glyph.layout.size.height * rotationReach) * packing.scale / 2f
+            fun halfHeight(glyph: PopGlyph) = (glyph.layout.size.height * style.maxWordScale +
+                glyph.layout.size.width * rotationReach) * packing.scale / 2f
+            val left = glyphs.minOfOrNull { it.slot.x - halfWidth(it) } ?: 0f
+            val right = glyphs.maxOfOrNull { it.slot.x + halfWidth(it) } ?: width
+            val top = glyphs.minOfOrNull { it.slot.y - halfHeight(it) } ?: 0f
+            val bottom = glyphs.maxOfOrNull { it.slot.y + halfHeight(it) } ?: height
+            // Keep the entire phrase visible; allow for the stage's outer padding and bilingual row.
+            val bounds = PopCameraBounds(
+                minOf(0f, (width * .06f - left) / width.coerceAtLeast(1f)) * .8f,
+                maxOf(0f, (width * .94f - right) / width.coerceAtLeast(1f)) * .8f,
+                minOf(0f, (height * .06f - top) / height.coerceAtLeast(1f)) * .7f,
+                maxOf(0f, (height * .94f - bottom) / height.coerceAtLeast(1f)) * .7f,
+            )
             PopScene(glyphs, packing.scale, PopStageMotion.path(timeline, glyphs.map {
                 PopCameraPoint(it.slot.x / width.coerceAtLeast(1f) - .5f, it.slot.y / height.coerceAtLeast(1f) - .5f)
-            }, style))
+            }, style, bounds))
         }
         SideEffect { if (cameraPath != null) cameraPath.value = scene.cameraPath }
         Canvas(Modifier.fillMaxSize().testTag("home_pop_canvas")) {

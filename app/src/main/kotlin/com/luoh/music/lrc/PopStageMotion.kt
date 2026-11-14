@@ -6,6 +6,8 @@ import kotlin.math.sin
 
 internal data class PopStagePose(val x: Float = 0f, val y: Float = 0f, val zoom: Float = 1f, val rotation: Float = 0f)
 internal data class PopCameraPoint(val x: Float, val y: Float)
+internal data class PopCameraBounds(val minX: Float = -.30f, val maxX: Float = .30f,
+    val minY: Float = -.34f, val maxY: Float = .34f)
 internal data class PopCameraWaypoint(val startMs: Long, val durationMs: Long,
     val from: PopCameraPoint, val target: PopCameraPoint)
 internal data class PopCameraPath(val waypoints: List<PopCameraWaypoint>)
@@ -24,7 +26,8 @@ internal object PopStageMotion {
             point.from.y + (point.target.y - point.from.y) * eased)
     }
 
-    fun path(timeline: PopLyricTimeline, centers: List<PopCameraPoint>, style: PopLyricsStyle): PopCameraPath {
+    fun path(timeline: PopLyricTimeline, centers: List<PopCameraPoint>, style: PopLyricsStyle,
+        bounds: PopCameraBounds = PopCameraBounds()): PopCameraPath {
         require(centers.size == timeline.tokens.size)
         val points = ArrayList<PopCameraWaypoint>(centers.size)
         val duration = (style.entranceMs * 1.2f).toLong().coerceIn(400L, 900L)
@@ -43,8 +46,13 @@ internal object PopStageMotion {
             val start = token.startMs - style.lookaheadMs + token.visualDelayMs
             val from = points.lastOrNull()?.let { at(it, start) } ?: PopCameraPoint(0f, 0f)
             points += PopCameraWaypoint(start, duration, from,
-                PopCameraPoint((-center.x * amount).coerceIn(-.30f, .30f), (-center.y * amount).coerceIn(-.34f, .34f)))
+                PopCameraPoint((-center.x * amount).coerceIn(maxOf(-.30f, bounds.minX), minOf(.30f, bounds.maxX)),
+                    (-center.y * amount).coerceIn(maxOf(-.34f, bounds.minY), minOf(.34f, bounds.maxY))))
             index = until
+        }
+        if (timeline.wordTimed && points.isNotEmpty()) {
+            val end = timeline.tokens.maxOf { it.endMs }
+            points += PopCameraWaypoint(end, duration, at(points.last(), end), PopCameraPoint(0f, 0f))
         }
         return PopCameraPath(points)
     }
