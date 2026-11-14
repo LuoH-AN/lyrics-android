@@ -842,7 +842,7 @@ private fun PopLyricSettings(context: Context, revision: Int) {
         } },
     ))
     SettingsGroup(title = "歌词分段", items = listOf(
-        { SettingsSwitchItem("长句分页", "每页只展示一小段，跟随演唱切换", Icons.Default.Lyrics, style.paginate) {
+        { SettingsSwitchItem("短语退场", "下一段进入时，唱完的短语淡出并腾出空间", Icons.Default.Lyrics, style.paginate) {
             value -> save { it.copy(paginate = value) }
         } },
         { SettingsSliderItem("每段长度", style.pageLength, 4..24, 1, "字", Icons.Default.TextFields,

@@ -71,7 +71,8 @@ import androidx.compose.ui.text.style.TextAlign
 internal data class PopPlaybackFrame(val position: State<Long>, val index: Int, val line: LyricLine?,
     val primary: String, val timeline: PopLyricTimeline?, val interlude: LyricInterlude?,
     val cameraPath: MutableState<PopCameraPath?>, val cameraPosition: State<Long>,
-    val timing: PopLyricRenderTiming?, val upcoming: PopUpcomingSentence?)
+    val timing: PopLyricRenderTiming?, val upcoming: PopUpcomingSentence?,
+    val phraseMotionUntil: MutableState<Long?>)
 
 internal data class PopUpcomingSentence(val timeline: PopLyricTimeline, val timing: PopLyricRenderTiming)
 private data class PopTimelineKey(val line: LyricLine, val primary: String, val reveal: String)
@@ -101,6 +102,7 @@ internal fun rememberPopPlayback(state: HomePresentationState, style: PopLyricsS
     }
     val timeline = line?.let { prepare(it, primary) }
     val cameraPath = remember(line, primary, style) { mutableStateOf<PopCameraPath?>(null) }
+    val phraseMotionUntil = remember(line, primary, style) { mutableStateOf<Long?>(null) }
     val policy = LocalAgoraMotionPolicy.current
     val allowMotion = policy.allowSpatialTransitions
     PopDisplayRefresh(state.presentationActive && state.playing && allowMotion)
@@ -122,7 +124,7 @@ internal fun rememberPopPlayback(state: HomePresentationState, style: PopLyricsS
     }
 
     LaunchedEffect(document, timeline, state.presentationActive, state.playing, state.playbackRevision,
-        state.displayOffsetMs, allowMotion, style, cameraPath, timing) {
+        state.displayOffsetMs, allowMotion, style, cameraPath, timing, phraseMotionUntil) {
         fun update(draw: Boolean = true) {
             val now = state.clock.positionMs() + state.displayOffsetMs
             cameraPosition.longValue = now
@@ -154,6 +156,7 @@ internal fun rememberPopPlayback(state: HomePresentationState, style: PopLyricsS
                     val onset = timeline?.tokens?.firstOrNull { it.startMs > now }?.startMs
                     (minOf(nextBoundary ?: state.clock.durationMs, onset ?: Long.MAX_VALUE) - now).coerceIn(1L, 1000L)
                 }
+                phraseMotionUntil.value?.let { now < it } == true -> 0L
                 (style.continuousCameraMotion || cameraMoving) && interlude == null -> 0L
                 else -> minOf(wordDelay, cameraDelay)
             }
@@ -161,7 +164,8 @@ internal fun rememberPopPlayback(state: HomePresentationState, style: PopLyricsS
             withFrameNanos { update() }
         }
     }
-    return PopPlaybackFrame(position, index, line, primary, timeline, interlude, cameraPath, cameraPosition, timing, upcoming)
+    return PopPlaybackFrame(position, index, line, primary, timeline, interlude, cameraPath, cameraPosition, timing, upcoming,
+        phraseMotionUntil)
 }
 
 /** Clock reads only invalidate native drawing and the shared camera's graphics layers. */
@@ -223,7 +227,9 @@ internal fun PopLyricsStage(state: HomePresentationState, modifier: Modifier, al
                         contentBottom = if (sentence.timeline === frame.timeline) contentBottom else null,
                         modifier = Modifier.fillMaxSize().combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null,
                                 onClick = { state.seek(currentLine.startMs - state.displayOffsetMs) },
-                                onLongClickLabel = "摘句与分享", onLongClick = { state.beginSharing(sentence.index) }))
+                                onLongClickLabel = "摘句与分享", onLongClick = { state.beginSharing(sentence.index) }),
+                        playing = state.playing,
+                        phraseMotionUntil = if (sentence.timeline === frame.timeline) frame.phraseMotionUntil else null)
                 }
             }
         }
@@ -255,7 +261,8 @@ private data class PopMeasureKey(val timeline: PopLyricTimeline, val textStyle: 
     val width: Int, val semantic: Boolean, val density: Float, val fontScale: Float)
 private data class PopMeasured(val layouts: List<TextLayoutResult>, val groups: PopLyricGroups,
     val timeline: PopLyricTimeline, val sourceIndices: List<Int>)
-private data class PopScenes(val timeline: PopLyricTimeline, val ranges: List<PopLyricPage>, val pages: List<PopScene>)
+private data class PopScenes(val timeline: PopLyricTimeline, val ranges: List<PopLyricPage>, val pages: List<PopScene>,
+    val handoffs: List<PopPhraseHandoff>)
 private data class PopSceneKey(val measured: PopMeasured, val timeline: PopLyricTimeline, val timing: PopLyricRenderTiming,
     val width: Float, val height: Float, val gap: Float, val density: Float, val style: PopLyricsStyle, val accent: Color)
 private class PopRenderCache {
@@ -267,7 +274,8 @@ private class PopRenderCache {
 private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTiming, upcoming: PopUpcomingSentence?,
     cache: PopRenderCache, position: State<Long>, appearance: HomeLyricAppearance,
     style: PopLyricsStyle, allowMotion: Boolean, foreground: Color, activeColor: Color,
-    cameraPath: MutableState<PopCameraPath?>?, contentBottom: MutableState<Float>?, modifier: Modifier, preheatOnly: Boolean = false) {
+    cameraPath: MutableState<PopCameraPath?>?, contentBottom: MutableState<Float>?, modifier: Modifier,
+    preheatOnly: Boolean = false, playing: Boolean = false, phraseMotionUntil: MutableState<Long?>? = null) {
     val measurer = rememberTextMeasurer(cacheSize = 0)
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
@@ -408,14 +416,16 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
                 val ranges = if (style.paginate && renderTimeline.wordTimed) paginatePopLyrics(
                     renderTimeline.tokens, measured.groups.penalties, full.reservedWidths,
                     full.pageWidthBudget, style.pageLength) else listOf(whole)
-                PopScenes(renderTimeline, ranges, if (ranges.size == 1) listOf(full) else ranges.map(::buildPage))
+                PopScenes(renderTimeline, ranges, if (ranges.size == 1) listOf(full) else ranges.map(::buildPage),
+                    popPhraseHandoffs(ranges, renderTimeline))
             }
         }
         val scenes = remember(timeline, timing, textStyle, density, width, height, gap, style, activeColor) { scene(timeline, timing) }
-        val pageIndex by remember(scenes, position) { derivedStateOf {
-            activePopLyricPage(scenes.ranges, scenes.timeline.tokens, position.value)
+        val animateHandoff = allowMotion && playing
+        val window by remember(scenes, position, animateHandoff) { derivedStateOf {
+            popPhraseWindow(scenes.ranges, scenes.timeline, scenes.handoffs, position.value, animateHandoff)
         } }
-        val current = scenes.pages[pageIndex]
+        val current = scenes.pages[window.current]
         // Preheat only the imminent sentence, off the switching frame. The same bounded
         // measurement/scene caches are used when it becomes current; no page-wide cache.
         LaunchedEffect(upcoming, textStyle, density, width, height, gap, style, activeColor) {
@@ -427,63 +437,69 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
         if (preheatOnly) return@BoxWithConstraints
         SideEffect {
             if (cameraPath != null) cameraPath.value = current.cameraPath
-            if (contentBottom != null) contentBottom.value = current.bottom
+            if (contentBottom != null) contentBottom.value = maxOf(current.bottom,
+                window.retiring?.let { scenes.pages[it].bottom } ?: 0f)
+            if (phraseMotionUntil != null) phraseMotionUntil.value = if (window.retiring == null) null else
+                scenes.handoffs[window.current].let { it.startMs + it.durationMs }
         }
-        AnimatedContent(targetState = current, contentKey = { it.timeline.startMs },
-            modifier = Modifier.fillMaxSize(), label = "popPageTransition",
-            transitionSpec = {
-                val duration = if (allowMotion) minOf(120, targetState.timing.transitionMs) else 0
-                fadeIn(tween(duration / 2)) togetherWith fadeOut(tween(duration))
-            }) { page ->
-            Canvas(Modifier.fillMaxSize().testTag("home_pop_canvas").semantics {
-                text = AnnotatedString(page.timeline.tokens.joinToString("") { it.text })
-            }) {
+        Canvas(Modifier.fillMaxSize().testTag("home_pop_canvas").semantics {
+            text = AnnotatedString(current.timeline.tokens.joinToString("") { it.text })
+        }) {
+            val now = position.value
+            fun drawPhrase(page: PopScene, phraseAlpha: Float, offsetY: Float, retiring: Boolean) {
+                if (phraseAlpha <= 0f) return
                 val timeline = page.timeline
                 val timing = page.timing
-                val now = position.value
                 val animated = timeline.wordTimed && allowMotion
-                for (row in page.rows) {
-                    val enteredRow = if (animated && row.entranceMs > 0L)
-                        PopLyricMotion.enter(now - row.startMs, row.entranceMs) else 1f
-                    val passedRow = if (animated && row.passMs > 0L)
-                        PopLyricMotion.pass(now - row.passStartMs, row.passMs) else 0f
-                    val rowY = if (animated) row.travel * (1f - enteredRow + passedRow * (1f - passedRow) * .3f) else 0f
-                    withTransform({
-                        translate(if (animated) row.travelX * (1f - enteredRow) else 0f, rowY)
-                        val rowScale = if (animated && row.travel > 0f) .90f + enteredRow * .10f else 1f
-                        scale(rowScale, rowScale, row.center)
-                    }) {
-                        for (index in row.from until row.until) {
-                            val token = timeline.tokens[index]
-                            val elapsed = now - (token.startMs - timing.lookaheadMs[index] + token.visualDelayMs)
-                            if (animated && elapsed < 0L) continue
-                            val entered = if (animated && timing.entranceMs[index] > 0L)
-                                PopLyricMotion.enter(elapsed, timing.entranceMs[index]) else 1f
-                            val passed = if (animated && timing.passMs[index] > 0L)
-                                PopLyricMotion.pass(now - timing.passStartMs[index], timing.passMs[index]) else if (animated && now >= timing.passStartMs[index]) 1f else 0f
-                            val fadeMs = minOf(65L, timing.entranceMs[index]).coerceAtLeast(1L)
-                            val alpha = if (animated) (if (timing.entranceMs[index] == 0L) 1f else (elapsed.toFloat() / fadeMs).coerceIn(0f, 1f)) *
-                                (1f - passed * (1f - style.passedOpacityPercent / 100f)) else 1f
-                            val entranceScale = .5f + entered * (style.activeScalePercent / 100f - .5f)
-                            val scale = if (animated) (entranceScale + (1f - entranceScale) * passed)
-                                .coerceIn(.5f, style.maxWordScale) else 1f
-                            val glyph = page.glyphs[index]
-                            withTransform({
-                                // Preserve the negative overshoot: the word lands, rebounds, then settles.
-                                val remaining = if (animated) 1f - entered else 0f
-                                translate(glyph.slot.x + glyph.entranceOffset.x * remaining, glyph.slot.y + glyph.entranceOffset.y * remaining)
-                                scale(page.scale * scale * glyph.baseScale, page.scale * scale * glyph.baseScale, pivot = Offset.Zero)
-                                if (animated) rotate(glyph.angle * (1f - passed * .65f) + style.rotationDegrees * (1f - entered), pivot = Offset.Zero)
-                                translate(-glyph.layout.size.width / 2f, -glyph.layout.size.height / 2f)
-                            }) {
-                                drawText(glyph.layout, color = if (animated) lerp(activeColor, foreground, passed) else foreground,
-                                    alpha = alpha, shadow = if (animated && now >= token.startMs && now < token.endMs)
-                                        glyph.glow else Shadow.None)
+                withTransform({ translate(0f, offsetY) }) {
+                    for (row in page.rows) {
+                        val enteredRow = if (animated && !retiring && row.entranceMs > 0L)
+                            PopLyricMotion.enter(now - row.startMs, row.entranceMs) else 1f
+                        val passedRow = if (retiring) 1f else if (animated && row.passMs > 0L)
+                            PopLyricMotion.pass(now - row.passStartMs, row.passMs) else 0f
+                        val rowY = if (animated) row.travel * (1f - enteredRow + passedRow * (1f - passedRow) * .3f) else 0f
+                        withTransform({
+                            translate(if (animated) row.travelX * (1f - enteredRow) else 0f, rowY)
+                            val rowScale = if (animated && row.travel > 0f) .90f + enteredRow * .10f else 1f
+                            scale(rowScale, rowScale, row.center)
+                        }) {
+                            for (index in row.from until row.until) {
+                                val token = timeline.tokens[index]
+                                val elapsed = now - (token.startMs - timing.lookaheadMs[index] + token.visualDelayMs)
+                                if (animated && !retiring && elapsed < 0L) continue
+                                val entered = if (animated && !retiring && timing.entranceMs[index] > 0L)
+                                    PopLyricMotion.enter(elapsed, timing.entranceMs[index]) else 1f
+                                val passed = if (retiring) 1f else if (animated && timing.passMs[index] > 0L)
+                                    PopLyricMotion.pass(now - timing.passStartMs[index], timing.passMs[index]) else if (animated && now >= timing.passStartMs[index]) 1f else 0f
+                                val fadeMs = minOf(65L, timing.entranceMs[index]).coerceAtLeast(1L)
+                                val wordAlpha = if (animated) (if (retiring || timing.entranceMs[index] == 0L) 1f else (elapsed.toFloat() / fadeMs).coerceIn(0f, 1f)) *
+                                    (1f - passed * (1f - style.passedOpacityPercent / 100f)) else 1f
+                                val entranceScale = .5f + entered * (style.activeScalePercent / 100f - .5f)
+                                val scale = if (animated) (entranceScale + (1f - entranceScale) * passed)
+                                    .coerceIn(.5f, style.maxWordScale) else 1f
+                                val glyph = page.glyphs[index]
+                                withTransform({
+                                    // Preserve the negative overshoot: the word lands, rebounds, then settles.
+                                    val remaining = if (animated) 1f - entered else 0f
+                                    translate(glyph.slot.x + glyph.entranceOffset.x * remaining, glyph.slot.y + glyph.entranceOffset.y * remaining)
+                                    scale(page.scale * scale * glyph.baseScale, page.scale * scale * glyph.baseScale, pivot = Offset.Zero)
+                                    if (animated) rotate(glyph.angle * (1f - passed * .65f) + style.rotationDegrees * (1f - entered), pivot = Offset.Zero)
+                                    translate(-glyph.layout.size.width / 2f, -glyph.layout.size.height / 2f)
+                                }) {
+                                    drawText(glyph.layout, color = if (animated) lerp(activeColor, foreground, passed) else foreground,
+                                        alpha = wordAlpha * phraseAlpha, shadow = if (animated && !retiring && now >= token.startMs && now < token.endMs)
+                                            glyph.glow else Shadow.None)
+                                }
                             }
                         }
                     }
                 }
             }
+            val handoff = scenes.handoffs[window.current]
+            val progress = if (window.retiring != null) PopLyricMotion.pass(now - handoff.startMs, handoff.durationMs) else 1f
+            val travel = (height * .025f).coerceAtMost(12f * density.density)
+            window.retiring?.let { drawPhrase(scenes.pages[it], 1f - progress, -travel * progress, true) }
+            drawPhrase(current, progress, travel * (1f - progress), false)
         }
     }
 }
