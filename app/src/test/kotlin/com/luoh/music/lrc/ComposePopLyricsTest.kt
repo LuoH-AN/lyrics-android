@@ -117,17 +117,22 @@ class ComposePopLyricsTest {
             val frame = rememberPopPlayback(state, PopLyricsStyle())
             SideEffect { observed = frame }
         }
-        settlePlayback()
+        compose.mainClock.advanceTimeUntil(timeoutMillis = 1000) { observed.upcoming != null }
+        compose.waitForIdle()
         val warmed = compose.runOnIdle { requireNotNull(observed.upcoming) }
         compose.runOnIdle { state.setProgress(11200, false) }
-        settlePlayback()
+        compose.mainClock.advanceTimeUntil(timeoutMillis = 1000) { observed.index == 1 && observed.upcoming == null }
+        compose.waitForIdle()
         compose.runOnIdle {
             assertSame(warmed.timeline, observed.timeline)
             assertSame(warmed.timing, observed.timing)
             assertNull(observed.upcoming)
         }
         compose.runOnIdle { state.setProgress(9900, true) }
-        settlePlayback()
+        // Seeking changes the clock, active line and preheat status in successive
+        // compositions. Wait for the requested state instead of guessing frame count.
+        compose.mainClock.advanceTimeUntil(timeoutMillis = 1000) { observed.index == 0 && observed.upcoming != null }
+        compose.waitForIdle()
         compose.runOnIdle {
             assertSame(warmed.timeline, requireNotNull(observed.upcoming).timeline)
             assertSame(warmed.timing, requireNotNull(observed.upcoming).timing)
