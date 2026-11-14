@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.luoh.music.lrc.ui.agora.AgoraMotionPolicy
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -161,6 +162,58 @@ class ComposePopLyricsRenderTest {
             compose.runOnIdle { HomeLyricsPrefs.saveAppearance(compose.activity, HomeLyricAppearance(fontSize = 16)) }
             assertTrue(capture(6500, "pop-portrait-small-type") > 0)
         }
+        compose.runOnIdle { HomeLyricsPrefs.saveAppearance(compose.activity, HomeLyricAppearance()) }
+        val samples = listOf(
+            "short" to listOf("晚风", "轻轻", "吹"),
+            "long" to listOf("如果", "有一天", "我们", "走散了", "，", "就", "让", "这首歌", "带你", "找到", "回家的", "方向"),
+            "english" to listOf("Let ", "the ", "music ", "carry ", "us ", "through ", "the ", "longest ", "night"),
+            "characters" to listOf("让", "音乐", "陪你", "走过", "每一个", "夜晚"),
+        )
+        for (layout in listOf("centered", "staggered", "stairs")) {
+            for ((name, words) in samples) {
+                compose.runOnIdle {
+                    PopLyricsPrefs.save(compose.activity, PopLyricsStyle(layout = layout,
+                        reveal = if (name == "characters") "character" else "word"))
+                    state.setLyrics(LyricDocument(listOf(LyricLine(1000, words.joinToString(""), endMs = 9500,
+                        words = words.mapIndexed { index, word -> LyricWord(1000 + index * 250L, 250, word) })), true))
+                }
+                assertTrue(capture(8500, "pop-layout-$layout-$name$suffix") > 0)
+            }
+            compose.runOnIdle {
+                state.setLyrics(LyricDocument(listOf(LyricLine(1000,
+                    "在每一个安静的夜晚，让音乐陪你走过漫长的旅途，直到重新看见明亮的晨光。", endMs = 9500)), true))
+            }
+            assertTrue(capture(8500, "pop-layout-$layout-sentence$suffix") > 0)
+        }
+        val detailedCover = Bitmap.createBitmap(240, 240, Bitmap.Config.ARGB_8888).apply {
+            for (y in 0 until height) for (x in 0 until width)
+                setPixel(x, y, android.graphics.Color.rgb(x, (x * 3 + y * 5) % 256, y))
+        }
+        compose.runOnIdle {
+            PopLyricsPrefs.save(compose.activity, PopLyricsStyle())
+            HomeLyricsPrefs.saveAlbumBackground(compose.activity, true)
+            state.setSnapshot(state.snapshot.copy(cover = detailedCover))
+            state.setLyrics(LyricDocument(listOf(LyricLine(1000, "让音乐陪你", endMs = 9500,
+                words = listOf(LyricWord(1000, 1000, "让"), LyricWord(2000, 1000, "音乐"), LyricWord(3000, 1000, "陪你")))), true))
+        }
+        fun corners(): List<Int> {
+            var pixels = emptyList<Int>()
+            compose.runOnIdle {
+                val bitmap = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
+                root.draw(Canvas(bitmap))
+                pixels = listOf(8 to 8, root.width - 8 to 8, 8 to root.height - 8, root.width - 8 to root.height - 8)
+                    .map { (x, y) -> bitmap.getPixel(x, y) }
+                bitmap.recycle()
+            }
+            return pixels
+        }
+        compose.waitUntil(timeoutMillis = 5000) {
+            corners().any { kotlin.math.abs(android.graphics.Color.red(it) - android.graphics.Color.blue(it)) > 10 }
+        }
+        capture(1100, "pop-stable-background-first$suffix")
+        val firstBackground = corners()
+        capture(3500, "pop-stable-background-last$suffix")
+        assertEquals("Detailed artwork must stay still while the words and camera move", firstBackground, corners())
     }
 
     @Test fun nativeCanvasRevealsMoreWordsAsTheRealTimelineAdvances() = renderStage(false)

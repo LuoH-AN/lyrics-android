@@ -1,8 +1,12 @@
 package com.luoh.music.lrc
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Rect
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -141,6 +145,27 @@ internal fun HomeAlbumBackground(state: HomePresentationState, modifier: Modifie
 }
 
 /** Keep an opaque outgoing image underneath the incoming one throughout a cover change. */
+internal fun blendHomeAlbumArtwork(previous: Bitmap, current: Bitmap, fraction: Float): Bitmap {
+    val ratio = min(1f, 240f / max(current.width, current.height))
+    val width = (current.width * ratio).roundToInt().coerceAtLeast(1)
+    val height = (current.height * ratio).roundToInt().coerceAtLeast(1)
+    val result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(result)
+    val destination = Rect(0, 0, width, height)
+    val paint = Paint(Paint.FILTER_BITMAP_FLAG)
+    fun draw(bitmap: Bitmap) {
+        val cropWidth = min(bitmap.width, (bitmap.height * width.toFloat() / height).roundToInt()).coerceAtLeast(1)
+        val cropHeight = min(bitmap.height, (bitmap.width * height.toFloat() / width).roundToInt()).coerceAtLeast(1)
+        val x = (bitmap.width - cropWidth) / 2
+        val y = (bitmap.height - cropHeight) / 2
+        canvas.drawBitmap(bitmap, Rect(x, y, x + cropWidth, y + cropHeight), destination, paint)
+    }
+    draw(previous)
+    paint.alpha = (fraction.coerceIn(0f, 1f) * 255f).roundToInt()
+    draw(current)
+    return result
+}
+
 @Composable
 internal fun HomeAlbumArtwork(bitmap: Bitmap?, allowFade: Boolean, phase: () -> Float,
     modifier: Modifier = Modifier) {
@@ -149,11 +174,18 @@ internal fun HomeAlbumArtwork(bitmap: Bitmap?, allowFade: Boolean, phase: () -> 
     val reveal = remember { Animatable(1f) }
     LaunchedEffect(bitmap, allowFade) {
         if (bitmap !== current) {
-            previous = current
+            val outgoing = current
+            val underlay = previous
+            val fraction = reveal.value
+            // Continue from the visible blend when another cover arrives during a fade.
+            val visible = if (allowFade && outgoing != null && underlay != null &&
+                !outgoing.isRecycled && !underlay.isRecycled && fraction < 1f)
+                withContext(Dispatchers.Default) { blendHomeAlbumArtwork(underlay, outgoing, fraction) } else outgoing
+            reveal.snapTo(if (allowFade && visible != null && bitmap != null) 0f else 1f)
+            previous = visible
             current = bitmap
-            reveal.snapTo(if (allowFade && previous != null && bitmap != null) 0f else 1f)
         }
-        if (allowFade && reveal.value < 1f) reveal.animateTo(1f, tween(700))
+        if (allowFade && reveal.value < 1f) reveal.animateTo(1f, tween(1200, easing = FastOutSlowInEasing))
         else reveal.snapTo(1f)
         previous = null
     }

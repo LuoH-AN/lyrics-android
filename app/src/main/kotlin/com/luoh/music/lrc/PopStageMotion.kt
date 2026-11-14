@@ -93,16 +93,14 @@ internal object PopStageMotion {
     }
 }
 
-internal fun Modifier.popStageCamera(frame: PopPlaybackFrame?, style: PopLyricsStyle, allowMotion: Boolean,
-    background: Boolean = false): Modifier {
+internal fun Modifier.popStageCamera(frame: PopPlaybackFrame?, style: PopLyricsStyle, allowMotion: Boolean): Modifier {
     if (frame == null || !allowMotion || style.camera == "off" || style.cameraPercent == 0) return this
     return graphicsLayer {
         val pose = PopStageMotion.sample(frame.cameraPosition.value, if (frame.interlude == null) frame.cameraPath.value else null, style)
         translationX = pose.x * size.width
         translationY = pose.y * size.height
         rotationZ = pose.rotation
-        val overscan = if (background) 1.8f else 1f
-        scaleX = pose.zoom * overscan
-        scaleY = pose.zoom * overscan
+        scaleX = pose.zoom
+        scaleY = pose.zoom
     }
 }

@@ -62,10 +62,16 @@ class HomeAlbumArtworkRenderTest {
         assertTrue(pixels(root).all { it == AndroidColor.RED })
         compose.mainClock.autoAdvance = false
         compose.runOnIdle { artwork = green }
-        repeat(28) { frame ->
+        var interrupted = emptyList<Int>()
+        repeat(40) { frame ->
             compose.mainClock.advanceTimeBy(40)
             compose.waitForIdle()
             val colors = pixels(root)
+            if (frame == 5) for (index in colors.indices) {
+                assertTrue("An interrupted fade must continue from the visible color",
+                    kotlin.math.abs(AndroidColor.red(colors[index]) - AndroidColor.red(interrupted[index])) <= 8 &&
+                        kotlin.math.abs(AndroidColor.green(colors[index]) - AndroidColor.green(interrupted[index])) <= 8)
+            }
             for (color in colors) {
                 val energy = AndroidColor.red(color) + AndroidColor.green(color)
                 assertTrue("Cover opacity must stay full during frame $frame: $energy", energy in 253..257)
@@ -74,7 +80,7 @@ class HomeAlbumArtworkRenderTest {
             if (frame == 3) assertTrue("The fade must render both covers before completing",
                 colors.all { AndroidColor.red(it) > 0 && AndroidColor.green(it) > 0 })
             // A new song can arrive before the previous fade finishes.
-            if (frame == 4) compose.runOnIdle { artwork = red }
+            if (frame == 4) { interrupted = colors; compose.runOnIdle { artwork = red } }
         }
         assertTrue(pixels(root).all { it == AndroidColor.RED })
         compose.runOnIdle { artwork = green; allowFade = false }

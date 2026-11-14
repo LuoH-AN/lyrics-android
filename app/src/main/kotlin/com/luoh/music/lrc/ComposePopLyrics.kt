@@ -52,6 +52,8 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -226,6 +228,7 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, position: State<Long>, ap
         fontSize = (appearance.fontSize + 8).coerceIn(24, 64).sp,
         lineHeight = ((appearance.fontSize + 8).coerceIn(24, 64) * 1.3f).sp,
         fontWeight = FontWeight(appearance.fontWeight), color = foreground,
+        textAlign = TextAlign.Center, lineBreak = LineBreak.Heading, hyphens = Hyphens.Auto,
     )
     val layouts = remember(timeline, textStyle, density, shapingWidth) {
         timeline.tokens.map { token ->
@@ -233,23 +236,26 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, position: State<Long>, ap
                 constraints = Constraints(maxWidth = shapingWidth), maxLines = 8, overflow = TextOverflow.Ellipsis)
         }
     }
+    val breakPenalties = remember(timeline) { popLyricBreakPenalties(timeline.tokens) }
     BoxWithConstraints(modifier) {
         val width = with(density) { maxWidth.toPx() }
         val height = with(density) { maxHeight.toPx() }
         val gap = with(density) { (appearance.lineSpacing / 3f + 4f).dp.toPx() }
         val scene = remember(timeline, layouts, width, height, gap, density, style) {
+            val reservedScale = if (timeline.wordTimed) style.maxWordScale else 1f
+            val reservedRotation = if (timeline.wordTimed) style.rotationDegrees else 0
             val packing = packPopLyrics(FloatArray(layouts.size) { layouts[it].size.width.toFloat() },
                 FloatArray(layouts.size) { layouts[it].size.height.toFloat() },
-                width * .92f, height * .9f, gap, style.layout, style.maxWordScale, style.rotationDegrees)
+                width * .92f, height * .9f, gap, style.layout, reservedScale, reservedRotation, breakPenalties)
             val travelX = with(density) { (72.dp * (style.travelPercent / 100f)).toPx() }
             val travelY = with(density) { (48.dp * (style.travelPercent / 100f)).toPx() }
-            val rotationReach = (sin(style.rotationDegrees * 1.15 * Math.PI / 180) * style.maxWordScale).toFloat()
+            val rotationReach = (sin(reservedRotation * 1.15 * Math.PI / 180) * reservedScale).toFloat()
             val glyphs = layouts.mapIndexed { index, layout ->
                 val packed = packing.slots.getOrElse(index) { PopLyricSlot(0f, 0f) }
                 val slot = PopLyricSlot(packed.x + width * .04f, packed.y + height * .05f)
                 val seed = Math.floorMod(timeline.tokens[index].text.hashCode().toLong() + index * 17L, 997L).toFloat()
-                val halfWidth = (layout.size.width * style.maxWordScale + layout.size.height * rotationReach) * packing.scale / 2f
-                val halfHeight = (layout.size.height * style.maxWordScale + layout.size.width * rotationReach) * packing.scale / 2f
+                val halfWidth = (layout.size.width * reservedScale + layout.size.height * rotationReach) * packing.scale / 2f
+                val halfHeight = (layout.size.height * reservedScale + layout.size.width * rotationReach) * packing.scale / 2f
                 // Cache a seeded entrance, kept inside the viewport even in small landscape windows.
                 val dx = (if (style.entrance == "scatter") sin(seed) * travelX else 0f).coerceIn(
                     (halfWidth - slot.x).coerceAtMost(0f), (width - halfWidth - slot.x).coerceAtLeast(0f))
@@ -257,9 +263,9 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, position: State<Long>, ap
                     (halfHeight - slot.y).coerceAtMost(0f), (height - halfHeight - slot.y).coerceAtLeast(0f))
                 PopGlyph(layout, slot, if (timeline.wordTimed) ((seed % 7f) - 3f) * style.rotationDegrees / 20f else 0f, Offset(dx, dy))
             }
-            fun halfWidth(glyph: PopGlyph) = (glyph.layout.size.width * style.maxWordScale +
+            fun halfWidth(glyph: PopGlyph) = (glyph.layout.size.width * reservedScale +
                 glyph.layout.size.height * rotationReach) * packing.scale / 2f
-            fun halfHeight(glyph: PopGlyph) = (glyph.layout.size.height * style.maxWordScale +
+            fun halfHeight(glyph: PopGlyph) = (glyph.layout.size.height * reservedScale +
                 glyph.layout.size.width * rotationReach) * packing.scale / 2f
             val left = glyphs.minOfOrNull { it.slot.x - halfWidth(it) } ?: 0f
             val right = glyphs.maxOfOrNull { it.slot.x + halfWidth(it) } ?: width

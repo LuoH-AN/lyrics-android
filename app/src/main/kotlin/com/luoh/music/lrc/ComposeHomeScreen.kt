@@ -310,10 +310,9 @@ internal fun ComposeHomeScreen(
         rememberPopPlayback(state, popStyle) else null
     val darkAlbumBackground = backgroundEnabled && state.snapshot.cover?.let { !it.isRecycled } == true
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        // The background and lyric field share the same camera clock; playback controls stay anchored.
+        // Keep artwork independent of word tracking so detailed covers cannot amplify lyric motion.
         if (!state.gateVisible && backgroundEnabled) HomeAlbumBackground(state,
-            Modifier.fillMaxSize().testTag("home_album_background")
-                .popStageCamera(popPlayback, popStyle, policy.allowSpatialTransitions, background = true),
+            Modifier.fillMaxSize().testTag("home_album_background"),
             continuousMotion = displayMode != HomeLyricsPrefs.POP)
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             val landscape = maxWidth > maxHeight

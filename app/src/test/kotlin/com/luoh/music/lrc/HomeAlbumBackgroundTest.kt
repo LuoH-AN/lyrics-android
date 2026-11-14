@@ -12,10 +12,26 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class HomeAlbumBackgroundTest {
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun interruptedCoverBlendIsSmallAndPreservesTheVisibleColorsWithoutRecyclingInputs() {
+        val red = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }
+        val blue = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.BLUE) }
+        val blended = blendHomeAlbumArtwork(red, blue, .4f)
+        assertEquals(240, blended.width)
+        assertEquals(240, blended.height)
+        assertEquals(153, Color.red(blended.getPixel(120, 120)))
+        assertEquals(102, Color.blue(blended.getPixel(120, 120)))
+        assertFalse(red.isRecycled)
+        assertFalse(blue.isRecycled)
+        blended.recycle(); red.recycle(); blue.recycle()
+    }
+
     @Test fun repeatedArtworkKeepsThePreparedBitmapEvenWhenMetadataUsesANewInstance() {
         val cover = Bitmap.createBitmap(512, 256, Bitmap.Config.ARGB_8888)
         cover.eraseColor(Color.CYAN)
