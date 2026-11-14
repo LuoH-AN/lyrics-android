@@ -22,6 +22,16 @@ Gradle 构建缓存启用，开发分支推送也写入缓存，PR 只读。日�
 
 关闭每次构建后的 Gradle 缓存清理任务，避免为清理临时 runner 再启动一次 Gradle；缓存仍正常恢复、保存，由 GitHub 的缓存容量与访问保留机制管理。
 
+2026-11-14 的 GitHub Actions 实测（从 job 开始到完成，包含上传和缓存保存，不含排队）：
+
+| 场景 | 耗时 | 构建记录 |
+| --- | --- | --- |
+| 原流程：202 个 Android 检查、debug 和完整优化 compact | 5 分 43 秒 | [43564686125](https://github.com/LuoH-AN/lyrics-android/actions/runs/43564686125) |
+| 日常 compact 首次执行较快的 R8 裁剪，编译任务命中缓存 | 2 分 07 秒 | [43566406619](https://github.com/LuoH-AN/lyrics-android/actions/runs/43566406619) |
+| 最终流程：编译和裁剪任务命中缓存 | 51 秒 | [43567209232](https://github.com/LuoH-AN/lyrics-android/actions/runs/43567209232) |
+
+最后一轮 job 于 06:37:02 UTC 开始，APK 上传于 06:37:44 完成，job 于 06:37:53 完成。51 秒是此次缓存命中的成绩，不能代表每次 Android 源码或依赖变更；完整冷缓存构建未测。所有 Android 构建均在 GitHub Actions 完成。
+
 ## 正式版
 
 版本维护在 `app/build.gradle.kts`，`versionCode` 必须递增。正式包名保持 `com.luoh.music.lrc`。
