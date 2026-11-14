@@ -351,15 +351,15 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
                     val rowTravel = if (candidate.wordTimed && profile.transitionMs > 0) 20f * density.density * style.rowMotionPercent / 100f else 0f
                     val rowTravelX = rowTravel * 1.6f
                     val packing = packPopLyrics(FloatArray(layouts.size) { layouts[it].size.width.toFloat() },
-                        FloatArray(layouts.size) { layouts[it].size.height.toFloat() }, (width * .92f - rowTravelX * 2f).coerceAtLeast(1f), height * .9f, gap,
+                        FloatArray(layouts.size) { layouts[it].size.height.toFloat() }, (width * .92f).coerceAtLeast(1f), height * .9f, gap,
                         style.layout, reservedScale, reservedRotation, measured.groups.penalties, extents, gaps,
                         gap * style.rowGapPercent / 100f, style.staggerPercent, style.lineWidthPercent, rowTravel,
-                        maxFitScale = 1.8f)
+                        maxFitScale = 1.8f, horizontalMotionReach = rowTravelX)
                     val travelX = 72f * density.density * style.travelPercent / 100f
                     val travelY = 48f * density.density * style.travelPercent / 100f
                     val glyphs = layouts.mapIndexed { index, layout ->
                         val packed = packing.slots[index]
-                        val slot = PopLyricSlot(packed.x + width * .04f + rowTravelX, packed.y + height * .05f)
+                        val slot = PopLyricSlot(packed.x + width * .04f, packed.y + height * .05f)
                         val seed = Math.floorMod(candidate.tokens[index].text.hashCode().toLong() + index * 17L, 997L).toFloat()
                         val halfWidth = extents[index].width * packing.scale / 2f
                         val halfHeight = extents[index].height * packing.scale / 2f + rowTravel * packing.scale
@@ -392,12 +392,13 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
                         maxOf(0f, (height * .94f - bottom) / height.coerceAtLeast(1f)) * .7f,
                     )
                     val typicalHeight = extents.map { it.height + rowTravel * 2f }.sorted()[extents.size / 2]
-                    val rowLimit = popLyricRowLimit((width * .92f - rowTravelX * 2f).coerceAtLeast(1f),
+                    val rowLimit = popLyricRowLimit((width * .92f).coerceAtLeast(1f),
                         typicalHeight, style.layout, style.lineWidthPercent)
                     val availableRows = (height * .9f / (typicalHeight + gap * style.rowGapPercent / 100f))
                         .coerceIn(1f, 2f)
                     return PopScene(candidate, profile,
-                        FloatArray(extents.size) { extents[it].width + gaps[it] }, rowLimit * availableRows,
+                        FloatArray(extents.size) { extents[it].width + gaps[it] },
+                        (rowLimit - rowTravelX * 2f).coerceAtLeast(1f) * availableRows,
                         glyphs, rows, packing.scale, PopStageMotion.path(candidate, glyphs.map {
                         PopCameraPoint(it.slot.x / width.coerceAtLeast(1f) - .5f, it.slot.y / height.coerceAtLeast(1f) - .5f)
                     }, style, bounds, profile), bottom)

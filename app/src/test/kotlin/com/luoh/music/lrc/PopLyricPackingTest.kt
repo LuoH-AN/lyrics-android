@@ -11,11 +11,11 @@ class PopLyricPackingTest {
             val heights = FloatArray(3) { 48f }
             val extents = widths.map { popGlyphExtent(it, 48f, 1.55f, 12f) }
             val packed = packPopLyrics(widths, heights, 800f, 320f, 4f, mode, 1.55f, 12,
-                extents = extents, rowMotionReach = 12f, maxFitScale = 1.8f)
+                extents = extents, rowMotionReach = 12f, maxFitScale = 1.8f, horizontalMotionReach = 20f)
             assertTrue("Short pages should use the spare stage space for larger type", packed.scale > 1.3f)
             for (index in widths.indices) {
                 val slot = packed.slots[index]
-                val halfWidth = extents[index].width * packed.scale / 2f
+                val halfWidth = (extents[index].width / 2f + 20f) * packed.scale
                 val halfHeight = (extents[index].height / 2f + 12f) * packed.scale
                 assertTrue(slot.x - halfWidth >= 0f && slot.x + halfWidth <= 800f)
                 assertTrue(slot.y - halfHeight >= 0f && slot.y + halfHeight <= 320f)
