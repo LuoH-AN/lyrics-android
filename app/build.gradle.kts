@@ -70,6 +70,11 @@ android {
             versionNameSuffix = "-test"
             signingConfig = getByName("debug").signingConfig
             matchingFallbacks += listOf("release")
+            // Daily installation builds still shrink unused code/resources, but
+            // skip R8's expensive optimization passes. Formal releases retain them.
+            if (providers.gradleProperty("fullOptimization").orNull != "true") {
+                proguardFile("proguard-compact.pro")
+            }
         }
     }
 

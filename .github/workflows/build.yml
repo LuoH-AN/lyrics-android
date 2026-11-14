@@ -21,6 +21,10 @@ on:
         description: "Run Android unit and native UI checks (slower)"
         type: boolean
         default: false
+      full_optimization:
+        description: "Use full R8 optimization for the test APK (slower)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -55,7 +59,7 @@ jobs:
       - name: Build compact APK
         run: |
           chmod +x gradlew
-          ./gradlew assembleCompact --stacktrace
+          ./gradlew assembleCompact -PfullOptimization=${{ github.event_name == 'workflow_dispatch' && inputs.full_optimization || false }} --stacktrace
 
       - name: Run optional Android checks
         if: github.event_name == 'workflow_dispatch' && inputs.full_checks

@@ -14,7 +14,7 @@
 
 测试包使用 `com.luoh.music.lrc.dev` 和已有公开调试签名，与正式包分开安装。
 
-默认测试 artifact 现在提供 `compact` 精简包，启用与正式版相同的 R8 优化和资源裁剪；普通 `debug` 构建继续用于原生测试和源码调试。CI 检查签名、包名及 28 MiB 的体积预算，并保存精简包崩溃映射。详见 [APK 体积优化](apk-size.md)。
+默认测试 artifact 提供 `compact` 精简包，启用 R8 代码裁剪、混淆和资源裁剪，跳过耗时的全程序优化；手动勾选 `full_optimization` 可以生成完整优化的测试包。正式版始终完整优化，普通 `debug` 构建用于原生测试和源码调试。CI 检查签名、包名及 28 MiB 的体积预算，并保存精简包崩溃映射。详见 [APK 体积优化](apk-size.md)。
 
 默认仅执行 `assembleCompact`，不构建重复的 debug APK、不运行 Robolectric。保留耗时很短的 Node 检查和 APK 安装信息校验。APK 大小及 SHA-256 显示在 Actions 运行摘要中，组件尺寸可在校验步骤日志中查看。
 
