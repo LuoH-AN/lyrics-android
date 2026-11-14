@@ -353,7 +353,8 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
                     val packing = packPopLyrics(FloatArray(layouts.size) { layouts[it].size.width.toFloat() },
                         FloatArray(layouts.size) { layouts[it].size.height.toFloat() }, (width * .92f - rowTravelX * 2f).coerceAtLeast(1f), height * .9f, gap,
                         style.layout, reservedScale, reservedRotation, measured.groups.penalties, extents, gaps,
-                        gap * style.rowGapPercent / 100f, style.staggerPercent, style.lineWidthPercent, rowTravel)
+                        gap * style.rowGapPercent / 100f, style.staggerPercent, style.lineWidthPercent, rowTravel,
+                        maxFitScale = 1.8f)
                     val travelX = 72f * density.density * style.travelPercent / 100f
                     val travelY = 48f * density.density * style.travelPercent / 100f
                     val glyphs = layouts.mapIndexed { index, layout ->

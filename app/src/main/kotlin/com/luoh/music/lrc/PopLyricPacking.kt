@@ -61,7 +61,7 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
     layoutStyle: String = "staggered", maxScale: Float = PopLyricMotion.MAX_SCALE, rotationDegrees: Int = 20,
     breakPenalties: FloatArray? = null, extents: List<PopGlyphExtent>? = null,
     boundaryGaps: FloatArray? = null, rowGap: Float = gap, indentPercent: Int = 100,
-    lineWidthPercent: Int = 100, rowMotionReach: Float = 0f): PopLyricPacking {
+    lineWidthPercent: Int = 100, rowMotionReach: Float = 0f, maxFitScale: Float = 1f): PopLyricPacking {
     require(widths.size == heights.size && widths.size <= PopLyricTimeline.MAX_TOKENS)
     require(breakPenalties == null || breakPenalties.size == widths.size + 1)
     require(extents == null || extents.size == widths.size)
@@ -132,7 +132,7 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
     }
     val totalHeight = rowHeights.sum() - rowGap
     val totalWidth = rowWidths.maxOrNull() ?: width
-    val fit = min(1f, min(rowLimit / totalWidth.coerceAtLeast(1f), height / totalHeight.coerceAtLeast(1f)))
+    val fit = min(maxFitScale, min(rowLimit / totalWidth.coerceAtLeast(1f), height / totalHeight.coerceAtLeast(1f)))
     val slots = ArrayList<PopLyricSlot>(count)
     var top = (height - totalHeight * fit) / 2f
     val indent = min(width * .16f, typicalHeight * .9f) * fit * indentPercent / 100f

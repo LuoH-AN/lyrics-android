@@ -5,6 +5,27 @@ import org.junit.Test
 import kotlin.math.abs
 
 class PopLyricPackingTest {
+    @Test fun sparsePagesEnlargeTheirTypeWithinTheActualMotionBounds() {
+        for (mode in listOf("centered", "staggered", "stairs")) {
+            val widths = floatArrayOf(42f, 42f, 42f)
+            val heights = FloatArray(3) { 48f }
+            val extents = widths.map { popGlyphExtent(it, 48f, 1.55f, 12f) }
+            val packed = packPopLyrics(widths, heights, 800f, 320f, 4f, mode, 1.55f, 12,
+                extents = extents, rowMotionReach = 12f, maxFitScale = 1.8f)
+            assertTrue("Short pages should use the spare stage space for larger type", packed.scale > 1.3f)
+            for (index in widths.indices) {
+                val slot = packed.slots[index]
+                val halfWidth = extents[index].width * packed.scale / 2f
+                val halfHeight = (extents[index].height / 2f + 12f) * packed.scale
+                assertTrue(slot.x - halfWidth >= 0f && slot.x + halfWidth <= 800f)
+                assertTrue(slot.y - halfHeight >= 0f && slot.y + halfHeight <= 320f)
+            }
+            val smallStage = packPopLyrics(widths, heights, 160f, 100f, 4f, mode, 1.55f, 12,
+                extents = extents, rowMotionReach = 12f, maxFitScale = 1.8f)
+            assertTrue(smallStage.scale < packed.scale)
+        }
+    }
+
     @Test fun lineLengthPreferenceChangesRowsOnPhoneSizedStages() {
         for (mode in listOf("centered", "staggered", "stairs")) {
             fun pack(percent: Int) = packPopLyrics(FloatArray(12) { 40f }, FloatArray(12) { 70f },
