@@ -66,6 +66,10 @@ internal fun PopLyricsStage(state: HomePresentationState, modifier: Modifier, al
     val foreground = if (albumBackground) Color.White else MaterialTheme.colorScheme.onSurface
     val activeColor = if (albumBackground) Color.White else MaterialTheme.colorScheme.primary
     val nextLineMs = document.lines.getOrNull(index + 1)?.startMs
+    val gapStartMs = line?.let {
+        val end = LyricTiming.lineEnd(it)
+        end.takeIf { (nextLineMs ?: state.clock.durationMs) - end > 4500L }
+    }
 
     LaunchedEffect(document, timeline, state.presentationActive, state.playing, state.playbackRevision,
         state.displayOffsetMs, allowMotion) {
@@ -80,11 +84,12 @@ internal fun PopLyricsStage(state: HomePresentationState, modifier: Modifier, al
         while (state.presentationActive && state.playing) {
             val now = position.longValue
             if (state.clock.durationMs > 0L && state.clock.positionMs() >= state.clock.durationMs) break
+            val nextBoundary = gapStartMs?.takeIf { it > now } ?: nextLineMs
             // Stable words need no frames until a word boundary. Gaps keep a determinate progress bar.
             val waitMs = when {
                 interlude != null -> 0L
-                !allowMotion || timeline == null -> ((nextLineMs ?: state.clock.durationMs) - now).coerceIn(1L, 1000L)
-                else -> timeline.nextChangeDelayMs(now, nextLineMs)
+                !allowMotion || timeline == null -> ((nextBoundary ?: state.clock.durationMs) - now).coerceIn(1L, 1000L)
+                else -> timeline.nextChangeDelayMs(now, nextBoundary)
             }
             if (waitMs > 0L) delay((waitMs / state.clock.speed).toLong().coerceIn(1L, 1000L))
             withFrameNanos { frame ->
@@ -135,6 +140,7 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, position: State<Long>, ap
     val density = LocalDensity.current
     val textStyle = MaterialTheme.typography.headlineLarge.copy(
         fontSize = (appearance.fontSize + 6).coerceAtMost(48).sp,
+        lineHeight = ((appearance.fontSize + 6).coerceAtMost(48) * 1.3f).sp,
         fontWeight = FontWeight(appearance.fontWeight), color = foreground,
     )
     BoxWithConstraints(modifier.clipToBounds()) {

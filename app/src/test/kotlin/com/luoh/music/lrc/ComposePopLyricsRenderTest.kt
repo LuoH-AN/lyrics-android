@@ -75,7 +75,7 @@ class ComposePopLyricsRenderTest {
         }
         val first = capture(1100, "pop-first-word")
         val second = capture(2500, "pop-second-word")
-        val complete = capture(4500, "pop-complete-sentence")
+        val complete = capture(4200, "pop-complete-sentence")
         assertTrue("The native canvas must draw the first word", first > 0)
         assertTrue("A later word must enter while the previous word stays visible", second > first)
         assertTrue("The complete sentence must retain the sung words", complete > second)
