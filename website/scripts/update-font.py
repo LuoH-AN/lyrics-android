@@ -4,6 +4,7 @@ import json
 from html.parser import HTMLParser
 from pathlib import Path
 import re
+from fontTools.ttLib import TTFont
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -27,7 +28,9 @@ def read(url):
 
 parser = Text()
 parser.feed((ROOT / "index.html").read_text())
-chars = "".join(sorted(set("".join(parser.text) + (ROOT / "app.js").read_text() + "".join(chr(i) for i in range(32, 127)))))
+showcase_text = "".join(p.read_text() for p in sorted((ROOT / 'showcase').glob('*'))
+                        if p.suffix in {'.html', '.js', '.mjs'})
+chars = "".join(sorted(set("".join(parser.text) + (ROOT / "app.js").read_text() + showcase_text + "".join(chr(i) for i in range(32, 127)))))
 url = "https://fonts.googleapis.com/css2?" + urlencode({"family": "Noto Sans SC:wght@100..900", "display": "swap", "text": chars})
 css = read(url).decode()
 urls = list(dict.fromkeys(re.findall(r"url\(([^)]+)\)", css)))
@@ -40,6 +43,10 @@ assert b"SIL OPEN FONT LICENSE" in license_text
 folder = ROOT / "fonts"
 folder.mkdir(exist_ok=True)
 (folder / "lyrics-sans.woff2").write_bytes(font)
+# The offline Skia renderer and browser load the same outlines from a portable TTF.
+motion_font = TTFont(folder / 'lyrics-sans.woff2')
+motion_font.flavor = None
+motion_font.save(folder / 'lyrics-motion.ttf')
 (folder / "OFL.txt").write_bytes(license_text)
 (folder / "glyphs.txt").write_text(chars + "\n")
 (folder / "manifest.json").write_text(json.dumps({"family": "Noto Sans SC", "weight": "100 900", "source": "Google Fonts official subset", "url": urls[0], "license_url": license_url, "sha256": hashlib.sha256(font).hexdigest(), "bytes": len(font)}, ensure_ascii=False, indent=2) + "\n")

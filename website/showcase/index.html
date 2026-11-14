@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f4f0">
+  <meta name="description" content="可以亲手操作的桌面歌词介绍：播放、拖动时间轴，体验错落、居中和阶梯歌词。">
+  <title>让每一句，都有回响。— 桌面歌词</title>
+  <link rel="canonical" href="https://luoh-an.github.io/lyrics-android/showcase/">
+  <link rel="icon" href="../assets/app-icon.svg" type="image/svg+xml">
+  <link rel="preload" href="../fonts/lyrics-motion.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="showcase.css">
+  <script type="module" src="player.js"></script>
+</head>
+<body>
+  <header>
+    <a class="brand" href="../">桌面歌词</a>
+    <a href="https://github.com/LuoH-AN/lyrics-android/releases/latest">下载 Android 版 <span aria-hidden="true">↗</span></a>
+  </header>
+  <main>
+    <h1 class="sr-only">让每一句，都有回响。</h1>
+    <div class="stage" id="stage" aria-busy="true">
+      <canvas id="film" role="img" aria-label="桌面歌词交互介绍：手机展示、逐词跃动和品牌收尾。点击画面播放或暂停。" tabindex="0"></canvas>
+      <div class="loading" id="loading" role="status">正在准备画面…</div>
+    </div>
+    <section class="controls" aria-label="介绍动画控制">
+      <div class="transport">
+        <button id="play" type="button" disabled>播放介绍</button>
+        <button id="sound" type="button" aria-pressed="false" disabled>开启音乐</button>
+        <output id="time" aria-label="播放时间" aria-live="off">00:00 / 00:18</output>
+      </div>
+      <label class="sr-only" for="timeline">播放进度</label>
+      <input id="timeline" type="range" min="0" max="18" step="0.008333333" value="0" aria-valuetext="0 秒，共 18 秒" disabled>
+      <div class="choices" role="group" aria-label="歌词排布">
+        <span>亲手试试</span>
+        <button data-mode="auto" type="button" aria-pressed="true" disabled>自动演示</button>
+        <button data-mode="staggered" type="button" aria-pressed="false" disabled>错落</button>
+        <button data-mode="centered" type="button" aria-pressed="false" disabled>居中</button>
+        <button data-mode="stairs" type="button" aria-pressed="false" disabled>阶梯</button>
+      </div>
+      <p class="hint">拖动进度，停在喜欢的一刻。选择排布，看看文字如何落下。</p>
+      <p class="caption">交互概念演示，使用原创示例歌词与合成配乐。</p>
+      <noscript><p>启用 JavaScript 后可播放和操作介绍动画。</p></noscript>
+    </section>
+  </main>
+  <footer>
+    <a href="../">回到官网</a>
+    <a href="https://github.com/LuoH-AN/lyrics-android/actions/workflows/showcase-video.yml">下载视频成片 <span aria-hidden="true">↗</span></a>
+  </footer>
+</body>
+</html>

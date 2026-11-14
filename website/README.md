@@ -4,7 +4,7 @@ https://luoh-an.github.io/lyrics-android/
 
 原生 HTML/CSS/JavaScript 静态站，无运行时 npm 依赖。参考 Agora 官网的留白和大标题，以独立排版实现。
 
-## 视觉约束
+## 首页视觉约束
 
 - 所有网页文字至少 18px，禁止小字脚注、英文角标、装饰编号。
 - 不堆卡片、网格、轨道、图标、阴影和入场动画。
@@ -14,9 +14,10 @@ https://luoh-an.github.io/lyrics-android/
 
 ## 字体
 
-站点本地托管 Noto Sans SC 可变字体子集，覆盖当前 `index.html` 与 `app.js` 文案，约 114 KB，字重范围 100–900。浏览器从本站加载，不访问 Google Fonts。
+站点本地托管 Noto Sans SC 可变字体子集，覆盖首页与介绍动画文案，字重范围 100–900。浏览器从本站加载，不访问 Google Fonts。
 
-- `fonts/lyrics-sans.woff2`：字体文件。
+- `fonts/lyrics-sans.woff2`：首页字体文件。
+- `fonts/lyrics-motion.ttf`：介绍动画与离线渲染共用的同源字体。
 - `fonts/OFL.txt`：随站点一起发布的 SIL OFL 1.1 许可。
 - `fonts/glyphs.txt`：请求的字符集。
 - `fonts/manifest.json`：官方来源与校验值。
@@ -31,7 +32,7 @@ https://luoh-an.github.io/lyrics-android/
 2. 执行静态构建，复制页面、字体和许可。
 3. 上传 GitHub Pages 产物并发布。
 
-**不安装 npm 依赖、不安装浏览器、不跑截图或回归测试、不做多轮公网检查。** PR 不部署。Pages 环境只允许 main；不改域名，不发布 APK。Android `build.yml` 已忽略官网、文档及网页工作流的独立修改；涉及 Android 代码的提交仍正常测试。
+**不安装 npm 依赖、不安装浏览器、不跑截图或回归测试、不做多轮公网检查。** PR 不部署。Pages 环境只允许 main；不改域名，不发布 APK。Android `build.yml` 已忽略官网、文档及网页工作流的独立修改；涉及 Android 代码的提交仍正常构建。
 
 如果页面需要回退，恢复对应官网文件并推送 main，再由同一流程发布。官网内容使用相对路径；canonical、og:url 与 sitemap 指向正式地址，变更域名时需同步修改。
 
@@ -63,3 +64,9 @@ npm test
 网页演示使用原创示例文案，不读取音乐、麦克风或通知；页面无分析脚本、Cookie、持久存储、外部字体请求或自动 API 请求。点击外链才访问对应服务。网站行为与 Android 应用的联网行为是两回事。
 
 维护入口：`index.html`（文案与布局）、`styles.css`（字体与响应式）、`app.js`（交互）、`scripts/`（构建和预览）。保留仓库原有上游署名及许可边界，歌词平台名称不代表合作或兼容保证。
+
+## 交互介绍与 MP4
+
+`showcase/` 是独立的产品介绍页，包含手机插画、镜头衔接、逐词动画及原创合成配乐。首页增加「动画介绍」入口。页面可以播放、暂停、拖动时间轴及选择三种排布；桌面横向、手机竖向构图。浏览器默认静音播放，音乐需用户主动开启，并在 Worker 中生成音轨。
+
+网页和 Actions 视频共用 `scene.mjs` 与 `audio.mjs`。`Render introduction video` 独立工作流默认生成 18 秒、1080p、120 fps 的 H.264 / AAC MP4；按需可选 720p 或 30/60 fps。工作流只安装原生 Canvas 渲染器并执行 FFmpeg，不安装浏览器、不运行测试。详情见 [介绍视频构建](../docs/development/showcase-video.md)。

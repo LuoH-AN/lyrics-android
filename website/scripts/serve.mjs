@@ -5,13 +5,16 @@ import path from 'node:path';
 
 const root = fileURLToPath(new URL('../dist/', import.meta.url));
 const port = Number(process.env.PORT || 4173);
-const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.xml': 'application/xml; charset=utf-8', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8' };
-const allowed = new Set(['index.html', 'styles.css', 'app.js', 'assets/app-icon.svg', 'sitemap.xml', 'fonts/lyrics-sans.woff2', 'fonts/OFL.txt']);
+const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.xml': 'application/xml; charset=utf-8', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.txt': 'text/plain; charset=utf-8' };
+const allowed = new Set(['index.html', 'styles.css', 'app.js', 'assets/app-icon.svg', 'sitemap.xml',
+  'fonts/lyrics-sans.woff2', 'fonts/lyrics-motion.ttf', 'fonts/OFL.txt',
+  'showcase/index.html', 'showcase/showcase.css', 'showcase/player.js', 'showcase/scene.mjs', 'showcase/audio.mjs', 'showcase/audio-worker.mjs']);
 const server = http.createServer(async (request, response) => {
   try {
     const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
     // Serve both / and a project subdirectory, as on GitHub Pages.
-    const relative = pathname.replace(/^\/(?:lyrics-android\/)?/, '') || 'index.html';
+    let relative = pathname.replace(/^\/(?:lyrics-android\/)?/, '') || 'index.html';
+    if (relative === 'showcase' || relative === 'showcase/') relative = 'showcase/index.html';
     if (!['GET', 'HEAD'].includes(request.method) || !allowed.has(relative)) {
       response.writeHead(404); response.end('Not found'); return;
     }

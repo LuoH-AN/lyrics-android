@@ -8,6 +8,8 @@ on:
       - "docs/**"
       - "**/*.md"
       - ".github/workflows/website*.yml"
+      - ".github/workflows/showcase-video.yml"
+      - "tools/showcase-video/**"
   pull_request:
     branches: [main]
     paths-ignore:
@@ -15,6 +17,8 @@ on:
       - "docs/**"
       - "**/*.md"
       - ".github/workflows/website*.yml"
+      - ".github/workflows/showcase-video.yml"
+      - "tools/showcase-video/**"
   workflow_dispatch:
     inputs:
       full_checks:
