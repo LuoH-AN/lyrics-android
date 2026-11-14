@@ -66,7 +66,8 @@ class PopLyricPagesTest {
         assertEquals(PopPhraseWindow(0, null), window(source[4].endMs + 100))
         assertEquals(PopPhraseWindow(1, 0), window(start))
         assertEquals(PopPhraseWindow(1, 0), window(start + 90))
-        assertEquals(PopPhraseWindow(1, null), window(start + 180))
+        assertEquals(PopPhraseWindow(1, 0), window(start + 180))
+        assertEquals(PopPhraseWindow(1, null), window(start + 260))
         // Pause/seek can settle directly on the current phrase without stale predecessors.
         assertEquals(PopPhraseWindow(1, null), window(start, false))
         assertEquals(PopPhraseWindow(0, null), window(1000, false))
@@ -80,7 +81,7 @@ class PopLyricPagesTest {
         val handoffs = popPhraseHandoffs(pages, timeline)
         val start = timeline.tokens[6].startMs
         assertEquals(PopPhraseWindow(2, 1), popPhraseWindow(pages, timeline, handoffs, start, true))
-        assertEquals(PopPhraseWindow(2, null), popPhraseWindow(pages, timeline, handoffs, start + 180, true))
+        assertEquals(PopPhraseWindow(2, null), popPhraseWindow(pages, timeline, handoffs, start + 260, true))
         val fast = PopLyricTimeline(listOf(PopLyricToken("你", 1000, 1080), PopLyricToken("好", 1080, 1160)), true)
         val fastPages = listOf(PopLyricPage(0, 1), PopLyricPage(1, 2))
         assertEquals(PopPhraseWindow(1, null), popPhraseWindow(fastPages, fast,

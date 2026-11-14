@@ -19,7 +19,7 @@ class PopLyricsStyleTest {
             cameraPercent = -10, rotationDegrees = 90, groupGapDp = 999, innerGapDp = -5,
             rowGapPercent = 999, lineWidthPercent = 999, staggerPercent = -5, rowMotionPercent = 999,
             cameraSpeedPercent = 999, textHoldMs = 9999, passedOpacityPercent = -5, semanticGrouping = false,
-            dynamicSpacing = false, adaptiveTiming = false, paginate = false, pageLength = 999)
+            dynamicSpacing = false, adaptiveTiming = false, paginate = false, pageLength = 999, sustainShakePercent = 999)
         PopLyricsPrefs.save(context, style)
         val saved = PopLyricsPrefs.style(context)
         assertEquals("character", saved.reveal)
@@ -34,6 +34,7 @@ class PopLyricsStyleTest {
         assertEquals(800, saved.textHoldMs)
         assertFalse(saved.paginate)
         assertEquals(24, saved.pageLength)
+        assertEquals(200, saved.sustainShakePercent)
         assertEquals(HomeLyricsPrefs.POP, HomeLyricsPrefs.displayMode(context))
         PopLyricsPrefs.save(context, PopLyricsStyle())
         assertEquals(PopLyricsStyle(), PopLyricsPrefs.style(context))

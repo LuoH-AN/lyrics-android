@@ -890,6 +890,9 @@ private fun PopLyricSettings(context: Context, revision: Int) {
         { SettingsSliderItem("文字旋转", style.rotationDegrees, 0..30, 1, "°", Icons.Default.Sync) {
             value -> save { it.copy(rotationDegrees = value) }
         } },
+        { SettingsSliderItem("长音抖动", style.sustainShakePercent, 0..200, 10, "%", Icons.Default.Sync) {
+            value -> save { it.copy(sustainShakePercent = value) }
+        } },
     ))
     SettingsGroup(title = "舞台与镜头", items = listOf(
         { SettingsChoiceItem("镜头运动", style.camera,

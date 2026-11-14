@@ -31,6 +31,7 @@ internal data class PopLyricsStyle(
     val passedOpacityPercent: Int = 72,
     val paginate: Boolean = true,
     val pageLength: Int = 10,
+    val sustainShakePercent: Int = 100,
 ) {
     fun normalized() = copy(
         preset = preset.takeIf { it in listOf("calm", "flow", "dynamic", "custom") } ?: "custom",
@@ -48,6 +49,7 @@ internal data class PopLyricsStyle(
         cameraSpeedPercent = cameraSpeedPercent.coerceIn(50, 180), textHoldMs = textHoldMs.coerceIn(0, 800),
         passedOpacityPercent = passedOpacityPercent.coerceIn(0, 100),
         pageLength = pageLength.coerceIn(4, 24),
+        sustainShakePercent = sustainShakePercent.coerceIn(0, 200),
         transition = transition.takeIf { it in listOf("fade", "slide", "zoom") } ?: "fade",
     )
     val maxWordScale get() = activeScalePercent / 100f + (activeScalePercent / 100f - .5f) * .10f
@@ -81,7 +83,8 @@ internal object PopLyricsPrefs {
             prefs.getInt(KEY + "camera_speed", defaults.cameraSpeedPercent),
             prefs.getBoolean(KEY + "adaptive_timing", defaults.adaptiveTiming),
             prefs.getInt(KEY + "text_hold", defaults.textHoldMs), prefs.getInt(KEY + "passed_opacity", defaults.passedOpacityPercent),
-            prefs.getBoolean(KEY + "paginate", defaults.paginate), prefs.getInt(KEY + "page_length", defaults.pageLength)).normalized()
+            prefs.getBoolean(KEY + "paginate", defaults.paginate), prefs.getInt(KEY + "page_length", defaults.pageLength),
+            prefs.getInt(KEY + "sustain_shake", defaults.sustainShakePercent)).normalized()
     }
     fun save(context: Context, value: PopLyricsStyle) {
         val style = value.normalized()
@@ -100,6 +103,7 @@ internal object PopLyricsPrefs {
             .putInt(KEY + "stagger", style.staggerPercent).putInt(KEY + "row_motion", style.rowMotionPercent)
             .putInt(KEY + "camera_speed", style.cameraSpeedPercent).putBoolean(KEY + "adaptive_timing", style.adaptiveTiming)
             .putInt(KEY + "text_hold", style.textHoldMs).putInt(KEY + "passed_opacity", style.passedOpacityPercent)
-            .putBoolean(KEY + "paginate", style.paginate).putInt(KEY + "page_length", style.pageLength).apply()
+            .putBoolean(KEY + "paginate", style.paginate).putInt(KEY + "page_length", style.pageLength)
+            .putInt(KEY + "sustain_shake", style.sustainShakePercent).apply()
     }
 }

@@ -255,14 +255,13 @@ private data class PopGlyph(val layout: TextLayoutResult, val slot: PopLyricSlot
 private data class PopRow(val from: Int, val until: Int, val startMs: Long, val entranceMs: Long,
     val passStartMs: Long, val passMs: Long, val travel: Float, val travelX: Float, val center: Offset)
 private data class PopScene(val timeline: PopLyricTimeline, val timing: PopLyricRenderTiming,
-    val reservedWidths: FloatArray, val pageWidthBudget: Float, val glyphs: List<PopGlyph>, val rows: List<PopRow>, val scale: Float,
-    val cameraPath: PopCameraPath, val bottom: Float)
+    val glyphs: List<PopGlyph>, val rows: List<PopRow>, val scale: Float, val bounds: PopCameraBounds, val bottom: Float)
 private data class PopMeasureKey(val timeline: PopLyricTimeline, val textStyle: androidx.compose.ui.text.TextStyle,
     val width: Int, val semantic: Boolean, val density: Float, val fontScale: Float)
 private data class PopMeasured(val layouts: List<TextLayoutResult>, val groups: PopLyricGroups,
     val timeline: PopLyricTimeline, val sourceIndices: List<Int>)
 private data class PopScenes(val timeline: PopLyricTimeline, val ranges: List<PopLyricPage>, val pages: List<PopScene>,
-    val handoffs: List<PopPhraseHandoff>)
+    val handoffs: List<PopPhraseHandoff>, val cameraPath: PopCameraPath)
 private data class PopSceneKey(val measured: PopMeasured, val timeline: PopLyricTimeline, val timing: PopLyricRenderTiming,
     val width: Float, val height: Float, val gap: Float, val density: Float, val style: PopLyricsStyle, val accent: Color)
 private class PopRenderCache {
@@ -312,83 +311,101 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
                     measured.sourceIndices.map { profile.entranceMs[it] }.toLongArray(),
                     measured.sourceIndices.map { profile.lookaheadMs[it] }.toLongArray(),
                     measured.sourceIndices.map { profile.passStartMs[it] }.toLongArray(),
-                    measured.sourceIndices.map { profile.passMs[it] }.toLongArray())
+                    measured.sourceIndices.map { profile.passMs[it] }.toLongArray(),
+                    measured.sourceIndices.map { profile.sustain.getOrNull(it) })
+                val layouts = measured.layouts
+                val reservedScale = if (renderTimeline.wordTimed) style.maxWordScale else 1f
+                val reservedRotation = if (renderTimeline.wordTimed) style.rotationDegrees else 0
+                // Plan every glyph once. Phrase boundaries must not reseed its size or angle.
+                val emphasis = FloatArray(layouts.size) { 1f }
+                if (renderTimeline.wordTimed) for ((groupIndex, group) in measured.groups.units.withIndex()) {
+                    val seed = Math.floorMod(renderTimeline.startMs + groupIndex * 137L +
+                        renderTimeline.tokens[group.from].text.hashCode(), 997L) / 997f
+                    val sustain = (group.from until group.until).maxOf {
+                        renderTimeline.tokens[it].endMs - renderTimeline.tokens[it].startMs
+                    }.coerceIn(0L, 1000L) / 1000f
+                    val variation = if (style.layout == "centered") .6f else 1f
+                    val phraseScale = 1f + (-.08f + seed * .27f + sustain * .12f) * variation
+                    for (index in group.from until group.until) emphasis[index] = phraseScale
+                }
+                val angles = FloatArray(layouts.size) { index ->
+                    val seed = Math.floorMod(renderTimeline.tokens[index].text.hashCode().toLong() + index * 17L, 997L).toFloat()
+                    if (renderTimeline.wordTimed) ((seed % 7f) - 3f) * style.rotationDegrees / 20f else 0f
+                }
+                val extents = layouts.mapIndexed { index, layout ->
+                    val shake = renderTiming.sustain[index]
+                    val glyphScale = reservedScale * emphasis[index] * 1.015f
+                    val maxAngle = maxOf(kotlin.math.abs(angles[index]) + reservedRotation * .1f,
+                        kotlin.math.abs(angles[index] + reservedRotation)) + (shake?.reachDegrees ?: 0f)
+                    val extent = if (style.dynamicSpacing) popGlyphExtent(layout.size.width.toFloat(),
+                        layout.size.height.toFloat(), glyphScale, maxAngle) else {
+                        val reach = (sin((reservedRotation + (shake?.reachDegrees ?: 0f)) * 1.15 * Math.PI / 180) * reservedScale).toFloat()
+                        PopGlyphExtent((layout.size.width * reservedScale + layout.size.height * reach) * emphasis[index] * 1.015f,
+                            (layout.size.height * reservedScale + layout.size.width * reach) * emphasis[index] * 1.015f)
+                    }
+                    PopGlyphExtent(extent.width + (shake?.reachXDp ?: 0f) * density.density * 2f * glyphScale,
+                        extent.height + (shake?.reachYDp ?: 0f) * density.density * 2f * glyphScale)
+                }
+                val gaps = FloatArray(layouts.size + 1) { index ->
+                    (if (measured.groups.tightBoundaries[index]) style.innerGapDp else style.groupGapDp) * density.density
+                }
+                val rowTravel = if (renderTimeline.wordTimed && profile.transitionMs > 0)
+                    20f * density.density * style.rowMotionPercent / 100f else 0f
+                val rowTravelX = rowTravel * 1.6f
+                val typicalHeight = extents.map { it.height + rowTravel * 2f }.sorted()[extents.size / 2]
+                val rowLimit = popLyricRowLimit((width * .92f).coerceAtLeast(1f), typicalHeight, style.layout, style.lineWidthPercent)
+                val availableRows = (height * .9f / (typicalHeight + gap * style.rowGapPercent / 100f)).coerceIn(1f, 2f)
+                // Pagination needs widths, not an expensive layout of the entire long sentence.
+                val ranges = if (style.paginate && renderTimeline.wordTimed) paginatePopLyrics(
+                    renderTimeline.tokens, measured.groups.penalties,
+                    FloatArray(extents.size) { extents[it].width + gaps[it] },
+                    (rowLimit - rowTravelX * 2f).coerceAtLeast(1f) * availableRows, style.pageLength)
+                    else listOf(PopLyricPage(0, renderTimeline.tokens.size))
                 fun buildPage(page: PopLyricPage): PopScene {
                     val tokens = renderTimeline.tokens.subList(page.from, page.until)
-                    val candidate = PopLyricTimeline(tokens, renderTimeline.wordTimed,
+                    val timeline = PopLyricTimeline(tokens, renderTimeline.wordTimed,
                         if (page.from == 0) renderTimeline.startMs else tokens.first().startMs,
                         renderTimeline.tokens.getOrNull(page.until)?.startMs ?: renderTimeline.endMs)
-                    val profile = PopLyricRenderTiming(renderTiming.transitionMs,
+                    val timing = PopLyricRenderTiming(renderTiming.transitionMs,
                         renderTiming.entranceMs.copyOfRange(page.from, page.until),
                         renderTiming.lookaheadMs.copyOfRange(page.from, page.until),
                         renderTiming.passStartMs.copyOfRange(page.from, page.until),
-                        renderTiming.passMs.copyOfRange(page.from, page.until))
-                    val measured = PopMeasured(measured.layouts.subList(page.from, page.until),
-                        groupPopLyrics(tokens, style.semanticGrouping), candidate, emptyList())
-                    val layouts = measured.layouts
-                    val reservedScale = if (candidate.wordTimed) style.maxWordScale else 1f
-                    val reservedRotation = if (candidate.wordTimed) style.rotationDegrees else 0
-                    // A semantic phrase shares its size. Sustained phrases carry more weight,
-                    // with a stable variation so successive phrases build a composition.
-                    val emphasis = FloatArray(layouts.size) { 1f }
-                    if (candidate.wordTimed) for ((groupIndex, group) in measured.groups.units.withIndex()) {
-                        val seed = Math.floorMod(candidate.startMs + groupIndex * 137L +
-                            candidate.tokens[group.from].text.hashCode(), 997L) / 997f
-                        val sustain = (group.from until group.until).maxOf {
-                            candidate.tokens[it].endMs - candidate.tokens[it].startMs
-                        }.coerceIn(0L, 1000L) / 1000f
-                        val variation = if (style.layout == "centered") .6f else 1f
-                        val phraseScale = 1f + (-.08f + seed * .27f + sustain * .12f) * variation
-                        for (index in group.from until group.until) emphasis[index] = phraseScale
-                    }
-                    val angles = FloatArray(layouts.size) { index ->
-                        val seed = Math.floorMod(candidate.tokens[index].text.hashCode().toLong() + index * 17L, 997L).toFloat()
-                        if (candidate.wordTimed) ((seed % 7f) - 3f) * style.rotationDegrees / 20f else 0f
-                    }
-                    val rotationReach = (sin(reservedRotation * 1.15 * Math.PI / 180) * reservedScale).toFloat()
-                    val extents = layouts.mapIndexed { index, layout ->
-                        if (style.dynamicSpacing) popGlyphExtent(layout.size.width.toFloat(), layout.size.height.toFloat(),
-                            reservedScale * emphasis[index] * 1.015f,
-                            maxOf(kotlin.math.abs(angles[index]) + reservedRotation * .1f, kotlin.math.abs(angles[index] + reservedRotation)))
-                        else PopGlyphExtent((layout.size.width * reservedScale + layout.size.height * rotationReach) * emphasis[index] * 1.015f,
-                            (layout.size.height * reservedScale + layout.size.width * rotationReach) * emphasis[index] * 1.015f)
-                    }
-                    val gaps = FloatArray(layouts.size + 1) { index ->
-                        (if (measured.groups.tightBoundaries[index]) style.innerGapDp else style.groupGapDp) * density.density
-                    }
-                    val rowTravel = if (candidate.wordTimed && profile.transitionMs > 0) 20f * density.density * style.rowMotionPercent / 100f else 0f
-                    val rowTravelX = rowTravel * 1.6f
-                    val packing = packPopLyrics(FloatArray(layouts.size) { layouts[it].size.width.toFloat() },
-                        FloatArray(layouts.size) { layouts[it].size.height.toFloat() }, (width * .92f).coerceAtLeast(1f), height * .9f, gap,
-                        style.layout, reservedScale, reservedRotation, measured.groups.penalties, extents, gaps,
+                        renderTiming.passMs.copyOfRange(page.from, page.until),
+                        renderTiming.sustain.subList(page.from, page.until))
+                    val pageLayouts = layouts.subList(page.from, page.until)
+                    val packing = packPopLyrics(FloatArray(tokens.size) { pageLayouts[it].size.width.toFloat() },
+                        FloatArray(tokens.size) { pageLayouts[it].size.height.toFloat() }, (width * .92f).coerceAtLeast(1f), height * .9f, gap,
+                        style.layout, reservedScale, reservedRotation, measured.groups.penalties.copyOfRange(page.from, page.until + 1),
+                        extents.subList(page.from, page.until), gaps.copyOfRange(page.from, page.until + 1),
                         gap * style.rowGapPercent / 100f, style.staggerPercent, style.lineWidthPercent, rowTravel,
                         maxFitScale = 1.8f, horizontalMotionReach = rowTravelX)
                     val travelX = 72f * density.density * style.travelPercent / 100f
                     val travelY = 48f * density.density * style.travelPercent / 100f
-                    val glyphs = layouts.mapIndexed { index, layout ->
+                    val glyphs = pageLayouts.mapIndexed { index, layout ->
+                        val source = page.from + index
                         val packed = packing.slots[index]
                         val slot = PopLyricSlot(packed.x + width * .04f, packed.y + height * .05f)
-                        val seed = Math.floorMod(candidate.tokens[index].text.hashCode().toLong() + index * 17L, 997L).toFloat()
-                        val halfWidth = (extents[index].width / 2f + rowTravelX) * packing.scale
-                        val halfHeight = extents[index].height * packing.scale / 2f + rowTravel * packing.scale
+                        val seed = Math.floorMod(tokens[index].text.hashCode().toLong() + source * 17L, 997L).toFloat()
+                        val halfWidth = (extents[source].width / 2f + rowTravelX) * packing.scale
+                        val halfHeight = (extents[source].height / 2f + rowTravel) * packing.scale
                         val dx = (if (style.entrance == "scatter") sin(seed) * travelX else 0f).coerceIn(
                             (halfWidth - slot.x).coerceAtMost(0f), (width - halfWidth - slot.x).coerceAtLeast(0f))
                         val dy = (when (style.entrance) { "scatter" -> cos(seed) * travelY; "rise" -> travelY; else -> 0f }).coerceIn(
                             (halfHeight - slot.y).coerceAtMost(0f), (height - halfHeight - slot.y).coerceAtLeast(0f))
-                        PopGlyph(layout, slot, angles[index], Offset(dx, dy), emphasis[index],
+                        PopGlyph(layout, slot, angles[source], Offset(dx, dy), emphasis[source],
                             Shadow(activeColor.copy(alpha = .45f), Offset.Zero, 7f * density.density))
                     }
                     val rows = packing.rowStarts.mapIndexed { row, from ->
                         val until = packing.rowStarts.getOrNull(row + 1) ?: glyphs.size
-                        val last = (from until until).maxBy { profile.passStartMs[it] }
-                        PopRow(from, until, candidate.tokens[from].startMs - profile.lookaheadMs[from],
-                            profile.entranceMs[from].coerceAtMost(300L), profile.passStartMs[last],
-                            profile.passMs[last], rowTravel * packing.scale,
+                        val last = (from until until).maxBy { timing.passStartMs[it] }
+                        PopRow(from, until, tokens[from].startMs - timing.lookaheadMs[from],
+                            timing.entranceMs[from].coerceAtMost(300L), timing.passStartMs[last],
+                            timing.passMs[last], rowTravel * packing.scale,
                             rowTravelX * packing.scale * (if (row % 2 == 0) -1f else 1f),
                             Offset((from until until).map { glyphs[it].slot.x }.average().toFloat(), glyphs[from].slot.y))
                     }
-                    fun halfWidth(index: Int) = (extents[index].width / 2f + rowTravelX) * packing.scale
-                    fun halfHeight(index: Int) = (extents[index].height / 2f + rowTravel) * packing.scale
+                    fun halfWidth(index: Int) = (extents[page.from + index].width / 2f + rowTravelX) * packing.scale
+                    fun halfHeight(index: Int) = (extents[page.from + index].height / 2f + rowTravel) * packing.scale
                     val left = glyphs.indices.minOfOrNull { glyphs[it].slot.x - halfWidth(it) } ?: 0f
                     val right = glyphs.indices.maxOfOrNull { glyphs[it].slot.x + halfWidth(it) } ?: width
                     val top = glyphs.indices.minOfOrNull { glyphs[it].slot.y - halfHeight(it) } ?: 0f
@@ -397,27 +414,17 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
                         minOf(0f, (width * .06f - left) / width.coerceAtLeast(1f)) * .8f,
                         maxOf(0f, (width * .94f - right) / width.coerceAtLeast(1f)) * .8f,
                         minOf(0f, (height * .06f - top) / height.coerceAtLeast(1f)) * .7f,
-                        maxOf(0f, (height * .94f - bottom) / height.coerceAtLeast(1f)) * .7f,
-                    )
-                    val typicalHeight = extents.map { it.height + rowTravel * 2f }.sorted()[extents.size / 2]
-                    val rowLimit = popLyricRowLimit((width * .92f).coerceAtLeast(1f),
-                        typicalHeight, style.layout, style.lineWidthPercent)
-                    val availableRows = (height * .9f / (typicalHeight + gap * style.rowGapPercent / 100f))
-                        .coerceIn(1f, 2f)
-                    return PopScene(candidate, profile,
-                        FloatArray(extents.size) { extents[it].width + gaps[it] },
-                        (rowLimit - rowTravelX * 2f).coerceAtLeast(1f) * availableRows,
-                        glyphs, rows, packing.scale, PopStageMotion.path(candidate, glyphs.map {
-                        PopCameraPoint(it.slot.x / width.coerceAtLeast(1f) - .5f, it.slot.y / height.coerceAtLeast(1f) - .5f)
-                    }, style, bounds, profile), bottom)
+                        maxOf(0f, (height * .94f - bottom) / height.coerceAtLeast(1f)) * .7f)
+                    return PopScene(timeline, timing, glyphs, rows, packing.scale, bounds, bottom)
                 }
-                val whole = PopLyricPage(0, renderTimeline.tokens.size)
-                val full = buildPage(whole)
-                val ranges = if (style.paginate && renderTimeline.wordTimed) paginatePopLyrics(
-                    renderTimeline.tokens, measured.groups.penalties, full.reservedWidths,
-                    full.pageWidthBudget, style.pageLength) else listOf(whole)
-                PopScenes(renderTimeline, ranges, if (ranges.size == 1) listOf(full) else ranges.map(::buildPage),
-                    popPhraseHandoffs(ranges, renderTimeline))
+                val pages = ranges.map(::buildPage)
+                // One C1 trajectory spans all phrases; switching text never resets the camera.
+                val bounds = PopCameraBounds(pages.maxOf { it.bounds.minX }, pages.minOf { it.bounds.maxX },
+                    pages.maxOf { it.bounds.minY }, pages.minOf { it.bounds.maxY })
+                val camera = PopStageMotion.path(renderTimeline, pages.flatMap { page -> page.glyphs.map {
+                    PopCameraPoint(it.slot.x / width.coerceAtLeast(1f) - .5f, it.slot.y / height.coerceAtLeast(1f) - .5f)
+                } }, style, bounds, renderTiming)
+                PopScenes(renderTimeline, ranges, pages, popPhraseHandoffs(ranges, renderTimeline), camera)
             }
         }
         val scenes = remember(timeline, timing, textStyle, density, width, height, gap, style, activeColor) { scene(timeline, timing) }
@@ -436,7 +443,7 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
         }
         if (preheatOnly) return@BoxWithConstraints
         SideEffect {
-            if (cameraPath != null) cameraPath.value = current.cameraPath
+            if (cameraPath != null) cameraPath.value = scenes.cameraPath
             if (contentBottom != null) contentBottom.value = maxOf(current.bottom,
                 window.retiring?.let { scenes.pages[it].bottom } ?: 0f)
             if (phraseMotionUntil != null) phraseMotionUntil.value = if (window.retiring == null) null else
@@ -446,16 +453,16 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
             text = AnnotatedString(current.timeline.tokens.joinToString("") { it.text })
         }) {
             val now = position.value
-            fun drawPhrase(page: PopScene, phraseAlpha: Float, offsetY: Float, retiring: Boolean) {
+            fun drawPhrase(page: PopScene, phraseAlpha: Float, offsetY: Float) {
                 if (phraseAlpha <= 0f) return
                 val timeline = page.timeline
                 val timing = page.timing
                 val animated = timeline.wordTimed && allowMotion
                 withTransform({ translate(0f, offsetY) }) {
                     for (row in page.rows) {
-                        val enteredRow = if (animated && !retiring && row.entranceMs > 0L)
+                        val enteredRow = if (animated && row.entranceMs > 0L)
                             PopLyricMotion.enter(now - row.startMs, row.entranceMs) else 1f
-                        val passedRow = if (retiring) 1f else if (animated && row.passMs > 0L)
+                        val passedRow = if (animated && row.passMs > 0L)
                             PopLyricMotion.pass(now - row.passStartMs, row.passMs) else 0f
                         val rowY = if (animated) row.travel * (1f - enteredRow + passedRow * (1f - passedRow) * .3f) else 0f
                         withTransform({
@@ -466,28 +473,30 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
                             for (index in row.from until row.until) {
                                 val token = timeline.tokens[index]
                                 val elapsed = now - (token.startMs - timing.lookaheadMs[index] + token.visualDelayMs)
-                                if (animated && !retiring && elapsed < 0L) continue
-                                val entered = if (animated && !retiring && timing.entranceMs[index] > 0L)
+                                if (animated && elapsed < 0L) continue
+                                val entered = if (animated && timing.entranceMs[index] > 0L)
                                     PopLyricMotion.enter(elapsed, timing.entranceMs[index]) else 1f
-                                val passed = if (retiring) 1f else if (animated && timing.passMs[index] > 0L)
+                                val passed = if (animated && timing.passMs[index] > 0L)
                                     PopLyricMotion.pass(now - timing.passStartMs[index], timing.passMs[index]) else if (animated && now >= timing.passStartMs[index]) 1f else 0f
                                 val fadeMs = minOf(65L, timing.entranceMs[index]).coerceAtLeast(1L)
-                                val wordAlpha = if (animated) (if (retiring || timing.entranceMs[index] == 0L) 1f else (elapsed.toFloat() / fadeMs).coerceIn(0f, 1f)) *
+                                val wordAlpha = if (animated) (if (timing.entranceMs[index] == 0L) 1f else (elapsed.toFloat() / fadeMs).coerceIn(0f, 1f)) *
                                     (1f - passed * (1f - style.passedOpacityPercent / 100f)) else 1f
                                 val entranceScale = .5f + entered * (style.activeScalePercent / 100f - .5f)
                                 val scale = if (animated) (entranceScale + (1f - entranceScale) * passed)
                                     .coerceIn(.5f, style.maxWordScale) else 1f
                                 val glyph = page.glyphs[index]
+                                val shake = PopSustainMotion.sample(if (animated && playing) timing.sustain.getOrNull(index) else null, now)
                                 withTransform({
                                     // Preserve the negative overshoot: the word lands, rebounds, then settles.
                                     val remaining = if (animated) 1f - entered else 0f
                                     translate(glyph.slot.x + glyph.entranceOffset.x * remaining, glyph.slot.y + glyph.entranceOffset.y * remaining)
                                     scale(page.scale * scale * glyph.baseScale, page.scale * scale * glyph.baseScale, pivot = Offset.Zero)
-                                    if (animated) rotate(glyph.angle * (1f - passed * .65f) + style.rotationDegrees * (1f - entered), pivot = Offset.Zero)
+                                    translate(shake.xDp * density.density, shake.yDp * density.density)
+                                    if (animated) rotate(glyph.angle * (1f - passed * .65f) + style.rotationDegrees * (1f - entered) + shake.degrees, pivot = Offset.Zero)
                                     translate(-glyph.layout.size.width / 2f, -glyph.layout.size.height / 2f)
                                 }) {
                                     drawText(glyph.layout, color = if (animated) lerp(activeColor, foreground, passed) else foreground,
-                                        alpha = wordAlpha * phraseAlpha, shadow = if (animated && !retiring && now >= token.startMs && now < token.endMs)
+                                        alpha = wordAlpha * phraseAlpha, shadow = if (animated && now >= token.startMs && now < token.endMs)
                                             glyph.glow else Shadow.None)
                                 }
                             }
@@ -498,8 +507,8 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
             val handoff = scenes.handoffs[window.current]
             val progress = if (window.retiring != null) PopLyricMotion.pass(now - handoff.startMs, handoff.durationMs) else 1f
             val travel = (height * .025f).coerceAtMost(12f * density.density)
-            window.retiring?.let { drawPhrase(scenes.pages[it], 1f - progress, -travel * progress, true) }
-            drawPhrase(current, progress, travel * (1f - progress), false)
+            window.retiring?.let { drawPhrase(scenes.pages[it], 1f - progress, -travel * progress) }
+            drawPhrase(current, progress, travel * (1f - progress))
         }
     }
 }

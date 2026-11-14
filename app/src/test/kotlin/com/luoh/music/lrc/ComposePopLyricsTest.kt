@@ -131,6 +131,28 @@ class ComposePopLyricsTest {
         compose.runOnIdle { assertEquals(line, requireNotNull(state.shareDraft).lines.single()) }
     }
 
+    @Test fun phraseChangesReuseOneContinuousCameraPathForTheWholeSentence() {
+        val text = "牵着你的手一阵莫名感动让我一直陪你到天亮"
+        state.setLyrics(LyricDocument(listOf(LyricLine(1000, text, endMs = 11000,
+            words = text.mapIndexed { index, character -> LyricWord(1000 + index * 250L, 250, character.toString()) }))), true)
+        state.setProgress(1800, false)
+        val style = PopLyricsStyle(pageLength = 4)
+        lateinit var observed: PopPlaybackFrame
+        compose.setContent {
+            CompositionLocalProvider(LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduceMotion = true)) {
+                val frame = rememberPopPlayback(state, style)
+                MaterialTheme { PopLyricsStage(state, Modifier.size(400.dp, 700.dp), false,
+                    HomeLyricAppearance(), style, frame) }
+                SideEffect { observed = frame }
+            }
+        }
+        val path = compose.runOnIdle { requireNotNull(observed.cameraPath.value) }
+        compose.runOnIdle { state.setProgress(6000, false) }
+        compose.runOnIdle { assertSame("Changing phrases must not restart the camera", path, observed.cameraPath.value) }
+        compose.runOnIdle { state.setProgress(1800, false) }
+        compose.runOnIdle { assertSame(path, observed.cameraPath.value) }
+    }
+
     @Test fun upcomingTimelineAndVisualTimingAreReusedAfterPreheatAndSeeking() {
         // A frozen playback clock must not be paired with an automatically advancing
         // frame clock: the playing effect would keep requesting virtual frames forever.

@@ -83,7 +83,7 @@ internal fun popPhraseHandoffs(pages: List<PopLyricPage>, timeline: PopLyricTime
         val start = timeline.tokens[page.from].startMs
         val next = pages.getOrNull(index + 1)?.let { timeline.tokens[it.from].startMs } ?: timeline.endMs
         val available = (next - start).coerceAtLeast(1L)
-        PopPhraseHandoff(start, if (index == 0 || available <= 100L) 0L else minOf(180L, available / 3))
+        PopPhraseHandoff(start, if (index == 0 || available <= 100L) 0L else minOf(260L, available / 3))
     }
 
 internal fun popPhraseWindow(pages: List<PopLyricPage>, timeline: PopLyricTimeline,

@@ -4,13 +4,18 @@ import kotlin.math.min
 
 /** Only visual windows change. Parser start/end times remain untouched. */
 internal data class PopLyricRenderTiming(val transitionMs: Int, val entranceMs: LongArray,
-    val lookaheadMs: LongArray, val passStartMs: LongArray, val passMs: LongArray) {
+    val lookaheadMs: LongArray, val passStartMs: LongArray, val passMs: LongArray,
+    val sustain: List<PopSustainPlan?> = emptyList()) {
     fun nextChangeDelayMs(tokens: List<PopLyricToken>, now: Long, nextBoundaryMs: Long?): Long {
         var delay = nextBoundaryMs?.minus(now)?.coerceAtLeast(1L) ?: 1000L
         for (index in tokens.indices) {
             val entering = now - (tokens[index].startMs - lookaheadMs[index] + tokens[index].visualDelayMs)
             val passing = now - passStartMs[index]
             if (entering in 0 until entranceMs[index] || passing in 0 until passMs[index]) return 0L
+            sustain.getOrNull(index)?.let {
+                if (now in it.startMs until it.endMs) return 0L
+                if (now < it.startMs) delay = min(delay, it.startMs - now)
+            }
             if (entering < 0) delay = min(delay, -entering)
             if (passing < 0) delay = min(delay, -passing)
         }
@@ -42,7 +47,10 @@ internal fun popLyricRenderTiming(timeline: PopLyricTimeline, style: PopLyricsSt
         val end = timeline.tokens[index].endMs
         end + min(style.textHoldMs.toLong(), ((nextLineMs ?: timeline.endMs) - end).coerceAtLeast(0L))
     }
-    return PopLyricRenderTiming(transition, entrances, lookahead, passStarts, passes)
+    val sustain = timeline.tokens.mapIndexed { index, token ->
+        if (timeline.wordTimed) PopSustainMotion.plan(token, entrances[index], index * 137, style.sustainShakePercent) else null
+    }
+    return PopLyricRenderTiming(transition, entrances, lookahead, passStarts, passes, sustain)
 }
 
 /** Access-order cache, bounded to the current, upcoming and outgoing sentence. */
