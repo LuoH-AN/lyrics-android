@@ -63,12 +63,16 @@ class HomeAlbumArtworkRenderTest {
         compose.mainClock.autoAdvance = false
         compose.runOnIdle { artwork = green }
         var interrupted = emptyList<Int>()
-        repeat(40) { frame ->
-            compose.mainClock.advanceTimeBy(40)
+        val interruptFrame = 12
+        repeat(100) { frame ->
+            // Compare adjacent display frames at the interruption. A 40 ms jump
+            // also advances the outgoing fade before the new input is applied.
+            compose.mainClock.advanceTimeByFrame()
             compose.waitForIdle()
             val colors = pixels(root)
-            if (frame == 5) for (index in colors.indices) {
-                assertTrue("An interrupted fade must continue from the visible color",
+            if (frame == interruptFrame + 1) for (index in colors.indices) {
+                assertTrue("An interrupted fade must continue from the visible color: " +
+                    "${Integer.toHexString(interrupted[index])} -> ${Integer.toHexString(colors[index])}",
                     kotlin.math.abs(AndroidColor.red(colors[index]) - AndroidColor.red(interrupted[index])) <= 8 &&
                         kotlin.math.abs(AndroidColor.green(colors[index]) - AndroidColor.green(interrupted[index])) <= 8)
             }
@@ -77,10 +81,10 @@ class HomeAlbumArtworkRenderTest {
                 assertTrue("Cover opacity must stay full during frame $frame: $energy", energy in 253..257)
                 assertEquals(255, AndroidColor.alpha(color))
             }
-            if (frame == 3) assertTrue("The fade must render both covers before completing",
+            if (frame == interruptFrame - 1) assertTrue("The fade must render both covers before completing",
                 colors.all { AndroidColor.red(it) > 0 && AndroidColor.green(it) > 0 })
             // A new song can arrive before the previous fade finishes.
-            if (frame == 4) { interrupted = colors; compose.runOnIdle { artwork = red } }
+            if (frame == interruptFrame) { interrupted = colors; compose.runOnIdle { artwork = red } }
         }
         assertTrue(pixels(root).all { it == AndroidColor.RED })
         compose.runOnIdle { artwork = green; allowFade = false }
