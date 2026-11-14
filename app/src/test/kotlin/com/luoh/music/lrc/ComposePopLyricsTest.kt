@@ -108,53 +108,67 @@ class ComposePopLyricsTest {
     }
 
     @Test fun upcomingTimelineAndVisualTimingAreReusedAfterPreheatAndSeeking() {
+        // A frozen playback clock must not be paired with an automatically advancing
+        // frame clock: the playing effect would keep requesting virtual frames forever.
+        compose.mainClock.autoAdvance = false
         state.setProgress(9900, true)
         lateinit var observed: PopPlaybackFrame
         compose.setContent {
             val frame = rememberPopPlayback(state, PopLyricsStyle())
             SideEffect { observed = frame }
         }
-        compose.waitForIdle()
+        settlePlayback()
         val warmed = compose.runOnIdle { requireNotNull(observed.upcoming) }
         compose.runOnIdle { state.setProgress(11200, false) }
-        compose.waitForIdle()
+        settlePlayback()
         compose.runOnIdle {
             assertSame(warmed.timeline, observed.timeline)
             assertSame(warmed.timing, observed.timing)
             assertNull(observed.upcoming)
         }
         compose.runOnIdle { state.setProgress(9900, true) }
-        compose.waitForIdle()
+        settlePlayback()
         compose.runOnIdle {
             assertSame(warmed.timeline, requireNotNull(observed.upcoming).timeline)
             assertSame(warmed.timing, requireNotNull(observed.upcoming).timing)
         }
+        compose.runOnIdle { state.setActive(false) }
+        settlePlayback()
+        compose.mainClock.autoAdvance = true
     }
 
     @Test fun preheatOnlyRunsInTheUpcomingWindowWhilePlayingAndVisible() {
+        compose.mainClock.autoAdvance = false
         state.setProgress(9799, true)
         lateinit var observed: PopPlaybackFrame
         compose.setContent {
             val frame = rememberPopPlayback(state, PopLyricsStyle())
             SideEffect { observed = frame }
         }
-        compose.waitForIdle()
+        settlePlayback()
         compose.runOnIdle { assertNull(observed.upcoming) }
         compose.runOnIdle { state.setProgress(9800, false) }
-        compose.waitForIdle()
+        settlePlayback()
         compose.runOnIdle { assertNull(observed.upcoming) }
         compose.runOnIdle { state.setProgress(9800, true) }
-        compose.waitForIdle()
+        settlePlayback()
         compose.runOnIdle { assertNotNull(observed.upcoming) }
         compose.runOnIdle { state.setActive(false) }
-        compose.waitForIdle()
+        settlePlayback()
         compose.runOnIdle { assertNull(observed.upcoming) }
         compose.runOnIdle {
             state.setActive(true)
             state.setProgress(10821, true)
         }
-        compose.waitForIdle()
+        settlePlayback()
         compose.runOnIdle { assertNull(observed.upcoming) }
+        compose.runOnIdle { state.setActive(false) }
+        settlePlayback()
+        compose.mainClock.autoAdvance = true
+    }
+
+    private fun settlePlayback() {
+        repeat(3) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
     }
 
     @Test fun plainLyricsAndMissingLyricsKeepTheirExistingReadablePages() {
