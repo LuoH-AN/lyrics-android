@@ -6,29 +6,29 @@ import android.content.Context
 internal data class PopLyricsStyle(
     val preset: String = "custom",
     val reveal: String = "word",
-    val layout: String = "centered",
-    val entrance: String = "rise",
-    val entranceMs: Int = 600,
-    val lookaheadMs: Int = 150,
-    val travelPercent: Int = 50,
-    val activeScalePercent: Int = 120,
-    val rotationDegrees: Int = 0,
+    val layout: String = "staggered",
+    val entrance: String = "scatter",
+    val entranceMs: Int = 420,
+    val lookaheadMs: Int = 90,
+    val travelPercent: Int = 100,
+    val activeScalePercent: Int = 145,
+    val rotationDegrees: Int = 10,
     val camera: String = "follow",
-    val cameraPercent: Int = 60,
-    val breathing: Boolean = false,
-    val transition: String = "fade",
+    val cameraPercent: Int = 80,
+    val breathing: Boolean = true,
+    val transition: String = "zoom",
     val semanticGrouping: Boolean = true,
     val dynamicSpacing: Boolean = true,
-    val groupGapDp: Int = 8,
+    val groupGapDp: Int = 6,
     val innerGapDp: Int = 0,
-    val rowGapPercent: Int = 100,
+    val rowGapPercent: Int = 85,
     val lineWidthPercent: Int = 100,
-    val staggerPercent: Int = 100,
-    val rowMotionPercent: Int = 20,
-    val cameraSpeedPercent: Int = 100,
+    val staggerPercent: Int = 150,
+    val rowMotionPercent: Int = 65,
+    val cameraSpeedPercent: Int = 120,
     val adaptiveTiming: Boolean = true,
     val textHoldMs: Int = 0,
-    val passedOpacityPercent: Int = 85,
+    val passedOpacityPercent: Int = 72,
 ) {
     fun normalized() = copy(
         preset = preset.takeIf { it in listOf("calm", "flow", "dynamic", "custom") } ?: "custom",
@@ -47,9 +47,9 @@ internal data class PopLyricsStyle(
         passedOpacityPercent = passedOpacityPercent.coerceIn(0, 100),
         transition = transition.takeIf { it in listOf("fade", "slide", "zoom") } ?: "fade",
     )
-    val maxWordScale get() = activeScalePercent / 100f + .06f
+    val maxWordScale get() = activeScalePercent / 100f + (activeScalePercent / 100f - .5f) * .10f
     val continuousCameraMotion get() = camera != "off" && cameraPercent > 0 && breathing
-    val frameIntervalNs get() = if (continuousCameraMotion) 50_000_000L else PopLyricMotion.FRAME_INTERVAL_NS
+    val frameIntervalNs get() = PopLyricMotion.FRAME_INTERVAL_NS
 }
 
 internal object PopLyricsPrefs {
@@ -57,13 +57,10 @@ internal object PopLyricsPrefs {
     fun style(context: Context): PopLyricsStyle {
         val prefs = context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE)
         val defaults = PopLyricsStyle()
-        if (prefs.getInt(KEY + "defaults_revision", 0) < 2) {
-            // Replace old named presets with the new direct defaults; preserve explicitly edited values.
-            if (prefs.getString(KEY + "preset", null) != "custom") {
-                save(context, defaults)
-                return defaults
-            }
-            prefs.edit().putInt(KEY + "defaults_revision", 2).apply()
+        if (prefs.getInt(KEY + "defaults_revision", 0) < 3) {
+            // Apply this motion overhaul once on upgrade; subsequent edits remain user-owned.
+            save(context, defaults)
+            return defaults
         }
         fun string(name: String, fallback: String) = prefs.getString(KEY + name, fallback) ?: fallback
         return PopLyricsStyle(string("preset", defaults.preset), string("reveal", defaults.reveal),
@@ -85,7 +82,7 @@ internal object PopLyricsPrefs {
     fun save(context: Context, value: PopLyricsStyle) {
         val style = value.normalized()
         context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE).edit()
-            .putInt(KEY + "defaults_revision", 2)
+            .putInt(KEY + "defaults_revision", 3)
             .putString(KEY + "preset", style.preset).putString(KEY + "reveal", style.reveal)
             .putString(KEY + "layout", style.layout).putString(KEY + "entrance", style.entrance)
             .putInt(KEY + "entrance_ms", style.entranceMs).putInt(KEY + "lookahead_ms", style.lookaheadMs)

@@ -23,7 +23,7 @@ internal fun popLyricRenderTiming(timeline: PopLyricTimeline, style: PopLyricsSt
     val available = ((nextLineMs ?: timeline.endMs).coerceAtMost(timeline.endMs) - timeline.startMs).coerceAtLeast(1L)
     val fast = style.adaptiveTiming && available < 800L
     val instant = style.adaptiveTiming && available <= 100L
-    val transition = if (instant) 0 else if (fast) (available / 3).toInt().coerceIn(16, 160) else 320
+    val transition = if (instant) 0 else if (fast) (available / 4).toInt().coerceIn(16, 100) else 180
     val entrances = LongArray(timeline.tokens.size) { index ->
         val tokenDuration = (timeline.tokens[index].endMs - timeline.tokens[index].startMs).coerceAtLeast(1)
         when {
@@ -33,9 +33,11 @@ internal fun popLyricRenderTiming(timeline: PopLyricTimeline, style: PopLyricsSt
             else -> style.entranceMs.toLong()
         }
     }
-    val lookahead = LongArray(timeline.tokens.size) { if (instant) 0L else
-        min(style.lookaheadMs.toLong(), if (fast) available / 4 else style.lookaheadMs.toLong()) }
-    val passes = LongArray(timeline.tokens.size) { if (instant) 0L else if (fast) min(150L, available / 3).coerceAtLeast(16L) else 500L }
+    // Keep the spring's impact AFTER the sung onset, even when dense words shorten its duration.
+    val lookahead = LongArray(timeline.tokens.size) { index -> if (instant) 0L else
+        if (style.adaptiveTiming) min(style.lookaheadMs.toLong(), entrances[index] / 4)
+        else style.lookaheadMs.toLong() }
+    val passes = LongArray(timeline.tokens.size) { if (instant) 0L else if (fast) min(140L, available / 3).coerceAtLeast(16L) else PopLyricMotion.PASS_DURATION_MS }
     val passStarts = LongArray(timeline.tokens.size) { index ->
         val end = timeline.tokens[index].endMs
         end + min(style.textHoldMs.toLong(), ((nextLineMs ?: timeline.endMs) - end).coerceAtLeast(0L))

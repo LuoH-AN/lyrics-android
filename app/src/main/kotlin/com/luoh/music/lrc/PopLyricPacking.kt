@@ -48,7 +48,7 @@ internal fun popGlyphExtent(width: Float, height: Float, scale: Float, angleDegr
     return PopGlyphExtent(reach(width, height), reach(height, width))
 }
 
-/** Balanced, bounded line breaking is cached per sentence/viewport, never run in a draw frame. */
+/** Phrase-aware composition is cached per sentence/viewport, never run in a draw frame. */
 internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float, height: Float, gap: Float,
     layoutStyle: String = "staggered", maxScale: Float = PopLyricMotion.MAX_SCALE, rotationDegrees: Int = 20,
     breakPenalties: FloatArray? = null, extents: List<PopGlyphExtent>? = null,
@@ -68,7 +68,9 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
     val gaps = FloatArray(count) { if (it == 0) 0f else boundaryGaps?.get(it) ?: gap }
     val typicalHeight = reservedHeights.sorted()[count / 2]
     // Wide landscape stages still read as a phrase, rather than a screen-long ribbon.
-    val rowLimit = min(width, typicalHeight * 7.5f * lineWidthPercent / 100f).coerceAtLeast(1f)
+    val composed = layoutStyle != "centered"
+    val rowLimit = min(width * (if (composed) .88f else 1f),
+        typicalHeight * (if (composed) 5.8f else 7.5f) * lineWidthPercent / 100f).coerceAtLeast(1f)
     val budget = rowLimit / .88f
     val sums = FloatArray(count + 1)
     for (index in widths.indices) sums[index + 1] = sums[index] + reservedWidths[index] + gaps[index]
@@ -83,6 +85,14 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
     val minimumRows = ceil(sums[count] / budget).toInt().coerceIn(1, groupCount)
     for (rows in minimumRows..groupCount) {
         val target = sums[count] / rows
+        // Alternating phrase lengths create a readable rhythm; centered keeps balanced lines.
+        val weights = FloatArray(rows) { row -> when {
+            !composed || rows == 1 -> 1f
+            layoutStyle == "stairs" -> .78f + .44f * row / (rows - 1)
+            row % 2 == 0 -> .78f
+            else -> 1.22f
+        } }
+        val averageWeight = weights.average().toFloat()
         val costs = Array(rows + 1) { FloatArray(count + 1) { Float.POSITIVE_INFINITY } }
         val previous = Array(rows + 1) { IntArray(count + 1) { -1 } }
         costs[0][0] = 0f
@@ -92,7 +102,8 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
                 val rowWidth = rowWidth(start, end)
                 if (rowWidth > budget && end - start > 1 && protectedStart[end - 1] != start) break
                 if (!costs[row - 1][start].isFinite()) continue
-                val deviation = (rowWidth - target) / target.coerceAtLeast(1f)
+                val rowTarget = target * weights[row - 1] / averageWeight
+                val deviation = (rowWidth - rowTarget) / rowTarget.coerceAtLeast(1f)
                 val overflow = ((rowWidth - rowLimit) / rowLimit).coerceAtLeast(0f)
                 val orphan = if (rows > 1 && rowWidth < target * .5f) .9f else 0f
                 val cost = costs[row - 1][start] + deviation * deviation + overflow * overflow * 2f + orphan +
@@ -117,14 +128,14 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
     val fit = min(1f, min(rowLimit / totalWidth.coerceAtLeast(1f), height / totalHeight.coerceAtLeast(1f)))
     val slots = ArrayList<PopLyricSlot>(count)
     var top = (height - totalHeight * fit) / 2f
-    val indent = min(width * .06f, typicalHeight * .35f) * fit * indentPercent / 100f
+    val indent = min(width * .16f, typicalHeight * .9f) * fit * indentPercent / 100f
     for (row in rowStarts.indices) {
         val slack = (width - rowWidths[row] * fit).coerceAtLeast(0f)
         val offset = when {
             rowStarts.size == 1 || layoutStyle == "centered" -> 0f
             layoutStyle == "stairs" -> (row.toFloat() / (rowStarts.size - 1) * 2f - 1f) * indent
-            row % 2 == 0 -> -indent * .6f
-            else -> indent * .6f
+            row % 2 == 0 -> -indent
+            else -> indent
         }
         var left = (slack / 2f + offset).coerceIn(0f, slack)
         val until = rowStarts.getOrNull(row + 1) ?: count

@@ -14,11 +14,14 @@ internal data class PopCameraPath(val waypoints: List<PopCameraWaypoint>, val bo
 
 /** Cache a continuous camera trajectory from actual measured word centers, never token parity. */
 internal object PopStageMotion {
-    const val FRAME_INTERVAL_NS = 16_000_000L
+    const val FRAME_INTERVAL_NS = 0L
     private val wave = FloatArray(257) { sin(it / 256.0 * Math.PI * 2).toFloat() }
     private fun wave(time: Long, period: Long, offset: Int = 0): Float {
-        val index = Math.floorMod(time, period) * 256 / period
-        return wave[(index.toInt() + offset) % 256]
+        val sample = Math.floorMod(time, period).toFloat() * 256f / period
+        val index = sample.toInt()
+        val from = wave[(index + offset) % 256]
+        val to = wave[(index + offset + 1) % 256]
+        return from + (to - from) * (sample - index)
     }
     private fun at(point: PopCameraWaypoint, time: Long): PopCameraPoint {
         val progress = ((time - point.startMs).toFloat() / point.durationMs).coerceIn(0f, 1f)
@@ -38,14 +41,15 @@ internal object PopStageMotion {
     }
 
     fun path(timeline: PopLyricTimeline, centers: List<PopCameraPoint>, style: PopLyricsStyle,
-        bounds: PopCameraBounds = PopCameraBounds()): PopCameraPath {
+        bounds: PopCameraBounds = PopCameraBounds(), timing: PopLyricRenderTiming? = null): PopCameraPath {
         require(centers.size == timeline.tokens.size)
         val available = (timeline.endMs - timeline.startMs).coerceAtLeast(1L)
         if (!timeline.wordTimed || (style.adaptiveTiming && available <= 100L) ||
             centers.all { kotlin.math.abs(it.x) < .0001f && kotlin.math.abs(it.y) < .0001f })
             return PopCameraPath(emptyList(), bounds)
         val points = ArrayList<PopCameraWaypoint>(centers.size)
-        val baseDuration = ((style.entranceMs * 1.2f).coerceIn(400f, 900f) * 100f / style.cameraSpeedPercent).toLong().coerceAtLeast(100L)
+        val profile = timing ?: popLyricRenderTiming(timeline, style)
+        val baseDuration = (320f * 100f / style.cameraSpeedPercent).toLong().coerceIn(140L, 640L)
         val duration = if (style.adaptiveTiming && available < 800L) minOf(baseDuration, (available / 2).coerceAtLeast(80L)) else baseDuration
         val amount = style.cameraPercent / 100f
         var index = 0
@@ -59,10 +63,16 @@ internal object PopStageMotion {
             var y = 0f
             for (character in index until until) { x += centers[character].x; y += centers[character].y }
             val center = PopCameraPoint(x / (until - index), y / (until - index))
-            val start = token.startMs - style.lookaheadMs + token.visualDelayMs
+            val start = token.startMs - profile.lookaheadMs[index] + token.visualDelayMs
             val previous = points.lastOrNull()
             val from = previous?.let { at(it, start) } ?: PopCameraPoint(0f, 0f)
-            points += PopCameraWaypoint(start, duration, from,
+            val nextOnset = timeline.tokens.getOrNull(until)?.let {
+                it.startMs - profile.lookaheadMs[until] + it.visualDelayMs
+            } ?: token.endMs
+            // Resolve each focus while its word is being sung, rather than trailing several words.
+            val focusDuration = if (style.adaptiveTiming) minOf(duration,
+                ((nextOnset - start) * .95f).toLong().coerceAtLeast(120L)) else duration
+            points += PopCameraWaypoint(start, focusDuration, from,
                 PopCameraPoint((-center.x * amount).coerceIn(maxOf(-.30f, bounds.minX), minOf(.30f, bounds.maxX)) * .85f,
                     (-center.y * amount).coerceIn(maxOf(-.34f, bounds.minY), minOf(.34f, bounds.maxY)) * .85f),
                 previous?.let { velocity(it, start) } ?: PopCameraPoint(0f, 0f))
@@ -71,7 +81,7 @@ internal object PopStageMotion {
         if (timeline.wordTimed && points.isNotEmpty()) {
             val end = timeline.tokens.maxOf { it.endMs }
             val previous = points.last()
-            points += PopCameraWaypoint(end, (duration * 1.25f).toLong(), at(previous, end),
+            points += PopCameraWaypoint(end, (duration * 1.5f).toLong(), at(previous, end),
                 PopCameraPoint(0f, 0f), velocity(previous, end))
         }
         return PopCameraPath(points, bounds)

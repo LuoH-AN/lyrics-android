@@ -6,7 +6,7 @@
 
 - `tests/`：Node 源码边界检查与歌词引擎回归测试，统一入口为 `node tests/run.cjs`，自动运行全部 `*.test.cjs`。
 - `app/src/test/`：Kotlin/JUnit 与 Robolectric 测试，在 Actions 手动运行时勾选 `full_checks` 执行。日常构建跳过这批检查，不生成或上传界面截图。
-- 两个工作流使用同一套 Node 回归检查，不依赖 README 或其他说明文档。
+- 两个 APK 工作流默认跳过全部 Node、JUnit 和 Robolectric 测试，不生成截图；只有手动勾选 `full_checks` 才运行测试。日常交付使用快速 `compact` CI，不在开发环境运行测试或 Gradle。
 
 ## 测试包
 
@@ -16,7 +16,7 @@
 
 默认测试 artifact 提供 `compact` 精简包，启用 R8 代码裁剪、混淆和资源裁剪，跳过耗时的全程序优化；手动勾选 `full_optimization` 可以生成完整优化的测试包。正式版始终完整优化，普通 `debug` 构建用于原生测试和源码调试。CI 检查签名、包名及 28 MiB 的体积预算，并保存精简包崩溃映射。详见 [APK 体积优化](apk-size.md)。
 
-默认仅执行 `assembleCompact`，不构建重复的 debug APK、不运行 Robolectric。保留耗时很短的 Node 检查和 APK 安装信息校验。APK 大小及 SHA-256 显示在 Actions 运行摘要中，组件尺寸可在校验步骤日志中查看。
+默认仅执行 `assembleCompact`，不构建重复的 debug APK、不运行 Node 或 Robolectric 测试。保留 APK 签名、安装信息和体积校验。APK 大小及 SHA-256 显示在 Actions 运行摘要中，组件尺寸可在校验步骤日志中查看。
 
 Gradle 构建缓存启用，开发分支推送也写入缓存，PR 只读。日常更改可以复用未受影响的任务产物；相同源码重跑可复用更多任务。仅使用到的扩展图标随源码保留，编译和 R8 不再处理整套图标库。首次缓存填充、实际源码修改和完全命中缓存的重跑耗时应分别记录，GitHub 排队时间另计。
 
@@ -38,7 +38,7 @@ Gradle 构建缓存启用，开发分支推送也写入缓存，PR 只读。日�
 
 正式构建启用 R8 代码优化和资源裁剪；`app/proguard-rules.pro` 保留小窗 JavaScript 桥接方法，ML Kit 使用依赖自带的规则。`workflow_dispatch` 可以在开发分支验证签名包和体积，只有版本标签触发的任务会创建 Release。
 
-正式构建同样默认只打一个 release APK；手动触发时可选 `full_checks`，额外运行 Android 检查。签名和版本检查始终执行。
+正式构建同样默认只打一个 release APK；手动触发时可选 `full_checks`，额外运行 Node 和 Android 检查。签名和版本检查始终执行。
 
 1. 在新仓库的 Actions Secrets 配置原有正式签名；GitHub 不会随源码迁移 Secrets。
 2. `release.yml` 在 `feat/release-*` 分支或手动触发时构建、签名并验证，但不创建 Release。

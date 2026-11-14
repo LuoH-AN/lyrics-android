@@ -100,15 +100,17 @@ internal fun popLyricPreview(text: String): String {
 /** Lookup once at startup; no springs, trigonometry or per-word animation objects in a frame. */
 internal object PopLyricMotion {
     const val DURATION_MS = 600L
-    const val PASS_DURATION_MS = 500L
-    const val LOOKAHEAD_MS = 150L
-    const val FRAME_INTERVAL_NS = 33_333_333L
-    const val MAX_SCALE = 1.45f
-    private val entrance = FloatArray(129) { index ->
-        // Unit-mass spring response: stiffness 200, damping 20, sampled once.
-        val seconds = index / 128.0 * DURATION_MS / 1000.0
-        (1.0 - exp(-10.0 * seconds) * (cos(10.0 * seconds) + sin(10.0 * seconds)))
-            .toFloat().coerceIn(0f, 1.05f)
+    const val PASS_DURATION_MS = 280L
+    const val LOOKAHEAD_MS = 90L
+    // No wall-time gate: withFrameNanos follows every display frame, including 120 Hz.
+    const val FRAME_INTERVAL_NS = 0L
+    const val MAX_SCALE = 1.55f
+    private val entrance = FloatArray(257) { index ->
+        // Unit mass, stiffness 260, damping 20: a crisp attack and a visible, bounded rebound.
+        val seconds = index / 256.0 * DURATION_MS / 1000.0
+        val frequency = kotlin.math.sqrt(160.0)
+        (1.0 - exp(-10.0 * seconds) * (cos(frequency * seconds) + 10.0 / frequency * sin(frequency * seconds)))
+            .toFloat().coerceIn(0f, 1.10f)
     }.also { it[it.lastIndex] = 1f }
 
     fun enter(elapsedMs: Long, durationMs: Long = DURATION_MS): Float {

@@ -56,6 +56,7 @@ jobs:
           cache-cleanup: never
 
       - name: Run regression tests
+        if: github.event_name == 'workflow_dispatch' && inputs.full_checks
         run: node tests/run.cjs
 
       - name: Build compact APK

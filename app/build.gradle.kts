@@ -22,7 +22,7 @@ android {
         applicationId = "com.luoh.music.lrc"
         minSdk = 26
         targetSdk = 34
-        versionCode = 34
+        versionCode = 35
         versionName = "1.3.0"
 
         // Public APK targets modern Android phones. Keeping only 64-bit ARM
