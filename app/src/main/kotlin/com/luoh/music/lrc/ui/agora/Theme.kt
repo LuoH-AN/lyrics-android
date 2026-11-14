@@ -76,8 +76,8 @@ private fun typographyWithFont(family: FontFamily): Typography {
 @Composable
 fun AgoraTheme(
     themeMode: ThemeMode = ThemeMode.FOLLOW_DEVICE,
-    colorSchemePreset: ColorSchemePreset = ColorSchemePreset.FOREST,
-    schemeStyle: SchemeStyle = SchemeStyle.TONAL_SPOT,
+    colorSchemePreset: ColorSchemePreset = ColorSchemePreset.OCEAN,
+    schemeStyle: SchemeStyle = SchemeStyle.NEUTRAL,
     dynamicColor: Boolean = false,
     amoledEnabled: Boolean = false,
     seedColor: Int? = null,

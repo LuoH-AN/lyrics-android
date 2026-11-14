@@ -32,7 +32,7 @@ class PopLyricsStyleTest {
         assertEquals(0, saved.innerGapDp)
         assertEquals(180, saved.cameraSpeedPercent)
         assertEquals(800, saved.textHoldMs)
-        assertEquals(HomeLyricsPrefs.SCROLL, HomeLyricsPrefs.displayMode(context))
+        assertEquals(HomeLyricsPrefs.POP, HomeLyricsPrefs.displayMode(context))
         PopLyricsPrefs.save(context, PopLyricsStyle())
         assertEquals(PopLyricsStyle(), PopLyricsPrefs.style(context))
     }

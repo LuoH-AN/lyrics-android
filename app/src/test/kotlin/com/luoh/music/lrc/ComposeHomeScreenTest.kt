@@ -66,6 +66,7 @@ class ComposeHomeScreenTest {
     @Before fun clearHomePreferences() {
         ApplicationProvider.getApplicationContext<Context>()
             .getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+        HomeLyricsPrefs.saveDisplayMode(ApplicationProvider.getApplicationContext(), HomeLyricsPrefs.SCROLL)
     }
 
     @Test fun permissionActionsReachTheirCallbacksFromTheActualHomeGate() {

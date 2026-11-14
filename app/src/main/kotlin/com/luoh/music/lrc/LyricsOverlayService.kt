@@ -1780,12 +1780,12 @@ class LyricsOverlayService : Service() {
         const val BACKGROUND_LOW = "low"
         const val BACKGROUND_MEDIUM = "medium"
         const val BACKGROUND_HIGH = "high"
-        // 桌面歌词默认透明浮在桌面（原为不透明 high）
-        const val BACKGROUND_DEFAULT = BACKGROUND_TRANSPARENT
+        // A soft translucent surface keeps the default text readable over busy wallpapers.
+        const val BACKGROUND_DEFAULT = BACKGROUND_LOW
         const val FONT_SCALE_MIN_PERCENT = 35
         const val FONT_SCALE_MAX_PERCENT = 150
         const val FONT_SCALE_DEFAULT_PERCENT = 100
-        const val LYRIC_COLOR_DEFAULT = "#FFFFFF"
+        const val LYRIC_COLOR_DEFAULT = "#F4F6FA"
         const val LYRIC_OFFSET_MIN_MS = -5_000
         const val LYRIC_OFFSET_MAX_MS = 5_000
         const val TRANSLATION_ORIGINAL = "original"

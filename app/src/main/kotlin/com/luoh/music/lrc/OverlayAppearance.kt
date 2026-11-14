@@ -10,7 +10,7 @@ import androidx.core.graphics.ColorUtils
 import kotlin.math.roundToInt
 
 data class OverlayTextStyle(
-    val alignment: String = OverlayAppearance.LEFT,
+    val alignment: String = OverlayAppearance.CENTER,
     val gradientEnd: Int? = null,
     val gradientVertical: Boolean = false,
 )
@@ -28,7 +28,7 @@ object OverlayAppearance {
     const val PREF_CORNER_RADIUS = "overlay_corner_radius_v1"
     const val PREF_WIDTH_PERCENT = "overlay_width_percent_v1"
     const val DEFAULT_GRADIENT_END = "#9FD8FF"
-    const val DEFAULT_BACKGROUND_OPACITY = 55
+    const val DEFAULT_BACKGROUND_OPACITY = 60
     const val DEFAULT_CORNER_RADIUS = 18
     const val MIN_FONT_WEIGHT = 300
     const val MAX_FONT_WEIGHT = 900
@@ -65,16 +65,17 @@ object OverlayAppearance {
     }
 
     fun alignment(value: String?): String = when (value) {
+        LEFT -> LEFT
         CENTER -> CENTER
         RIGHT -> RIGHT
-        else -> LEFT
+        else -> CENTER
     }
 
     fun parseColor(value: String?, fallback: Int = Color.WHITE): Int =
         runCatching { Color.parseColor(value.orEmpty()) }.getOrDefault(fallback) or (0xFF shl 24)
 
     fun textStyle(prefs: SharedPreferences) = OverlayTextStyle(
-        alignment(prefs.getString(PREF_ALIGNMENT, LEFT)),
+        alignment(prefs.getString(PREF_ALIGNMENT, CENTER)),
         if (prefs.getBoolean(PREF_GRADIENT, false)) parseColor(prefs.getString(PREF_GRADIENT_END, DEFAULT_GRADIENT_END)) else null,
         prefs.getBoolean(PREF_GRADIENT_VERTICAL, false),
     )

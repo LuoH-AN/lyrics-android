@@ -26,10 +26,10 @@ class AppearancePreferencesTest {
         assertEquals(700, OverlayAppearance.normalizeWeight(651))
     }
 
-    @Test fun desktopBackgroundModesKeepLegacyMediumOpacity() {
+    @Test fun desktopBackgroundModesShareTheConfiguredDefaultOpacity() {
         assertEquals(0, Color.alpha(OverlayAppearance.backgroundColor(null)))
-        assertEquals(140, Color.alpha(OverlayAppearance.backgroundColor(LyricsOverlayService.BACKGROUND_LOW)))
-        assertEquals(140, Color.alpha(OverlayAppearance.backgroundColor(LyricsOverlayService.BACKGROUND_MEDIUM)))
+        assertEquals(153, Color.alpha(OverlayAppearance.backgroundColor(LyricsOverlayService.BACKGROUND_LOW)))
+        assertEquals(153, Color.alpha(OverlayAppearance.backgroundColor(LyricsOverlayService.BACKGROUND_MEDIUM)))
         assertEquals(255, Color.alpha(OverlayAppearance.backgroundColor(LyricsOverlayService.BACKGROUND_HIGH)))
     }
 
@@ -43,7 +43,7 @@ class AppearancePreferencesTest {
         assertEquals(OverlayAppearance.backgroundColor("low", Color.WHITE, 10), OverlayAppearance.backgroundColor("low", Color.WHITE, -50))
     }
 
-    @Test fun overlayStyleDefaultsPreservePlainLeftAlignedLyricsAndPersistCustomGradient() {
+    @Test fun overlayStyleDefaultsUsePlainCenteredLyricsAndPersistCustomGradient() {
         val prefs = context.getSharedPreferences(LyricsOverlayService.PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().clear().commit()
         assertEquals(OverlayTextStyle(), OverlayAppearance.textStyle(prefs))
@@ -55,7 +55,7 @@ class AppearancePreferencesTest {
         prefs.edit().putBoolean(OverlayAppearance.PREF_GRADIENT, false).commit()
         assertEquals(null, OverlayAppearance.textStyle(prefs).gradientEnd)
         assertEquals("#123ABC", prefs.getString(OverlayAppearance.PREF_GRADIENT_END, null))
-        assertEquals("left", OverlayAppearance.alignment("invalid"))
+        assertEquals("center", OverlayAppearance.alignment("invalid"))
     }
 
     @Test fun legacyMotionModeMigratesOnceAndIndependentChangesPersist() {

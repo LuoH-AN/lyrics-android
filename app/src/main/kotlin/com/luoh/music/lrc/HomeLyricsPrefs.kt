@@ -4,9 +4,9 @@ import android.content.Context
 
 data class HomeLyricAppearance(
     val fontSize: Int = 28,
-    val translationSize: Int = 18,
+    val translationSize: Int = 17,
     val fontWeight: Int = 500,
-    val lineSpacing: Int = 12,
+    val lineSpacing: Int = 10,
 ) {
     fun normalized() = copy(fontSize = fontSize.coerceIn(16, 48),
         translationSize = translationSize.coerceIn(12, 32),
@@ -14,7 +14,7 @@ data class HomeLyricAppearance(
         lineSpacing = lineSpacing.coerceIn(0, 28))
 }
 
-/** 主页歌词对齐方式，默认沿用原来的左对齐。 */
+/** Direct reading defaults; saved appearance and mode choices take precedence. */
 object HomeLyricsPrefs {
     const val PREFS = "home_lyrics_v1"
     const val KEY_ALIGNMENT = "alignment"
@@ -31,7 +31,7 @@ object HomeLyricsPrefs {
     const val RIGHT = "right"
 
     fun displayMode(context: Context): String =
-        if (context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_DISPLAY_MODE, SCROLL) == POP) POP else SCROLL
+        if (context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_DISPLAY_MODE, POP) == POP) POP else SCROLL
 
     fun saveDisplayMode(context: Context, mode: String) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
@@ -40,8 +40,11 @@ object HomeLyricsPrefs {
 
     fun appearance(context: Context): HomeLyricAppearance {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        return HomeLyricAppearance(prefs.getInt(KEY_FONT_SIZE, 28), prefs.getInt(KEY_TRANSLATION_SIZE, 18),
-            prefs.getInt(KEY_FONT_WEIGHT, 500), prefs.getInt(KEY_LINE_SPACING, 12)).normalized()
+        val defaults = HomeLyricAppearance()
+        return HomeLyricAppearance(prefs.getInt(KEY_FONT_SIZE, defaults.fontSize),
+            prefs.getInt(KEY_TRANSLATION_SIZE, defaults.translationSize),
+            prefs.getInt(KEY_FONT_WEIGHT, defaults.fontWeight),
+            prefs.getInt(KEY_LINE_SPACING, defaults.lineSpacing)).normalized()
     }
 
     fun saveAppearance(context: Context, value: HomeLyricAppearance) {
@@ -67,17 +70,17 @@ object HomeLyricsPrefs {
 
     fun alignment(context: Context): String {
         val value = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString(KEY_ALIGNMENT, LEFT)
+            .getString(KEY_ALIGNMENT, CENTER)
         return when (value) {
-            CENTER, RIGHT -> value ?: LEFT
-            else -> LEFT
+            LEFT, CENTER, RIGHT -> value ?: CENTER
+            else -> CENTER
         }
     }
 
     fun save(context: Context, value: String) {
         val normalized = when (value) {
-            CENTER, RIGHT -> value
-            else -> LEFT
+            LEFT, CENTER, RIGHT -> value
+            else -> CENTER
         }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(KEY_ALIGNMENT, normalized)

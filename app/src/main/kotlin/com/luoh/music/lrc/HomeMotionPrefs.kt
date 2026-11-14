@@ -9,25 +9,26 @@ data class MotionStyle(
     val stagger: Boolean = true,
     val staggerDelayMs: Int = STAGGER_DEFAULT,
     val scale: Boolean = true,
-    val scalePercent: Int = PERCENT_DEFAULT,
+    val scalePercent: Int = SCALE_DEFAULT,
     val depthBlur: Boolean = true,
-    val blurPercent: Int = PERCENT_DEFAULT
+    val blurPercent: Int = BLUR_DEFAULT
 ) {
     companion object {
         const val DURATION_MIN = 300
         const val DURATION_MAX = 1500
         const val DURATION_STEP = 50
-        const val DURATION_DEFAULT = 900
+        const val DURATION_DEFAULT = 800
 
         const val STAGGER_MIN = 0
         const val STAGGER_MAX = 120
         const val STAGGER_STEP = 10
-        const val STAGGER_DEFAULT = 40
+        const val STAGGER_DEFAULT = 20
 
         const val PERCENT_MIN = 0
         const val PERCENT_MAX = 200
         const val PERCENT_STEP = 5
-        const val PERCENT_DEFAULT = 100
+        const val SCALE_DEFAULT = 75
+        const val BLUR_DEFAULT = 45
 
         fun snapDuration(value: Int) = snap(value, DURATION_MIN, DURATION_MAX, DURATION_STEP)
         fun snapStagger(value: Int) = snap(value, STAGGER_MIN, STAGGER_MAX, STAGGER_STEP)
@@ -74,11 +75,11 @@ object HomeMotionPrefs {
             ),
             scale = prefs.getBoolean(KEY_SCALE, true),
             scalePercent = MotionStyle.snapPercent(
-                prefs.getInt(KEY_SCALE_PERCENT, MotionStyle.PERCENT_DEFAULT)
+                prefs.getInt(KEY_SCALE_PERCENT, MotionStyle.SCALE_DEFAULT)
             ),
             depthBlur = prefs.getBoolean(KEY_DEPTH_BLUR, true),
             blurPercent = MotionStyle.snapPercent(
-                prefs.getInt(KEY_BLUR_PERCENT, MotionStyle.PERCENT_DEFAULT)
+                prefs.getInt(KEY_BLUR_PERCENT, MotionStyle.BLUR_DEFAULT)
             )
         )
     }

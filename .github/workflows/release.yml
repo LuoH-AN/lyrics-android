@@ -179,8 +179,12 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_VERSION: ${{ needs.build.outputs.version }}
         run: |
+          notes=(--generate-notes)
+          if [ -f "docs/releases/${RELEASE_VERSION}.md" ]; then
+            notes=(--notes-file "docs/releases/${RELEASE_VERSION}.md")
+          fi
           gh release create "$GITHUB_REF_NAME" \
             "dist/lyrics-android-${RELEASE_VERSION}-arm64-v8a.apk" dist/SHA256SUMS \
             --verify-tag --latest \
             --title "桌面歌词 ${RELEASE_VERSION}" \
-            --generate-notes
+            "${notes[@]}"

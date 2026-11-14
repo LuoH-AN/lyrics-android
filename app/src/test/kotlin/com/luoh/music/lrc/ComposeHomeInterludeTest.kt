@@ -36,6 +36,7 @@ class ComposeHomeInterludeTest {
     @Before fun clearPreferences() {
         ApplicationProvider.getApplicationContext<Context>()
             .getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+        HomeLyricsPrefs.saveDisplayMode(ApplicationProvider.getApplicationContext(), HomeLyricsPrefs.SCROLL)
     }
 
     private fun show(positionMs: Long = 15000): HomePresentationState {

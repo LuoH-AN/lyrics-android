@@ -57,8 +57,10 @@ class ComposePopLyricsTest {
     }
 
     @Test fun modePersistsUpdatesTheExistingPageWithoutRedundantNavigation() {
-        assertEquals(HomeLyricsPrefs.SCROLL, HomeLyricsPrefs.displayMode(context))
+        assertEquals(HomeLyricsPrefs.POP, HomeLyricsPrefs.displayMode(context))
         show()
+        compose.onNodeWithTag("home_pop_stage").assertIsDisplayed()
+        compose.runOnIdle { HomeLyricsPrefs.saveDisplayMode(context, HomeLyricsPrefs.SCROLL) }
         compose.onNodeWithTag("home_pop_stage").assertDoesNotExist()
         compose.runOnIdle { HomeLyricsPrefs.saveDisplayMode(context, HomeLyricsPrefs.POP) }
         compose.onNodeWithTag("home_pop_stage").assertIsDisplayed()
