@@ -356,6 +356,7 @@ internal object UsageAnalytics {
         "QQ", "QQ音乐" -> "qq_music"
         "NetEase", "网易云音乐" -> "netease"
         "LRCLIB" -> "lrclib"
+        "KuGou", "酷狗音乐" -> "kugou"
         "自定义歌词" -> "custom"
         else -> "none"
     }

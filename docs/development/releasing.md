@@ -14,6 +14,8 @@
 
 测试包使用 `com.luoh.music.lrc.dev` 和已有公开调试签名，与正式包分开安装。
 
+默认测试 artifact 现在提供 `compact` 精简包，启用与正式版相同的 R8 优化和资源裁剪；普通 `debug` 构建继续用于原生测试和源码调试。CI 检查签名、包名及 28 MiB 的体积预算，同时保存尺寸报告和精简包崩溃映射。详见 [APK 体积优化](apk-size.md)。
+
 ## 正式版
 
 版本维护在 `app/build.gradle.kts`，`versionCode` 必须递增。正式包名保持 `com.luoh.music.lrc`。

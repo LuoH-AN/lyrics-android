@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit
  * a Lobsta/Tcrrry-owned server. MediaSession artwork remains the preferred cover;
  * QQ Music and NetEase artwork are only used when the player did not publish one.
  */
-class DirectLyricsRepository {
+class DirectLyricsRepository(private val fetchBytes: ((String, Map<String, String>) -> ByteArray)? = null) {
     // Providers run concurrently; ICU transliterators must not be shared across threads.
     private val toSimplified = ThreadLocal.withInitial { Transliterator.getInstance("Hant-Hans") }
     private val toTraditional = ThreadLocal.withInitial { Transliterator.getInstance("Hans-Hant") }
@@ -88,7 +88,8 @@ class DirectLyricsRepository {
             fun query(title: String, singer: String): Result? = when (source) {
                 "QQ音乐" -> queryQqMusic(title, singer, true, durationMs)
                 "网易云音乐" -> queryNetEase(title, singer, true, durationMs)
-                "LRCLIB" -> queryLrcLib(title, singer, durationMs)
+                "LRCLIB" -> queryLrcLib(title, singer, durationMs, album)
+                "酷狗音乐" -> queryKuGou(title, singer, durationMs)
                 else -> null
             }
             val direct = query(track, artist)
@@ -102,6 +103,7 @@ class DirectLyricsRepository {
         URL(url).host.endsWith("music.163.com") -> "netease"
         URL(url).host.endsWith("qq.com") -> "qq"
         URL(url).host == "lrclib.net" -> "lrclib"
+        URL(url).host.endsWith(".kugou.com") -> "kugou"
         else -> URL(url).host
     }
 
@@ -153,10 +155,10 @@ class DirectLyricsRepository {
         expectedDurationMs: Long,
         onPartial: (Result) -> Unit
     ): Result {
-        val direct = resolveFromProviders(track, artist, expectedDurationMs)
+        val direct = resolveFromProviders(track, artist, expectedDurationMs, album = album)
         val current = (listOf(direct) + direct.alternatives).filter { isUsableLyrics(it.lyrics) }
         // A usable lyric is not proof that all providers found the correct identity.
-        val incomplete = current.size < 3 || current.any(::needsEnrichment)
+        val incomplete = current.size < LYRIC_SOURCES.size || current.any(::needsEnrichment)
         if (current.isNotEmpty() && !incomplete) return direct
         if (current.isNotEmpty()) onPartial(direct)
 
@@ -178,10 +180,10 @@ class DirectLyricsRepository {
             "Lyrics identity bridge ${track.take(40)} / ${artist.take(32)} -> " +
                 "${identity.track.take(40)} / ${identity.artist.take(32)}"
         )
-        val retrySources = setOf("网易云音乐", "QQ音乐", "LRCLIB").filter { source ->
+        val retrySources = LYRIC_SOURCES.filter { source ->
             current.none { it.source == source } || current.any { it.source == source && needsEnrichment(it) }
         }.toSet()
-        val retried = resolveFromProviders(identity.track, identity.artist, expectedDurationMs, retrySources)
+        val retried = resolveFromProviders(identity.track, identity.artist, expectedDurationMs, retrySources, album)
         val combined = (current + retried + retried.alternatives)
             .filter { isUsableLyrics(it.lyrics) }
             .sortedByDescending(::qualityRank).distinctBy { it.source }
@@ -190,7 +192,7 @@ class DirectLyricsRepository {
     }
 
     private fun resolveFromProviders(track: String, artist: String, expectedDurationMs: Long,
-                                     sources: Set<String> = setOf("网易云音乐", "QQ音乐", "LRCLIB")): Result {
+                                     sources: Set<String> = LYRIC_SOURCES, album: String = ""): Result {
         val available = ConcurrentHashMap<String, Result>()
         val remember: (Result) -> Unit = { result ->
             available.compute(result.source) { _, previous ->
@@ -200,7 +202,7 @@ class DirectLyricsRepository {
         val completion = ExecutorCompletionService<Result?>(executor)
         val futures = listOfNotNull(
             runCatching { completion.submit(Callable {
-                if ("LRCLIB" in sources) querySource("LRCLIB", track) { queryLrcLib(track, artist, expectedDurationMs) } else null
+                if ("LRCLIB" in sources) querySource("LRCLIB", track) { queryLrcLib(track, artist, expectedDurationMs, album) } else null
             }) }.getOrNull(),
             runCatching { completion.submit(Callable {
                 if ("QQ音乐" in sources) querySource("QQ", track) {
@@ -210,6 +212,11 @@ class DirectLyricsRepository {
             runCatching { completion.submit(Callable {
                 if ("网易云音乐" in sources) querySource("NetEase", track) {
                     queryNetEase(track, artist, includeLyrics = true, expectedDurationMs, remember)
+                } else null
+            }) }.getOrNull(),
+            runCatching { completion.submit(Callable {
+                if ("酷狗音乐" in sources) querySource("KuGou", track) {
+                    queryKuGou(track, artist, expectedDurationMs, remember)
                 } else null
             }) }.getOrNull()
         )
@@ -338,14 +345,26 @@ class DirectLyricsRepository {
         }.getOrDefault(aliases)
     }
 
-    private fun queryLrcLib(track: String, artist: String, expectedDurationMs: Long): Result? {
+    private fun queryLrcLib(track: String, artist: String, expectedDurationMs: Long, album: String = ""): Result? {
         val headers = mapOf("Accept" to "application/json",
             "User-Agent" to "DesktopLyrics/1.0 (https://github.com/LuoH-AN/lyrics-android)")
         var best: Result? = null
-        for (plan in searchPlans(track, artist)) {
+        val requests = buildList {
+            for ((index, plan) in searchPlans(track, artist).withIndex()) {
+                val url = "https://lrclib.net/api/search?track_name=${encode(plan.track)}" +
+                    if (artist.isNotBlank() && !plan.includesArtist) "" else "&artist_name=${encode(plan.artist)}"
+                if (index == 0 && album.isNotBlank()) add(plan to "$url&album_name=${encode(album)}")
+                add(plan to url)
+            }
+            if (track.isNotBlank()) {
+                if (artist.isNotBlank()) add(SearchPlan(track, artist, "$track $artist", true) to
+                    "https://lrclib.net/api/search?q=${encode("$artist $track")}")
+                add(SearchPlan(track, "", track, false) to "https://lrclib.net/api/search?q=${encode(track)}")
+            }
+        }.distinctBy { it.second }
+        for ((plan, requestUrl) in requests) {
+            if (Thread.currentThread().isInterrupted) throw InterruptedException()
             val broad = artist.isNotBlank() && !plan.includesArtist
-            val requestUrl = "https://lrclib.net/api/search?track_name=${encode(plan.track)}" +
-                if (broad) "" else "&artist_name=${encode(plan.artist)}"
             val list = JSONArray(getText(requestUrl, headers))
             val aliases = if (broad && list.length() > 0) providerArtistAliases(artist) else setOf(normalize(artist))
             for (index in 0 until list.length()) {
@@ -356,7 +375,11 @@ class DirectLyricsRepository {
                 val lyrics = if (isUsableLyrics(syncedLyrics)) syncedLyrics else plainLyrics
                 if (!isUsableLyrics(lyrics)) continue
                 val synced = isUsableLyrics(syncedLyrics)
-                val durationMs = (item.optDouble("duration", 0.0) * 1000.0).toLong()
+                val seconds = item.optDouble("duration", 0.0)
+                if (!seconds.isFinite() || seconds !in 0.0..86_400.0) continue
+                val durationMs = (seconds * 1000.0).toLong()
+                if (expectedDurationMs > 0L && durationMs > 0L &&
+                    kotlin.math.abs(expectedDurationMs - durationMs) > 8000L) continue
                 val candidateTrack = item.optString("trackName")
                 val candidateArtist = item.optString("artistName")
                 val aliasMatch = normalize(candidateArtist) in aliases
@@ -383,6 +406,96 @@ class DirectLyricsRepository {
             if (best != null && best.score >= MIN_ACCEPTABLE_SCORE) return best
         }
         return best
+    }
+
+    private data class KuGouRecording(val title: String, val artist: String, val durationMs: Long,
+        val score: Int, val hash: String = "")
+
+    private fun queryKuGou(track: String, artist: String, expectedDurationMs: Long,
+        onCandidate: (Result) -> Unit = {}): Result? {
+        val headers = mapOf("Accept" to "application/json", "User-Agent" to USER_AGENT)
+        val triedHashes = HashSet<String>()
+        val triedDownloads = HashSet<String>()
+        var attempts = 0
+        fun matching(title: String, singer: String, duration: Long, hash: String = ""): KuGouRecording? {
+            if (title.isBlank() || versionTags(track) != versionTags(title)) return null
+            if (expectedDurationMs > 0L && (duration <= 0L ||
+                    kotlin.math.abs(expectedDurationMs - duration) > 8000L)) return null
+            val score = platformMatchScore(track, artist, title, singer, expectedDurationMs, duration)
+            return KuGouRecording(title, singer, duration, score, hash).takeIf { score >= MIN_ACCEPTABLE_SCORE }
+        }
+        fun duration(raw: Long, reference: Long): Long {
+            if (raw <= 0L || raw > 86_400_000L) return 0L
+            // Some KuGou lyric records use seconds, others milliseconds. Choose
+            // the unit closest to the already matched recording, never change LRC timestamps.
+            return if (reference > 0L && raw <= 86_400L &&
+                kotlin.math.abs(raw * 1000L - reference) < kotlin.math.abs(raw - reference)) raw * 1000L else raw
+        }
+        fun download(candidates: JSONArray, recording: KuGouRecording?): Result? {
+            for (index in 0 until candidates.length()) {
+                if (Thread.currentThread().isInterrupted) throw InterruptedException()
+                val candidate = candidates.optJSONObject(index) ?: continue
+                val id = candidate.optString("id")
+                val key = candidate.optString("accesskey")
+                if (id.isBlank() || key.isBlank() || id in excludedRecords.get().orEmpty() || id in triedDownloads) continue
+                val candidateDuration = duration(candidate.optLong("duration"), recording?.durationMs ?: expectedDurationMs)
+                val resolvedDuration = candidateDuration.takeIf { it > 0L } ?: recording?.durationMs ?: 0L
+                val title = candidate.optString("song")
+                val singer = candidate.optString("singer")
+                // Keyword records have returned song/singer in both orders. A
+                // hash lookup may omit both; then use the validated song metadata.
+                val named = listOfNotNull(matching(title, singer, resolvedDuration),
+                    matching(singer, title, resolvedDuration)).maxByOrNull { it.score }
+                if ((title.isNotBlank() || singer.isNotBlank()) && named == null) continue
+                val matched = recording ?: named ?: continue
+                if (candidateDuration > 0L && matched.durationMs > 0L &&
+                    kotlin.math.abs(candidateDuration - matched.durationMs) > 8000L) continue
+                if (expectedDurationMs > 0L && kotlin.math.abs(resolvedDuration - expectedDurationMs) > 8000L) continue
+                if (attempts >= MAX_LYRIC_CANDIDATES_PER_QUERY) break
+                attempts++
+                triedDownloads.add(id)
+                val root = try { JSONObject(getText("https://lyrics.kugou.com/download" +
+                    "?fmt=lrc&charset=utf8&client=pc&ver=1&id=${encode(id)}&accesskey=${encode(key)}", headers))
+                } catch (error: InterruptedException) { throw error }
+                  catch (_: Exception) { continue }
+                val encoded = root.optString("content")
+                if (encoded.isBlank() || encoded.equals("null", true)) continue
+                val lyrics = runCatching {
+                    val bytes = android.util.Base64.decode(encoded, android.util.Base64.DEFAULT)
+                    Charsets.UTF_8.newDecoder().onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                        .decode(java.nio.ByteBuffer.wrap(bytes)).toString().removePrefix("\uFEFF")
+                }.getOrNull() ?: continue
+                if (!Regex("(?m)^\\[\\d+:\\d+(?:\\.\\d+)?]").containsMatchIn(lyrics) ||
+                    !isUsableLyrics(lyrics) || isTitleOnlyLyrics(lyrics, track)) continue
+                return Result(lyrics = lyrics, durationMs = resolvedDuration, source = "酷狗音乐",
+                    recordId = id, title = matched.title, artist = matched.artist, score = matched.score).also(onCandidate)
+            }
+            return null
+        }
+        for (plan in searchPlans(track, artist)) {
+            if (Thread.currentThread().isInterrupted) throw InterruptedException()
+            val root = JSONObject(getText("https://mobileservice.kugou.com/api/v3/search/song" +
+                "?version=9108&plat=0&pagesize=8&showtype=0&keyword=${encode(plan.query)}", headers))
+            val songs = root.optJSONObject("data")?.optJSONArray("info") ?: JSONArray()
+            val recordings = (0 until songs.length()).mapNotNull { index ->
+                val song = songs.optJSONObject(index) ?: return@mapNotNull null
+                val seconds = song.optDouble("duration")
+                val songDuration = if (seconds.isFinite() && seconds in 0.0..86_400.0) (seconds * 1000).toLong() else 0L
+                matching(song.optString("songname"), song.optString("singername"), songDuration, song.optString("hash"))
+            }.sortedByDescending { it.score }.distinctBy { it.hash }.take(MAX_LYRIC_CANDIDATES_PER_QUERY)
+            for (recording in recordings) {
+                if (recording.hash.isBlank() || !triedHashes.add(recording.hash)) continue
+                val found = JSONObject(getText("https://lyrics.kugou.com/search" +
+                    "?ver=1&man=yes&client=pc&hash=${encode(recording.hash)}", headers))
+                download(found.optJSONArray("candidates") ?: JSONArray(), recording)?.let { return it }
+            }
+            val query = if (plan.includesArtist) "${plan.track} - ${plan.artist}" else plan.track
+            val found = JSONObject(getText("https://lyrics.kugou.com/search?ver=1&man=yes&client=pc" +
+                "&keyword=${encode(query)}" + if (expectedDurationMs > 0L) "&duration=$expectedDurationMs" else "", headers))
+            download(found.optJSONArray("candidates") ?: JSONArray(), null)?.let { return it }
+            if (attempts >= MAX_LYRIC_CANDIDATES_PER_QUERY) return null
+        }
+        return null
     }
 
     private fun queryQqMusic(
@@ -1209,7 +1322,11 @@ class DirectLyricsRepository {
     }
 
     private fun getBytes(url: String, headers: Map<String, String>): ByteArray {
+        if (Thread.currentThread().isInterrupted) throw InterruptedException()
         checkProvider(url)
+        fetchBytes?.let { fetch ->
+            return fetch(url, headers).also { require(it.size <= MAX_RESPONSE_BYTES) { "Response too large" } }
+        }
         val connection = URL(url).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = "GET"
@@ -1255,6 +1372,7 @@ class DirectLyricsRepository {
     private fun encode(value: String): String = URLEncoder.encode(value, Charsets.UTF_8.name())
 
     companion object {
+        private val LYRIC_SOURCES = setOf("网易云音乐", "QQ音乐", "LRCLIB", "酷狗音乐")
         private const val LOG_TAG = "DesktopLyrics"
         private const val CONNECT_TIMEOUT_MS = 3_000
         private const val READ_TIMEOUT_MS = 6_000

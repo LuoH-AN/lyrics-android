@@ -1,4 +1,4 @@
-name: Build Debug APK
+name: Build Compact Test APK
 
 on:
   push:
@@ -44,10 +44,32 @@ jobs:
       - name: Run regression tests
         run: node tests/run.cjs
 
-      - name: Test Compose UI and lyric logic, build debug APK
+      - name: Test Compose UI and lyric logic, build compact APK
         run: |
           chmod +x gradlew
-          ./gradlew testDebugUnitTest assembleDebug --stacktrace
+          ./gradlew testDebugUnitTest assembleDebug assembleCompact --stacktrace
+
+      - name: Verify compact APK and size
+        run: |
+          python3 tools/check-apk-size.py app/build/outputs/apk/compact/app-compact.apk app/build/outputs/apk/debug/app-debug.apk --report app/build/reports/package-size/size.json
+          python3 - <<'PY'
+          import os, re, subprocess
+          from pathlib import Path
+          tools = max((p for p in (Path(os.environ['ANDROID_HOME']) / 'build-tools').iterdir()
+                       if (p / 'apksigner').is_file() and (p / 'aapt').is_file()),
+                      key=lambda p: tuple(map(int, re.findall(r'\d+', p.name))))
+          def certificates(apk):
+              output = subprocess.check_output([str(tools / 'apksigner'), 'verify', '--print-certs', str(apk)], text=True)
+              return set(re.findall(r'certificate SHA-256 digest:\s*([0-9a-fA-F]{64})', output))
+          compact = Path('app/build/outputs/apk/compact/app-compact.apk')
+          debug = Path('app/build/outputs/apk/debug/app-debug.apk')
+          assert certificates(compact) == certificates(debug), 'Test APK must keep the existing signing certificate'
+          badging = subprocess.check_output([str(tools / 'aapt'), 'dump', 'badging', str(compact)], text=True)
+          assert "name='com.luoh.music.lrc.dev'" in badging.splitlines()[0], 'Unexpected test package ID'
+          assert 'application-debuggable' not in badging, 'Compact package must omit debugging tools'
+          assert Path('app/build/outputs/mapping/compact/mapping.txt').is_file()
+          print(badging.splitlines()[0])
+          PY
 
       - name: Upload Compose and domain test reports
         if: always()
@@ -57,11 +79,20 @@ jobs:
           path: |
             app/build/reports/tests/testDebugUnitTest/
             app/build/reports/material-ui/
+            app/build/reports/package-size/
           if-no-files-found: ignore
 
-      - name: Upload debug APK
+      - name: Upload compact test APK
         uses: actions/upload-artifact@v4
         with:
           name: lyrics-android-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/compact/*.apk
           if-no-files-found: error
+
+      - name: Preserve compact crash mapping
+        uses: actions/upload-artifact@v4
+        with:
+          name: lyrics-android-compact-mapping
+          path: app/build/outputs/mapping/compact/mapping.txt
+          if-no-files-found: error
+          retention-days: 90

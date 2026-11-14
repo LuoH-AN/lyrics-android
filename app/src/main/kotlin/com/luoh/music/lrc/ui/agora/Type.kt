@@ -20,8 +20,8 @@ val MonoFamily = FontFamily(
 )
 
 @OptIn(ExperimentalTextApi::class)
-private fun miOutfitFont(weight: FontWeight) = Font(
-    resId = R.font.mioutfit_variable,
+private fun outfitFont(weight: FontWeight) = Font(
+    resId = R.font.lyrics_outfit,
     weight = weight,
     variationSettings = FontVariation.Settings(
         FontVariation.weight(weight.weight),
@@ -29,11 +29,11 @@ private fun miOutfitFont(weight: FontWeight) = Font(
 )
 
 val OutfitFamily = FontFamily(
-    miOutfitFont(FontWeight.ExtraLight),
-    miOutfitFont(FontWeight.Light),
-    miOutfitFont(FontWeight.Normal),
-    miOutfitFont(FontWeight.Medium),
-    miOutfitFont(FontWeight.Bold),
+    outfitFont(FontWeight.ExtraLight),
+    outfitFont(FontWeight.Light),
+    outfitFont(FontWeight.Normal),
+    outfitFont(FontWeight.Medium),
+    outfitFont(FontWeight.Bold),
 )
 
 // Geometric (modular) type scale: every distinct size is a term of a geometric
