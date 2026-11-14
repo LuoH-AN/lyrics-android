@@ -28,6 +28,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -103,6 +105,7 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
@@ -123,6 +126,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
 import com.luoh.music.lrc.ui.agora.SettingsItem
@@ -278,11 +283,13 @@ internal fun ComposeHomeScreen(
     val prefs = remember(context) { context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE) }
     var backgroundEnabled by remember(context) { mutableStateOf(HomeLyricsPrefs.albumBackground(context)) }
     var appearance by remember(context) { mutableStateOf(HomeLyricsPrefs.appearance(context)) }
+    var popStyle by remember(context) { mutableStateOf(PopLyricsPrefs.style(context)) }
     var displayMode by remember(context) { mutableStateOf(HomeLyricsPrefs.displayMode(context)) }
     DisposableEffect(prefs) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == HomeLyricsPrefs.KEY_ALBUM_BACKGROUND || key == null)
                 backgroundEnabled = HomeLyricsPrefs.albumBackground(context)
+            popStyle = PopLyricsPrefs.style(context)
             appearance = HomeLyricsPrefs.appearance(context)
             displayMode = HomeLyricsPrefs.displayMode(context)
         }
@@ -290,28 +297,52 @@ internal fun ComposeHomeScreen(
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
     var playerMode by rememberSaveable { mutableIntStateOf(HOME_PLAYER_EXPANDED) }
+    var playerDockRight by rememberSaveable { mutableStateOf(false) }
+    var draggedDock by remember { mutableStateOf<Float?>(null) }
+    var playerSize by remember { mutableStateOf(IntSize.Zero) }
+    val policy = LocalAgoraMotionPolicy.current
+    val dockFraction by animateFloatAsState(
+        targetValue = draggedDock ?: if (playerDockRight) 1f else 0f,
+        animationSpec = tween(if (draggedDock != null || !policy.allowSpatialTransitions) 0 else 360, easing = FastOutSlowInEasing),
+        label = "homePlayerDock",
+    )
+    val popPlayback = if (displayMode == HomeLyricsPrefs.POP && state.document.timed && state.document.lines.isNotEmpty())
+        rememberPopPlayback(state, popStyle) else null
     val darkAlbumBackground = backgroundEnabled && state.snapshot.cover?.let { !it.isRecycled } == true
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        // The background and lyric field share the same camera clock; playback controls stay anchored.
         if (!state.gateVisible && backgroundEnabled) HomeAlbumBackground(state,
-            Modifier.fillMaxSize().testTag("home_album_background"), continuousMotion = displayMode != HomeLyricsPrefs.POP)
-        BoxWithConstraints(
-            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
-        ) {
+            Modifier.fillMaxSize().testTag("home_album_background")
+                .popStageCamera(popPlayback, popStyle, policy.allowSpatialTransitions, background = true),
+            continuousMotion = displayMode != HomeLyricsPrefs.POP)
+        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             if (state.gateVisible) {
                 HomePermissionGate(state.gateStatus, onListenerPermission, onOverlayPermission, onStartOverlay) { state.actions?.openSettings() }
-            } else if (maxWidth >= 840.dp || (maxWidth > maxHeight && maxWidth >= 560.dp)) {
-                val playerWidth = minOf(360.dp, maxWidth * .42f)
-                Row(Modifier.fillMaxSize().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    HomeLyricsStage(state, Modifier.weight(1f).fillMaxHeight(), darkAlbumBackground, appearance, displayMode)
-                    HomePlayer(state, playerMode, { playerMode = it },
-                        Modifier.widthIn(max = playerWidth).align(Alignment.CenterVertically), darkAlbumBackground)
-                }
             } else {
-                Column(Modifier.fillMaxSize()) {
-                    HomeLyricsStage(state, Modifier.weight(1f).fillMaxWidth(), darkAlbumBackground, appearance, displayMode)
-                    HomePlayer(state, playerMode, { playerMode = it },
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), darkAlbumBackground)
-                }
+                val density = LocalDensity.current
+                val landscape = maxWidth > maxHeight && maxWidth >= 560.dp
+                val playerLimit = if (playerMode == HOME_PLAYER_EXPANDED) minOf(340.dp, maxWidth * .84f)
+                    else minOf(300.dp, maxWidth * .76f)
+                val occupiedWidth = with(density) { playerSize.width.toDp() } + 28.dp
+                val occupiedHeight = with(density) { playerSize.height.toDp() } + 20.dp
+                val sideSpace = if (landscape && playerMode != HOME_PLAYER_COVER) occupiedWidth else 0.dp
+                val bottomSpace = if (!landscape || playerMode == HOME_PLAYER_COVER) occupiedHeight else 12.dp
+                HomeLyricsStage(state,
+                    Modifier.fillMaxSize().padding(
+                        start = if (!playerDockRight) sideSpace else 0.dp,
+                        end = if (playerDockRight) sideSpace else 0.dp, bottom = bottomSpace)
+                        .popStageCamera(popPlayback, popStyle, policy.allowSpatialTransitions),
+                    darkAlbumBackground, appearance, displayMode, popStyle, popPlayback)
+                val screenWidthPx = with(density) { maxWidth.roundToPx() }
+                val insetPx = with(density) { 16.dp.roundToPx() }
+                HomePlayer(state, playerMode, { playerMode = it }, playerDockRight,
+                    onDockChange = { playerDockRight = it }, onDockDrag = { draggedDock = it },
+                    modifier = Modifier.align(Alignment.BottomStart).widthIn(max = playerLimit)
+                        .heightIn(max = minOf(280.dp, maxHeight * .75f))
+                        .onSizeChanged { playerSize = it }
+                        .offset {
+                            IntOffset(insetPx + ((screenWidthPx - playerSize.width - insetPx * 2).coerceAtLeast(0) * dockFraction).roundToInt(), -insetPx)
+                        }, albumBackground = darkAlbumBackground)
             }
         }
     }
@@ -361,7 +392,8 @@ private const val HOME_PLAYER_COMPACT = 1
 private const val HOME_PLAYER_EXPANDED = 2
 
 @Composable
-private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (Int) -> Unit,
+private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (Int) -> Unit, dockRight: Boolean,
+    onDockChange: (Boolean) -> Unit, onDockDrag: (Float?) -> Unit,
     modifier: Modifier = Modifier, albumBackground: Boolean = false) {
     val snapshot = state.snapshot
     var showMore by rememberSaveable { mutableStateOf(false) }
@@ -388,6 +420,8 @@ private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (I
     var horizontalDragging by remember { mutableStateOf(false) }
     var horizontalFraction by remember { mutableFloatStateOf(1f) }
     var horizontalDistance by remember { mutableFloatStateOf(0f) }
+    var horizontalStartMode by remember { mutableIntStateOf(HOME_PLAYER_COMPACT) }
+    var horizontalStartDock by remember { mutableFloatStateOf(0f) }
     val settledHorizontal by animateFloatAsState(
         targetValue = if (horizontalDragging) horizontalFraction else if (mode == HOME_PLAYER_COVER) 0f else 1f,
         animationSpec = tween(if (horizontalDragging || !policy.allowSpatialTransitions) 0 else 320, easing = FastOutSlowInEasing),
@@ -412,7 +446,14 @@ private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (I
             val retractWidthPx = with(density) { (fullWidth - 56.dp).toPx().coerceAtLeast(1f) }
             val horizontalDragState = rememberDraggableState { delta ->
                 horizontalDistance += delta
-                horizontalFraction = (horizontalFraction + delta / retractWidthPx).coerceIn(0f, 1f)
+                if (horizontalStartMode == HOME_PLAYER_COMPACT) {
+                    horizontalFraction = (1f - abs(horizontalDistance) / retractWidthPx).coerceIn(0f, 1f)
+                    val targetDock = if (horizontalDistance >= 0f) 1f else 0f
+                    onDockDrag(horizontalStartDock + (targetDock - horizontalStartDock) * (1f - horizontalFraction))
+                } else {
+                    val inward = horizontalDistance * if (dockRight) -1f else 1f
+                    horizontalFraction = (inward / retractWidthPx).coerceIn(0f, 1f)
+                }
             }
             Surface(
                 Modifier.width(56.dp + (fullWidth - 56.dp) * reveal).testTag("home_player").semantics {
@@ -426,10 +467,14 @@ private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (I
                             setExpanded(!expanded)
                             true
                         })
-                        if (mode == HOME_PLAYER_COMPACT) add(CustomAccessibilityAction("仅显示封面") {
-                            onModeChange(HOME_PLAYER_COVER)
-                            true
-                        })
+                        if (mode != HOME_PLAYER_EXPANDED) {
+                            add(CustomAccessibilityAction("封面移到左下角") {
+                                onDockChange(false); onModeChange(HOME_PLAYER_COVER); true
+                            })
+                            add(CustomAccessibilityAction("封面移到右下角") {
+                                onDockChange(true); onModeChange(HOME_PLAYER_COVER); true
+                            })
+                        }
                     }
                 }.draggable(
                     state = dragState,
@@ -461,15 +506,24 @@ private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (I
                         onDragStarted = {
                             horizontalFraction = settledHorizontal
                             horizontalDistance = 0f
+                            horizontalStartMode = mode
+                            horizontalStartDock = if (dockRight) 1f else 0f
                             horizontalDragging = true
                         },
                         onDragStopped = { velocity ->
-                            val open = when {
-                                abs(velocity) >= flingThreshold -> velocity > 0f
-                                abs(horizontalDistance) >= threshold -> horizontalDistance > 0f
-                                else -> horizontalFraction >= .5f
+                            if (horizontalStartMode == HOME_PLAYER_COMPACT) {
+                                val committed = abs(horizontalDistance) >= threshold || abs(velocity) >= flingThreshold
+                                if (committed) {
+                                    onDockChange(if (abs(velocity) >= flingThreshold) velocity > 0f else horizontalDistance > 0f)
+                                    onModeChange(HOME_PLAYER_COVER)
+                                } else onModeChange(HOME_PLAYER_COMPACT)
+                            } else {
+                                val inwardDistance = horizontalDistance * if (dockRight) -1f else 1f
+                                val inwardVelocity = velocity * if (dockRight) -1f else 1f
+                                onModeChange(if (inwardDistance >= threshold || inwardVelocity >= flingThreshold)
+                                    HOME_PLAYER_COMPACT else HOME_PLAYER_COVER)
                             }
-                            onModeChange(if (open) HOME_PLAYER_COMPACT else HOME_PLAYER_COVER)
+                            onDockDrag(null)
                             horizontalDragging = false
                         },
                     ), verticalAlignment = Alignment.CenterVertically) {
@@ -483,7 +537,7 @@ private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (I
                                     val placeable = measurable.measure(constraints.copy(minWidth = bodyWidthPx, maxWidth = bodyWidthPx))
                                     layout((bodyWidthPx * reveal).roundToInt(), placeable.height) {
                                         // The trailing controls slide into the fixed album artwork.
-                                        placeable.placeRelative(((reveal - 1f) * bodyWidthPx).roundToInt(), 0)
+                                        placeable.placeRelative(((reveal - 1f) * bodyWidthPx * if (horizontalDistance > 0f) -1f else 1f).roundToInt(), 0)
                                     }
                                 }, verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -638,10 +692,11 @@ private fun HomeProgress(state: HomePresentationState) {
 
 @Composable
 private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = Modifier, albumBackground: Boolean = false,
-    appearance: HomeLyricAppearance = HomeLyricAppearance(), displayMode: String = HomeLyricsPrefs.SCROLL) {
+    appearance: HomeLyricAppearance = HomeLyricAppearance(), displayMode: String = HomeLyricsPrefs.SCROLL,
+    popStyle: PopLyricsStyle = PopLyricsStyle(), popPlayback: PopPlaybackFrame? = null) {
     val pop = displayMode == HomeLyricsPrefs.POP && state.document.timed && state.document.lines.isNotEmpty()
     if (pop) {
-        PopLyricsStage(state, modifier, albumBackground, appearance)
+        PopLyricsStage(state, modifier, albumBackground, appearance, popStyle, requireNotNull(popPlayback))
     } else {
         HomeScrollingLyricsStage(state, modifier.homeLyricsFade(), albumBackground, appearance)
     }

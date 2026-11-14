@@ -96,6 +96,21 @@ class ComposePopLyricsRenderTest {
         assertTrue(compose.onNodeWithTag("home_player").fetchSemanticsNode().size.width <= 56)
         if (landscape) assertTrue(after.width > before.width + 100) else assertTrue(after.height > before.height)
         assertTrue(capture(2500, "pop-cover-only$suffix") > 0)
+        val left = compose.onNodeWithTag("home_player").fetchSemanticsNode().boundsInRoot
+        assertTrue(left.left <= 20f && left.bottom >= (if (landscape) 400 else 800) - 25f)
+        compose.onNodeWithTag("home_player").performTouchInput {
+            swipe(center, Offset(centerX + 160f, centerY), durationMillis = 500)
+        }
+        compose.onNodeWithTag("home_player").performTouchInput {
+            swipe(Offset(width * .2f, centerY), Offset(width * .8f, centerY), durationMillis = 500)
+        }
+        val right = compose.onNodeWithTag("home_player").fetchSemanticsNode().boundsInRoot
+        assertTrue(right.right >= (if (landscape) 800 else 400) - 20f)
+        capture(2500, "pop-right-cover$suffix")
+        compose.runOnIdle { PopLyricsPrefs.save(compose.activity, PopLyricsStyle.preset("dynamic")) }
+        assertTrue(capture(2500, "pop-dynamic$suffix") > 0)
+        compose.runOnIdle { PopLyricsPrefs.save(compose.activity, PopLyricsPrefs.style(compose.activity).copy(camera = "off")) }
+        assertTrue(capture(2500, "pop-fixed-camera$suffix") > 0)
     }
 
     @Test fun nativeCanvasRevealsMoreWordsAsTheRealTimelineAdvances() = renderStage(false)

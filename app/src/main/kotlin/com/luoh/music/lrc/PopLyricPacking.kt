@@ -7,11 +7,11 @@ internal data class PopLyricSlot(val x: Float, val y: Float)
 internal data class PopLyricPacking(val slots: List<PopLyricSlot>, val scale: Float)
 
 /** Reserve the animated extents before drawing; resizing never depends on playback time. */
-internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float, height: Float, gap: Float): PopLyricPacking {
+internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float, height: Float, gap: Float, layoutStyle: String = "staggered", maxScale: Float = PopLyricMotion.MAX_SCALE): PopLyricPacking {
     require(widths.size == heights.size && widths.size <= PopLyricTimeline.MAX_TOKENS)
     if (widths.isEmpty() || width <= 0f || height <= 0f) return PopLyricPacking(emptyList(), 1f)
-    val reservedWidths = FloatArray(widths.size) { widths[it] * PopLyricMotion.MAX_SCALE + heights[it] * .52f + gap }
-    val reservedHeights = FloatArray(heights.size) { heights[it] * PopLyricMotion.MAX_SCALE + widths[it] * .52f + gap }
+    val reservedWidths = FloatArray(widths.size) { widths[it] * maxScale + heights[it] * .52f + gap }
+    val reservedHeights = FloatArray(heights.size) { heights[it] * maxScale + widths[it] * .52f + gap }
     val rowStarts = ArrayList<Int>()
     val rowWidths = ArrayList<Float>()
     val rowHeights = ArrayList<Float>()
@@ -41,7 +41,12 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
     var top = (height - totalHeight * fit) / 2f
     for (row in rowStarts.indices) {
         var left = (width - rowWidths[row] * fit) *
-            if (rowStarts.size == 1) .5f else if (row % 2 == 0) .22f else .78f
+            when {
+                rowStarts.size == 1 || layoutStyle == "centered" -> .5f
+                layoutStyle == "stairs" -> .12f + .76f * row / (rowStarts.size - 1)
+                row % 2 == 0 -> .22f
+                else -> .78f
+            }
         val until = rowStarts.getOrNull(row + 1) ?: widths.size
         for (index in rowStarts[row] until until) {
             slots += PopLyricSlot(left + reservedWidths[index] * fit / 2f, top + rowHeights[row] * fit / 2f)

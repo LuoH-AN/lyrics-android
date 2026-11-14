@@ -792,6 +792,7 @@ private fun HomeAlignmentSettings(context: Context, revision: Int) {
             HomeLyricsPrefs.saveDisplayMode(context, it)
         }
     }))
+    if (displayMode == HomeLyricsPrefs.POP) PopLyricSettings(context, revision)
     SettingsGroup(title = "背景", items = listOf({
         SettingsSwitchItem("封面模糊背景", "将专辑封面模糊处理后作为主页背景", Icons.Default.BlurOn, albumBackground) {
             HomeLyricsPrefs.saveAlbumBackground(context, it)
@@ -823,6 +824,66 @@ private fun HomeAlignmentSettings(context: Context, revision: Int) {
                 fontWeight = FontWeight(appearance.fontWeight), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }))
+}
+
+@Composable
+private fun PopLyricSettings(context: Context, revision: Int) {
+    val style = remember(revision) { PopLyricsPrefs.style(context) }
+    fun save(change: (PopLyricsStyle) -> PopLyricsStyle) {
+        PopLyricsPrefs.save(context, change(PopLyricsPrefs.style(context)).copy(preset = "custom"))
+    }
+    SettingsGroup(title = "跃动风格", items = listOf(
+        { SettingsChoiceItem("动效预设", style.preset,
+            listOf("calm" to "轻柔", "flow" to "流动", "dynamic" to "灵动", "custom" to "自定义"), Icons.Default.Style) {
+            PopLyricsPrefs.save(context, if (it == "custom") style.copy(preset = "custom") else PopLyricsStyle.preset(it))
+        } },
+        { SettingsChoiceItem("跳出单位", style.reveal, listOf("word" to "逐词", "character" to "逐字"), Icons.Default.TextFields) {
+            value -> save { it.copy(reveal = value) }
+        } },
+        { SettingsChoiceItem("舞台排版", style.layout,
+            listOf("staggered" to "错落", "centered" to "居中", "stairs" to "阶梯"), Icons.Default.FormatAlignLeft) {
+            value -> save { it.copy(layout = value) }
+        } },
+    ))
+    SettingsGroup(title = "文字入场", items = listOf(
+        { SettingsChoiceItem("入场方向", style.entrance,
+            listOf("scatter" to "四周飞入", "rise" to "向上跳出", "zoom" to "原地弹出"), Icons.Default.Layers) {
+            value -> save { it.copy(entrance = value) }
+        } },
+        { SettingsSliderItem("入场时长", style.entranceMs, 200..1000, 50, "ms", Icons.Default.Speed) {
+            value -> save { it.copy(entranceMs = value) }
+        } },
+        { SettingsSliderItem("提前入场", style.lookaheadMs, 0..250, 10, "ms", Icons.Default.Timeline) {
+            value -> save { it.copy(lookaheadMs = value) }
+        } },
+        { SettingsSliderItem("飞入距离", style.travelPercent, 0..200, 10, "%", Icons.Default.Layers) {
+            value -> save { it.copy(travelPercent = value) }
+        } },
+        { SettingsSliderItem("当前词放大", style.activeScalePercent, 100..180, 5, "%", Icons.Default.FormatSize) {
+            value -> save { it.copy(activeScalePercent = value) }
+        } },
+        { SettingsSliderItem("文字旋转", style.rotationDegrees, 0..30, 1, "°", Icons.Default.Sync) {
+            value -> save { it.copy(rotationDegrees = value) }
+        } },
+    ))
+    SettingsGroup(title = "舞台与镜头", items = listOf(
+        { SettingsChoiceItem("镜头运动", style.camera,
+            listOf("off" to "固定", "drift" to "漂移", "follow" to "跟随文字"), Icons.Default.MotionPhotosOff) {
+            value -> save { it.copy(camera = value) }
+        } },
+        { SettingsSliderItem("镜头幅度", style.cameraPercent, 0..200, 10, "%", Icons.Default.Speed,
+            style.camera != "off") { value -> save { it.copy(cameraPercent = value) } } },
+        { SettingsSwitchItem("舞台呼吸", "", Icons.Default.Sync, style.breathing) {
+            value -> save { it.copy(breathing = value) }
+        } },
+        { SettingsChoiceItem("整句切换", style.transition,
+            listOf("fade" to "淡入淡出", "slide" to "滑动切换", "zoom" to "缩放切换"), Icons.Default.Layers) {
+            value -> save { it.copy(transition = value) }
+        } },
+        { TextButton(onClick = { PopLyricsPrefs.save(context, PopLyricsStyle()) }, modifier = Modifier.fillMaxWidth()) {
+            Text("恢复跃动默认设置")
+        } },
+    ))
 }
 
 @Composable

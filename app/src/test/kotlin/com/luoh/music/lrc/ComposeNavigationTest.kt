@@ -84,6 +84,30 @@ class ComposeNavigationTest {
         compose.onNodeWithText("封面模糊背景").assertIsOff()
     }
 
+    @Test fun popCustomizationControlsPersistPresetsAndIndependentCameraChoices() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        HomeLyricsPrefs.saveDisplayMode(context, HomeLyricsPrefs.POP)
+        val navigator = ComposeNavigator(initial = ComposeRoute("settings"))
+        show(navigator)
+        compose.onNodeWithText("主页歌词").performScrollTo().performTouchInput { click() }
+        compose.onNodeWithText("动效预设", useUnmergedTree = true).performScrollTo().performTouchInput { click() }
+        compose.onNodeWithText("灵动").performTouchInput { click() }
+        compose.runOnIdle { assertEquals(PopLyricsStyle.preset("dynamic"), PopLyricsPrefs.style(context)) }
+        compose.onNodeWithText("镜头运动", useUnmergedTree = true).performScrollTo().performTouchInput { click() }
+        compose.onNodeWithText("固定").performTouchInput { click() }
+        compose.runOnIdle {
+            val style = PopLyricsPrefs.style(context)
+            assertEquals("off", style.camera)
+            assertEquals("custom", style.preset)
+            assertEquals("character", style.reveal)
+        }
+        compose.onNodeWithContentDescription("返回").performTouchInput { click() }
+        compose.onNodeWithText("主页歌词").performScrollTo().performTouchInput { click() }
+        compose.onNodeWithText("跳出单位", useUnmergedTree = true).performScrollTo().assertExists()
+        compose.onNodeWithText("恢复跃动默认设置").performScrollTo().performTouchInput { click() }
+        compose.runOnIdle { assertEquals(PopLyricsStyle(), PopLyricsPrefs.style(context)) }
+    }
+
     @Test @Config(qualifiers = "w1200dp-h800dp-mdpi")
     fun wideCategorySelectionChildBackAndOuterDismissShareOneNavigationSession() {
         val navigator = ComposeNavigator(initial = ComposeRoute("settings"))

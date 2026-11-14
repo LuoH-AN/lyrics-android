@@ -307,6 +307,54 @@ class ComposeHomeScreenTest {
         }
     }
 
+    private fun exerciseRightDock(widthDp: Int, heightDp: Int) {
+        val state = HomePresentationState().apply { setSnapshot(HomePresentationState.Snapshot(track = "Song")) }
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent {
+            CompositionLocalProvider(LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduceMotion = true)) {
+                MaterialTheme { Box(Modifier.size(widthDp.dp, heightDp.dp)) { ComposeHomeScreen(state, {}, {}, {}) } }
+            }
+        }
+        val fullBounds = compose.onNodeWithTag("home_player").fetchSemanticsNode().boundsInRoot
+        assertTrue(fullBounds.width < widthDp * .9f)
+        assertTrue(fullBounds.height < heightDp * .8f)
+        assertTrue(fullBounds.bottom >= heightDp - 25f)
+        assertTrue(fullBounds.left <= 20f)
+        compose.onNodeWithContentDescription("收起播放控制栏").performTouchInput { click() }
+        val compactBounds = compose.onNodeWithTag("home_player").fetchSemanticsNode().boundsInRoot
+        assertTrue(compactBounds.width < fullBounds.width && compactBounds.width < widthDp * .8f)
+        compose.onNodeWithTag("home_player").performTouchInput {
+            swipe(Offset(width * .2f, centerY), Offset(width * .8f, centerY), durationMillis = 500)
+        }
+        var cover = compose.onNodeWithTag("home_player").fetchSemanticsNode().boundsInRoot
+        assertEquals(56f, cover.width, .1f)
+        assertEquals(widthDp - 16f, cover.right, .1f)
+        assertEquals(heightDp - 16f, cover.bottom, .1f)
+        restoration.emulateSavedInstanceStateRestore()
+        cover = compose.onNodeWithTag("home_player").fetchSemanticsNode().boundsInRoot
+        assertEquals(widthDp - 16f, cover.right, .1f)
+        compose.onNodeWithTag("home_player").performTouchInput {
+            swipe(center, Offset(centerX - 160f, centerY), durationMillis = 500)
+        }
+        compose.onNodeWithContentDescription("展开播放控制栏").assertIsDisplayed()
+        compose.onNodeWithTag("home_player").performTouchInput {
+            swipe(Offset(width * .8f, centerY), Offset(width * .2f, centerY), durationMillis = 500)
+        }
+        cover = compose.onNodeWithTag("home_player").fetchSemanticsNode().boundsInRoot
+        assertEquals(16f, cover.left, .1f)
+        assertEquals(heightDp - 16f, cover.bottom, .1f)
+        compose.onNodeWithTag("home_player").performTouchInput {
+            swipe(center, Offset(centerX + 160f, centerY), durationMillis = 500)
+        }
+        compose.onNodeWithContentDescription("展开播放控制栏").assertIsDisplayed()
+    }
+
+    @Test fun portraitCompactSwipesDockToEitherBottomCornerAndRestoreInward() = exerciseRightDock(400, 700)
+
+    @Test
+    @Config(qualifiers = "w800dp-h400dp-mdpi")
+    fun landscapeHasBoundedCardsAndTheSameTwoBottomCornerGestures() = exerciseRightDock(800, 400)
+
     @Test fun backgroundPreferenceRemovesAndRestoresTheDrawingLayerImmediately() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val state = HomePresentationState()
