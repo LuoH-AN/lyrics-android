@@ -9,11 +9,12 @@ internal data class PopCameraPoint(val x: Float, val y: Float)
 internal data class PopCameraBounds(val minX: Float = -.30f, val maxX: Float = .30f,
     val minY: Float = -.34f, val maxY: Float = .34f)
 internal data class PopCameraWaypoint(val startMs: Long, val durationMs: Long,
-    val from: PopCameraPoint, val target: PopCameraPoint)
-internal data class PopCameraPath(val waypoints: List<PopCameraWaypoint>)
+    val from: PopCameraPoint, val target: PopCameraPoint, val velocity: PopCameraPoint = PopCameraPoint(0f, 0f))
+internal data class PopCameraPath(val waypoints: List<PopCameraWaypoint>, val bounds: PopCameraBounds = PopCameraBounds())
 
 /** Cache a continuous camera trajectory from actual measured word centers, never token parity. */
 internal object PopStageMotion {
+    const val FRAME_INTERVAL_NS = 16_000_000L
     private val wave = FloatArray(257) { sin(it / 256.0 * Math.PI * 2).toFloat() }
     private fun wave(time: Long, period: Long, offset: Int = 0): Float {
         val index = Math.floorMod(time, period) * 256 / period
@@ -22,8 +23,18 @@ internal object PopStageMotion {
     private fun at(point: PopCameraWaypoint, time: Long): PopCameraPoint {
         val progress = ((time - point.startMs).toFloat() / point.durationMs).coerceIn(0f, 1f)
         val eased = progress * progress * (3f - 2f * progress)
-        return PopCameraPoint(point.from.x + (point.target.x - point.from.x) * eased,
-            point.from.y + (point.target.y - point.from.y) * eased)
+        val tangent = progress * (1f - progress) * (1f - progress) * point.durationMs
+        return PopCameraPoint(point.from.x + (point.target.x - point.from.x) * eased + point.velocity.x * tangent,
+            point.from.y + (point.target.y - point.from.y) * eased + point.velocity.y * tangent)
+    }
+
+    private fun velocity(point: PopCameraWaypoint, time: Long): PopCameraPoint {
+        if (time < point.startMs || time >= point.startMs + point.durationMs) return PopCameraPoint(0f, 0f)
+        val progress = (time - point.startMs).toFloat() / point.durationMs
+        val eased = 6f * progress * (1f - progress) / point.durationMs
+        val tangent = 1f - 4f * progress + 3f * progress * progress
+        return PopCameraPoint((point.target.x - point.from.x) * eased + point.velocity.x * tangent,
+            (point.target.y - point.from.y) * eased + point.velocity.y * tangent)
     }
 
     fun path(timeline: PopLyricTimeline, centers: List<PopCameraPoint>, style: PopLyricsStyle,
@@ -44,17 +55,21 @@ internal object PopStageMotion {
             for (character in index until until) { x += centers[character].x; y += centers[character].y }
             val center = PopCameraPoint(x / (until - index), y / (until - index))
             val start = token.startMs - style.lookaheadMs + token.visualDelayMs
-            val from = points.lastOrNull()?.let { at(it, start) } ?: PopCameraPoint(0f, 0f)
+            val previous = points.lastOrNull()
+            val from = previous?.let { at(it, start) } ?: PopCameraPoint(0f, 0f)
             points += PopCameraWaypoint(start, duration, from,
-                PopCameraPoint((-center.x * amount).coerceIn(maxOf(-.30f, bounds.minX), minOf(.30f, bounds.maxX)),
-                    (-center.y * amount).coerceIn(maxOf(-.34f, bounds.minY), minOf(.34f, bounds.maxY))))
+                PopCameraPoint((-center.x * amount).coerceIn(maxOf(-.30f, bounds.minX), minOf(.30f, bounds.maxX)) * .85f,
+                    (-center.y * amount).coerceIn(maxOf(-.34f, bounds.minY), minOf(.34f, bounds.maxY)) * .85f),
+                previous?.let { velocity(it, start) } ?: PopCameraPoint(0f, 0f))
             index = until
         }
         if (timeline.wordTimed && points.isNotEmpty()) {
             val end = timeline.tokens.maxOf { it.endMs }
-            points += PopCameraWaypoint(end, duration, at(points.last(), end), PopCameraPoint(0f, 0f))
+            val previous = points.last()
+            points += PopCameraWaypoint(end, (duration * 1.25f).toLong(), at(previous, end),
+                PopCameraPoint(0f, 0f), velocity(previous, end))
         }
-        return PopCameraPath(points)
+        return PopCameraPath(points, bounds)
     }
 
     fun nextChangeDelayMs(time: Long, path: PopCameraPath?, style: PopLyricsStyle): Long {
@@ -73,7 +88,8 @@ internal object PopStageMotion {
         if (style.camera == "drift") return PopStagePose(floatX, floatY, 1f + breathe)
         val point = path.waypoints.lastOrNull { it.startMs <= time }
         val position = point?.let { at(it, time) } ?: PopCameraPoint(0f, 0f)
-        return PopStagePose(position.x + floatX, position.y + floatY, 1f + breathe)
+        return PopStagePose(position.x.coerceIn(path.bounds.minX, path.bounds.maxX) + floatX,
+            position.y.coerceIn(path.bounds.minY, path.bounds.maxY) + floatY, 1f + breathe)
     }
 }
 
@@ -81,7 +97,7 @@ internal fun Modifier.popStageCamera(frame: PopPlaybackFrame?, style: PopLyricsS
     background: Boolean = false): Modifier {
     if (frame == null || !allowMotion || style.camera == "off" || style.cameraPercent == 0) return this
     return graphicsLayer {
-        val pose = PopStageMotion.sample(frame.position.value, if (frame.interlude == null) frame.cameraPath.value else null, style)
+        val pose = PopStageMotion.sample(frame.cameraPosition.value, if (frame.interlude == null) frame.cameraPath.value else null, style)
         translationX = pose.x * size.width
         translationY = pose.y * size.height
         rotationZ = pose.rotation

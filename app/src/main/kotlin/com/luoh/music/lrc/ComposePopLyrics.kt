@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -30,6 +31,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -51,22 +53,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
 import kotlinx.coroutines.delay
 import kotlin.math.sin
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import androidx.compose.ui.text.style.TextAlign
 
 internal data class PopPlaybackFrame(val position: State<Long>, val index: Int, val line: LyricLine?,
     val primary: String, val timeline: PopLyricTimeline?, val interlude: LyricInterlude?,
-    val cameraPath: MutableState<PopCameraPath?>)
+    val cameraPath: MutableState<PopCameraPath?>, val cameraPosition: State<Long>)
 
 @Composable
 internal fun rememberPopPlayback(state: HomePresentationState, style: PopLyricsStyle): PopPlaybackFrame {
     val document = state.document
     val position = remember(state) { mutableLongStateOf(state.clock.positionMs() + state.displayOffsetMs) }
+    val cameraPosition = remember(state) { mutableLongStateOf(position.longValue) }
     var index by remember(document) { mutableIntStateOf(LyricTiming.activeIndex(document.lines, state.clock.positionMs() + state.displayOffsetMs)) }
     var interlude by remember(document) { mutableStateOf(LyricInterlude.at(document, position.longValue, state.clock.durationMs)) }
     val line = document.lines.getOrNull(index)
@@ -85,22 +90,26 @@ internal fun rememberPopPlayback(state: HomePresentationState, style: PopLyricsS
 
     LaunchedEffect(document, timeline, state.presentationActive, state.playing, state.playbackRevision,
         state.displayOffsetMs, allowMotion, style, cameraPath) {
-        fun update() {
+        fun update(draw: Boolean = true) {
             val now = state.clock.positionMs() + state.displayOffsetMs
-            position.longValue = now
-            index = LyricTiming.activeIndex(document.lines, now)
-            interlude = LyricInterlude.at(document, now, state.clock.durationMs)
+            cameraPosition.longValue = now
+            if (draw) {
+                position.longValue = now
+                index = LyricTiming.activeIndex(document.lines, now)
+                interlude = LyricInterlude.at(document, now, state.clock.durationMs)
+            }
         }
         update()
         var lastFrame = 0L
+        var lastDraw = 0L
         while (state.presentationActive && state.playing) {
-            val now = position.longValue
+            val now = cameraPosition.longValue
             if (state.clock.durationMs > 0L && state.clock.positionMs() >= state.clock.durationMs) break
             val nextBoundary = gapStartMs?.takeIf { it > now } ?: nextLineMs
             val wordDelay = timeline?.nextChangeDelayMs(now, nextBoundary, style) ?: 1000L
             val cameraDelay = PopStageMotion.nextChangeDelayMs(now, cameraPath.value, style)
-            val cameraMoving = cameraDelay == 0L
-            // A static camera sleeps between word events; breathing shares one capped clock.
+            val cameraMoving = allowMotion && interlude == null && cameraDelay == 0L
+            // Only the inexpensive camera layer runs at display cadence; glyph drawing stays capped.
             val waitMs = when {
                 interlude != null -> 0L
                 !allowMotion || timeline == null -> ((nextBoundary ?: state.clock.durationMs) - now).coerceIn(1L, 1000L)
@@ -109,15 +118,21 @@ internal fun rememberPopPlayback(state: HomePresentationState, style: PopLyricsS
             }
             if (waitMs > 0L) delay((waitMs / state.clock.speed).toLong().coerceIn(1L, 1000L))
             withFrameNanos { frame ->
-                if (frame - lastFrame >= if (wordDelay == 0L || cameraMoving || interlude != null)
-                    PopLyricMotion.FRAME_INTERVAL_NS else style.frameIntervalNs) {
+                val interval = when {
+                    cameraMoving -> PopStageMotion.FRAME_INTERVAL_NS
+                    wordDelay == 0L || interlude != null -> PopLyricMotion.FRAME_INTERVAL_NS
+                    else -> style.frameIntervalNs
+                }
+                if (waitMs > 0L || frame - lastFrame >= interval) {
                     lastFrame = frame
-                    update()
+                    val draw = waitMs > 0L || frame - lastDraw >= PopLyricMotion.FRAME_INTERVAL_NS
+                    update(draw)
+                    if (draw) lastDraw = frame
                 }
             }
         }
     }
-    return PopPlaybackFrame(position, index, line, primary, timeline, interlude, cameraPath)
+    return PopPlaybackFrame(position, index, line, primary, timeline, interlude, cameraPath, cameraPosition)
 }
 
 /** Clock reads only invalidate native drawing and the shared camera's graphics layers. */
@@ -130,8 +145,22 @@ internal fun PopLyricsStage(state: HomePresentationState, modifier: Modifier, al
     val allowMotion = LocalAgoraMotionPolicy.current.allowSpatialTransitions
     val foreground = if (albumBackground) Color.White else MaterialTheme.colorScheme.onSurface
     val activeColor = if (albumBackground) Color.White else MaterialTheme.colorScheme.primary
-    Column(modifier.testTag("home_pop_stage").padding(horizontal = 24.dp, vertical = 12.dp)) {
-        AnimatedContent(targetState = frame, modifier = Modifier.weight(1f).fillMaxWidth(),
+    BoxWithConstraints(modifier.testTag("home_pop_stage").padding(horizontal = 24.dp, vertical = 12.dp)) {
+        val density = LocalDensity.current
+        val translation = if (line != null && interlude == null &&
+            state.translationDisplayMode == LyricsOverlayService.TRANSLATION_BILINGUAL) line.translation else ""
+        val translationStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = appearance.translationSize.sp,
+            lineHeight = (appearance.translationSize * 1.4f).sp, color = foreground.copy(alpha = .75f))
+        val measurer = rememberTextMeasurer(cacheSize = 1)
+        val translationLayout = remember(translation, translationStyle, maxWidth, density) {
+            if (translation.isBlank()) null else measurer.measure(AnnotatedString(translation), style = translationStyle,
+                constraints = Constraints(maxWidth = with(density) { maxWidth.roundToPx() }.coerceAtLeast(1)),
+                maxLines = 3, overflow = TextOverflow.Ellipsis)
+        }
+        val translationGap = with(density) { 12.dp.toPx() }
+        val reservedTranslation = with(density) { translationLayout?.let { (it.size.height + translationGap).toDp() } ?: 0.dp }
+        val contentBottom = remember(line, frame.primary, appearance, style) { mutableFloatStateOf(0f) }
+        AnimatedContent(targetState = frame, modifier = Modifier.fillMaxSize().padding(bottom = reservedTranslation),
             contentKey = { it.line?.startMs to it.primary }, label = "popSentenceTransition",
             transitionSpec = {
                 val duration = if (allowMotion) 320 else 0
@@ -160,6 +189,7 @@ internal fun PopLyricsStage(state: HomePresentationState, modifier: Modifier, al
                 } else if (sentence.timeline != null) {
                     PopLyricCanvas(sentence.timeline, position, appearance, style, allowMotion, foreground, activeColor,
                         cameraPath = if (sentence.timeline === frame.timeline) frame.cameraPath else null,
+                        contentBottom = if (sentence.timeline === frame.timeline) contentBottom else null,
                         modifier = Modifier.fillMaxSize().semantics { text = AnnotatedString(sentence.primary) }
                             .combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null,
                                 onClick = { state.seek(currentLine.startMs - state.displayOffsetMs) },
@@ -167,22 +197,23 @@ internal fun PopLyricsStage(state: HomePresentationState, modifier: Modifier, al
                 }
             }
         }
-        if (line != null && interlude == null && state.translationDisplayMode == LyricsOverlayService.TRANSLATION_BILINGUAL && line.translation.isNotBlank()) {
-            Text(line.translation, color = foreground.copy(alpha = .75f), fontSize = appearance.translationSize.sp,
+        if (translationLayout != null) {
+            Text(translation, style = translationStyle,
                 maxLines = 3, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp))
+                modifier = Modifier.fillMaxWidth().testTag("home_pop_translation")
+                    .offset { IntOffset(0, (contentBottom.floatValue + translationGap).roundToInt()) })
         }
 
     }
 }
 
 private data class PopGlyph(val layout: TextLayoutResult, val slot: PopLyricSlot, val angle: Float, val entranceOffset: Offset)
-private data class PopScene(val glyphs: List<PopGlyph>, val scale: Float, val cameraPath: PopCameraPath)
+private data class PopScene(val glyphs: List<PopGlyph>, val scale: Float, val cameraPath: PopCameraPath, val bottom: Float)
 
 @Composable
 private fun PopLyricCanvas(timeline: PopLyricTimeline, position: State<Long>, appearance: HomeLyricAppearance,
     style: PopLyricsStyle, allowMotion: Boolean, foreground: Color, activeColor: Color,
-    cameraPath: MutableState<PopCameraPath?>?, modifier: Modifier) {
+    cameraPath: MutableState<PopCameraPath?>?, contentBottom: MutableState<Float>?, modifier: Modifier) {
     val measurer = rememberTextMeasurer(cacheSize = 0)
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
@@ -242,9 +273,12 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, position: State<Long>, ap
             )
             PopScene(glyphs, packing.scale, PopStageMotion.path(timeline, glyphs.map {
                 PopCameraPoint(it.slot.x / width.coerceAtLeast(1f) - .5f, it.slot.y / height.coerceAtLeast(1f) - .5f)
-            }, style, bounds))
+            }, style, bounds), bottom)
         }
-        SideEffect { if (cameraPath != null) cameraPath.value = scene.cameraPath }
+        SideEffect {
+            if (cameraPath != null) cameraPath.value = scene.cameraPath
+            if (contentBottom != null) contentBottom.value = scene.bottom
+        }
         Canvas(Modifier.fillMaxSize().testTag("home_pop_canvas")) {
             val now = position.value
             for (index in scene.glyphs.indices) {

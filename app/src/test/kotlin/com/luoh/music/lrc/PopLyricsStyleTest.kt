@@ -91,4 +91,24 @@ class PopLyricsStyleTest {
         assertEquals("stairs", PopLyricsPrefs.style(context).layout)
         assertEquals(12, PopLyricsPrefs.style(context).rotationDegrees)
     }
+
+    @Test fun denseWordsAndReturnToCenterPreserveCameraVelocity() {
+        val timeline = PopLyricTimeline.prepare(LyricLine(1000, "音乐陪伴", words = listOf(
+            LyricWord(1000, 150, "音"), LyricWord(1150, 150, "乐"),
+            LyricWord(1300, 150, "陪"), LyricWord(1450, 150, "伴"))))
+        val style = PopLyricsStyle()
+        val path = PopStageMotion.path(timeline, listOf(PopCameraPoint(-.2f, -.1f),
+            PopCameraPoint(-.1f, -.05f), PopCameraPoint(.1f, .05f), PopCameraPoint(.2f, .1f)), style)
+        for (point in path.waypoints.drop(1)) {
+            val before = PopStageMotion.sample(point.startMs - 1, path, style)
+            val at = PopStageMotion.sample(point.startMs, path, style)
+            val after = PopStageMotion.sample(point.startMs + 1, path, style)
+            assertTrue("Horizontal velocity must continue across a word or return boundary",
+                kotlin.math.abs((at.x - before.x) - (after.x - at.x)) < .00001f)
+            assertTrue("Vertical velocity must continue across a word or return boundary",
+                kotlin.math.abs((at.y - before.y) - (after.y - at.y)) < .00001f)
+        }
+        assertEquals(PopStagePose(), PopStageMotion.sample(3500, path, style))
+        assertEquals(1000L, PopStageMotion.nextChangeDelayMs(3500, path, style))
+    }
 }

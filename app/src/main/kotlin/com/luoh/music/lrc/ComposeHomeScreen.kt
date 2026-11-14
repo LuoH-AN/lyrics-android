@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -337,15 +339,12 @@ internal fun ComposeHomeScreen(
                 HomePermissionGate(state.gateStatus, onListenerPermission, onOverlayPermission, onStartOverlay) { state.actions?.openSettings() }
             } else {
                 val density = LocalDensity.current
-                val playerLimit = if (landscape) {
-                    if (playerMode == HOME_PLAYER_EXPANDED) minOf(340.dp, maxWidth * .42f)
-                    else minOf(300.dp, maxWidth * .42f)
-                } else (maxWidth - 32.dp).coerceAtLeast(80.dp)
-                val tallLandscapePlayer = landscape && playerMode == HOME_PLAYER_EXPANDED
-                val occupiedWidth = with(density) { playerSize.width.toDp() } + 28.dp
-                val occupiedHeight = with(density) { playerSize.height.toDp() } + 20.dp
-                val sideSpace = if (landscape && playerMode != HOME_PLAYER_COVER) occupiedWidth else 0.dp
-                val bottomSpace = if (!landscape || playerMode == HOME_PLAYER_COVER) occupiedHeight else 12.dp
+                val playerLimit = if (landscape) minOf(340.dp, maxWidth * .42f)
+                    else (maxWidth - 32.dp).coerceAtLeast(80.dp)
+                // Keep lyric packing stable while the landscape controls follow a vertical gesture.
+                val sideSpace = if (landscape && playerMode != HOME_PLAYER_COVER) playerLimit + 28.dp else 0.dp
+                val bottomSpace = if (!landscape || playerMode == HOME_PLAYER_COVER)
+                    with(density) { playerSize.height.toDp() } + 20.dp else 12.dp
                 HomeLyricsStage(state,
                     Modifier.fillMaxSize().padding(
                         start = if (!playerDockRight) sideSpace else 0.dp,
@@ -358,9 +357,9 @@ internal fun ComposeHomeScreen(
                     HomePlayer(state, playerMode,
                         onModeChange = { if (landscape) landscapeMode = it else portraitMode = it }, dockRight = playerDockRight,
                         onDockChange = { if (landscape) landscapeDockRight = it else portraitDockRight = it },
-                        onDockDrag = { draggedDock = it }, tall = tallLandscapePlayer,
+                        onDockDrag = { draggedDock = it }, tall = landscape,
                         modifier = Modifier.align(Alignment.BottomStart).widthIn(max = playerLimit)
-                            .then(if (tallLandscapePlayer) Modifier.height((maxHeight - 32.dp).coerceAtLeast(56.dp)) else Modifier)
+                            .then(if (landscape) Modifier.heightIn(max = (maxHeight - 32.dp).coerceAtLeast(56.dp)) else Modifier)
                             .onSizeChanged { playerSize = it }
                             .offset {
                                 IntOffset(insetPx + ((screenWidthPx - playerSize.width - insetPx * 2).coerceAtLeast(0) * dockFraction).roundToInt(), -insetPx)
@@ -425,20 +424,29 @@ private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (I
     var dragging by remember { mutableStateOf(false) }
     var dragFraction by remember { mutableFloatStateOf(1f) }
     var dragDistance by remember { mutableFloatStateOf(0f) }
+    var verticalStartMode by remember { mutableIntStateOf(mode) }
+    var releaseFraction by remember { mutableStateOf<Float?>(null) }
     val density = LocalDensity.current
     var detailsHeight by remember(density) { mutableIntStateOf(with(density) { 144.dp.roundToPx() }) }
+    var verticalRangePx by remember(density) { mutableIntStateOf(with(density) { 144.dp.roundToPx() }) }
     val threshold = with(density) { 24.dp.toPx() }
     val flingThreshold = with(density) { 600.dp.toPx() }
     val policy = LocalAgoraMotionPolicy.current
-    val settledFraction by animateFloatAsState(
-        targetValue = if (dragging) dragFraction else if (expanded) 1f else 0f,
-        animationSpec = tween(if (dragging || !policy.allowSpatialTransitions) 0 else 320, easing = FastOutSlowInEasing),
-        label = "homePlayerExpansion",
-    )
+    val expansion = remember { Animatable(if (expanded) 1f else 0f) }
+    LaunchedEffect(expanded, dragging, policy.allowSpatialTransitions) {
+        if (!dragging) {
+            releaseFraction?.let { expansion.snapTo(it) }
+            releaseFraction = null
+            expansion.animateTo(if (expanded) 1f else 0f,
+                tween(if (policy.allowSpatialTransitions) 420 else 0, easing = FastOutSlowInEasing))
+        }
+    }
+    val settledFraction = expansion.value
     val fraction = if (dragging) dragFraction else settledFraction
     val dragState = rememberDraggableState { delta ->
         dragDistance += delta
-        dragFraction = (dragFraction - delta / detailsHeight.coerceAtLeast(1)).coerceIn(0f, 1f)
+        if (verticalStartMode != HOME_PLAYER_COVER)
+            dragFraction = (dragFraction - delta / (if (tall) verticalRangePx else detailsHeight).coerceAtLeast(1)).coerceIn(0f, 1f)
     }
     var horizontalDragging by remember { mutableStateOf(false) }
     var horizontalFraction by remember { mutableFloatStateOf(1f) }
@@ -464,7 +472,8 @@ private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (I
     ) else scheme
     MaterialTheme(colorScheme = playerColors) {
         BoxWithConstraints(modifier) {
-            val fullWidth = maxWidth.coerceAtLeast(80.dp)
+            val compactWidth = if (tall) minOf(300.dp, maxWidth) else maxWidth
+            val fullWidth = (compactWidth + (maxWidth - compactWidth) * fraction).coerceAtLeast(80.dp)
             val bodyWidthPx = with(density) { (fullWidth - 80.dp).roundToPx().coerceAtLeast(1) }
             val retractWidthPx = with(density) { (fullWidth - 56.dp).toPx().coerceAtLeast(1f) }
             val horizontalDragState = rememberDraggableState { delta ->
@@ -480,7 +489,7 @@ private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (I
             }
             Surface(
                 Modifier.width(56.dp + (fullWidth - 56.dp) * reveal)
-                    .then(if (tall) Modifier.fillMaxHeight() else Modifier).testTag("home_player").semantics {
+                    .testTag("home_player").semantics {
                     stateDescription = when (mode) {
                         HOME_PLAYER_COVER -> "仅封面"
                         HOME_PLAYER_COMPACT -> "已收起"
@@ -503,28 +512,43 @@ private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (I
                 }.draggable(
                     state = dragState,
                     orientation = Orientation.Vertical,
-                    enabled = mode != HOME_PLAYER_COVER && !horizontalDragging,
+                    enabled = !horizontalDragging,
                     onDragStarted = {
+                        verticalStartMode = mode
                         dragFraction = settledFraction
                         dragDistance = 0f
                         dragging = true
                     },
                     onDragStopped = { velocity ->
-                        setExpanded(when {
-                            abs(velocity) >= flingThreshold -> velocity < 0f
-                            abs(dragDistance) >= threshold -> dragDistance < 0f
-                            else -> dragFraction >= .5f
+                        val direction = when {
+                            abs(velocity) >= flingThreshold -> velocity
+                            abs(dragDistance) >= threshold -> dragDistance
+                            else -> 0f
+                        }
+                        onModeChange(when {
+                            direction < 0f -> if (verticalStartMode == HOME_PLAYER_COVER) HOME_PLAYER_COMPACT else HOME_PLAYER_EXPANDED
+                            direction > 0f -> if (verticalStartMode == HOME_PLAYER_EXPANDED) HOME_PLAYER_COMPACT else HOME_PLAYER_COVER
+                            verticalStartMode == HOME_PLAYER_COVER -> HOME_PLAYER_COVER
+                            dragFraction >= .5f -> HOME_PLAYER_EXPANDED
+                            else -> HOME_PLAYER_COMPACT
                         })
+                        releaseFraction = dragFraction
                         dragging = false
                     },
-                ),
+                ).then(if (tall) Modifier.layout { measurable, constraints ->
+                    val placeable = measurable.measure(constraints.copy(minHeight = 0))
+                    verticalRangePx = (constraints.maxHeight - with(density) { 72.dp.roundToPx() }).coerceAtLeast(1)
+                    val compactHeight = with(density) { (56.dp + 16.dp * reveal).toPx() }
+                    val height = (compactHeight + (constraints.maxHeight - compactHeight) * fraction)
+                        .roundToInt().coerceAtLeast(placeable.height)
+                    layout(placeable.width, height) { placeable.placeRelative(0, (height - placeable.height) / 2) }
+                } else Modifier),
                 color = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onSurface,
             ) {
-                Column(Modifier.then(if (tall) Modifier.fillMaxHeight() else Modifier)
-                    .padding(horizontal = 12.dp * reveal, vertical = 8.dp * reveal),
-                    verticalArrangement = if (tall) Arrangement.SpaceBetween else Arrangement.Top) {
-                    Row(Modifier.fillMaxWidth().draggable(
+                Column(Modifier.padding(horizontal = 12.dp * reveal, vertical = 8.dp * reveal),
+                    verticalArrangement = Arrangement.spacedBy(if (tall) 12.dp * fraction else 0.dp)) {
+                    Row(Modifier.fillMaxWidth().testTag("home_player_header").draggable(
                         state = horizontalDragState, orientation = Orientation.Horizontal,
                         enabled = !expanded && !dragging,
                         onDragStarted = {
@@ -583,7 +607,7 @@ private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (I
                         }
                     }
                     if (expanded || dragging || fraction > 0f) Column(
-                        Modifier.fillMaxWidth().clipToBounds()
+                        Modifier.fillMaxWidth().testTag("home_player_details").clipToBounds()
                             .semantics { if (!expanded) hideFromAccessibility() }
                             .layout { measurable, constraints ->
                                 val placeable = measurable.measure(constraints.copy(minHeight = 0))

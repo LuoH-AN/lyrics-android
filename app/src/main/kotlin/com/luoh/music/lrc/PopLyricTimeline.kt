@@ -112,8 +112,13 @@ internal object PopLyricMotion {
     fun enter(elapsedMs: Long, durationMs: Long = DURATION_MS): Float {
         if (elapsedMs <= 0L) return 0f
         if (elapsedMs >= durationMs) return 1f
-        return entrance[(elapsedMs * entrance.lastIndex / durationMs).toInt()]
+        val sample = elapsedMs.toFloat() * entrance.lastIndex / durationMs
+        val index = sample.toInt().coerceAtMost(entrance.lastIndex - 1)
+        return entrance[index] + (entrance[index + 1] - entrance[index]) * (sample - index)
     }
 
-    fun pass(elapsedMs: Long): Float = (elapsedMs.toFloat() / PASS_DURATION_MS).coerceIn(0f, 1f)
+    fun pass(elapsedMs: Long): Float {
+        val progress = (elapsedMs.toFloat() / PASS_DURATION_MS).coerceIn(0f, 1f)
+        return progress * progress * (3f - 2f * progress)
+    }
 }

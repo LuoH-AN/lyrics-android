@@ -85,8 +85,24 @@ class ComposePopLyricsRenderTest {
             capture(4200, "pop-landscape-default")
             val cover = compose.onNodeWithTag("home_player").fetchSemanticsNode().boundsInRoot
             assertTrue(cover.width <= 56 && cover.right >= 780 && cover.bottom >= 380)
-            compose.onNodeWithContentDescription("开始播放").performTouchInput { longClick() }
-            compose.onNodeWithContentDescription("展开播放控制栏").performTouchInput { click() }
+            compose.onNodeWithTag("home_player").performTouchInput {
+                swipe(center, Offset(centerX, centerY - 100f), durationMillis = 300)
+            }
+            capture(2500, "pop-landscape-up-compact")
+            compose.mainClock.autoAdvance = false
+            compose.onNodeWithTag("home_player").performTouchInput {
+                down(center)
+                moveBy(Offset(0f, -90f), delayMillis = 150)
+            }
+            compose.mainClock.advanceTimeByFrame()
+            capture(2500, "pop-landscape-drag-up")
+            compose.onNodeWithTag("home_player").performTouchInput { up() }
+            compose.mainClock.advanceTimeByFrame()
+            capture(2500, "pop-landscape-release-up")
+            compose.mainClock.advanceTimeBy(180)
+            capture(2500, "pop-landscape-settling-up")
+            compose.mainClock.advanceTimeBy(450)
+            compose.mainClock.autoAdvance = true
         }
         val first = capture(1100, "pop-first-word$suffix")
         val second = capture(2500, "pop-second-word$suffix")

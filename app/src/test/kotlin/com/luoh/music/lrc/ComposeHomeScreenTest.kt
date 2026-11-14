@@ -380,6 +380,68 @@ class ComposeHomeScreenTest {
     @Config(qualifiers = "w800dp-h400dp-mdpi")
     fun landscapeHasBoundedCardsAndTheSameTwoBottomCornerGestures() = exerciseRightDock(800, 400)
 
+    @Test
+    @Config(qualifiers = "w800dp-h400dp-mdpi")
+    fun landscapeVerticalGesturesFollowTheFingerAndSettleWithoutHeightJumps() {
+        val actions = RecordingHomeActions()
+        val state = HomePresentationState().apply {
+            this.actions = actions
+            setSnapshot(HomePresentationState.Snapshot(track = "Song", durationMs = 10_000))
+            setLyrics(LyricDocument(listOf(LyricLine(0, "歌词保持可见", endMs = 10_000)), true))
+        }
+        HomeLyricsPrefs.saveDisplayMode(ApplicationProvider.getApplicationContext(), HomeLyricsPrefs.POP)
+        compose.setContent {
+            CompositionLocalProvider(LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduceMotion = false)) {
+                MaterialTheme { Box(Modifier.size(800.dp, 400.dp)) { ComposeHomeScreen(state, {}, {}, {}) } }
+            }
+        }
+        fun height() = compose.onNodeWithTag("home_player").fetchSemanticsNode().size.height
+        assertEquals(56, height())
+        compose.onNodeWithTag("home_player").performTouchInput {
+            swipe(center, Offset(centerX, centerY - 100f), durationMillis = 300)
+        }
+        val compact = height()
+        assertTrue(compact in 56..80)
+        val lyricWidth = compose.onNodeWithTag("home_pop_stage").fetchSemanticsNode().size.width
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithTag("home_player").performTouchInput {
+            down(center)
+            moveBy(Offset(0f, -72f), delayMillis = 150)
+        }
+        compose.mainClock.advanceTimeByFrame()
+        val draggingUp = height()
+        assertTrue("Expanded height must follow the drag before release", draggingUp > compact + 30 && draggingUp < 300)
+        compose.onNodeWithTag("home_player").performTouchInput { up() }
+        compose.mainClock.advanceTimeByFrame()
+        assertTrue("Release must continue from the dragged height", kotlin.math.abs(height() - draggingUp) < 20)
+        compose.mainClock.advanceTimeBy(180)
+        assertTrue(height() > draggingUp && height() < 368)
+        compose.mainClock.advanceTimeBy(400)
+        assertEquals(368, height())
+        assertEquals(lyricWidth, compose.onNodeWithTag("home_pop_stage").fetchSemanticsNode().size.width)
+        val header = compose.onNodeWithTag("home_player_header", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val details = compose.onNodeWithTag("home_player_details", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue("Header and transport controls must form one group", details.top - header.bottom in 8f..16f)
+        compose.onNodeWithTag("home_player").performTouchInput {
+            down(Offset(centerX, 20f))
+            moveBy(Offset(0f, 72f), delayMillis = 150)
+        }
+        compose.mainClock.advanceTimeByFrame()
+        val draggingDown = height()
+        assertTrue(draggingDown in (compact + 20)..340)
+        compose.onNodeWithTag("home_player").performTouchInput { up() }
+        compose.mainClock.advanceTimeByFrame()
+        assertTrue(kotlin.math.abs(height() - draggingDown) < 20)
+        compose.mainClock.advanceTimeBy(600)
+        assertEquals(compact, height())
+        compose.mainClock.autoAdvance = true
+        compose.onNodeWithTag("home_player").performTouchInput {
+            swipe(center, Offset(centerX, centerY + 100f), durationMillis = 300)
+        }
+        assertEquals(56, height())
+        compose.runOnIdle { assertTrue(actions.calls.isEmpty()) }
+    }
+
     @Test fun backgroundPreferenceRemovesAndRestoresTheDrawingLayerImmediately() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val state = HomePresentationState()
