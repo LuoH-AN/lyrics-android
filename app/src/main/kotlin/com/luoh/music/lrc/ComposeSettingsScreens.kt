@@ -969,7 +969,7 @@ private fun PopSchemeSettings(context: Context, revision: Int, style: PopLyricsS
             modifier = Modifier.clickable { PopLyricSchemes.apply(context, scheme) },
             trailingContent = { TextButton(onClick = { PopLyricSchemes.delete(context, scheme.id) }) { Text("删除") } })
     } }
-    SettingsGroup(title = "动效方案", items = listOf(
+    SettingsGroup(title = "动效方案", items = listOf<@Composable () -> Unit>(
         { SettingsChoiceItem("应用方案", selected, listOf("custom" to "当前自定义") + schemes.map { it.id to it.name },
             Icons.Default.Style) { id -> schemes.firstOrNull { it.id == id }?.let { PopLyricSchemes.apply(context, it) } } },
         { SettingsNavigationItem("保存当前方案", "保存全部跃动参数及字号、字重；最多 ${PopLyricSchemes.LIMIT} 套", Icons.Default.Add) {

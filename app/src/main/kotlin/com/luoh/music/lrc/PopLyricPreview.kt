@@ -87,7 +87,7 @@ internal fun PopLyricPreview(style: PopLyricsStyle, appearance: HomeLyricAppeara
         }
         Row(Modifier.fillMaxWidth()) {
             TextButton(onClick = { play = !play }) { Text(if (play) "暂停预览" else "继续预览") }
-            TextButton(onClick = { state.setProgress(0, active && play) }) { Text("重新播放") }
+            TextButton(onClick = { state.seek(0) }) { Text("重新播放") }
         }
         Text("无声示例 · 快句、长音与换段", style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
