@@ -200,8 +200,9 @@ internal fun PopLyricsStage(state: HomePresentationState, modifier: Modifier, al
         if (translationLayout != null) {
             Text(translation, style = translationStyle,
                 maxLines = 3, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth().testTag("home_pop_translation")
-                    .offset { IntOffset(0, (contentBottom.floatValue + translationGap).roundToInt()) })
+                modifier = Modifier.fillMaxWidth()
+                    .offset { IntOffset(0, (contentBottom.floatValue + translationGap).roundToInt()) }
+                    .testTag("home_pop_translation"))
         }
 
     }

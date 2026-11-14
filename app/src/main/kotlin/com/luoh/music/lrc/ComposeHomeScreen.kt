@@ -442,7 +442,7 @@ private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (I
         }
     }
     val settledFraction = expansion.value
-    val fraction = if (dragging) dragFraction else settledFraction
+    val fraction = if (dragging) dragFraction else releaseFraction ?: settledFraction
     val dragState = rememberDraggableState { delta ->
         dragDistance += delta
         if (verticalStartMode != HOME_PLAYER_COVER)
@@ -515,7 +515,8 @@ private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (I
                     enabled = !horizontalDragging,
                     onDragStarted = {
                         verticalStartMode = mode
-                        dragFraction = settledFraction
+                        dragFraction = releaseFraction ?: settledFraction
+                        releaseFraction = null
                         dragDistance = 0f
                         dragging = true
                     },

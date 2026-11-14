@@ -20,6 +20,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.unit.dp
 import com.luoh.music.lrc.ui.agora.AgoraMotionPolicy
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
@@ -62,15 +63,21 @@ class ComposePopLyricsRenderTest {
             compose.waitForIdle()
             // The clickable sentence merges its children's semantics for accessibility.
             val bounds = compose.onNodeWithTag("home_pop_canvas", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            val captionTop = compose.onAllNodesWithTag("home_pop_translation", useUnmergedTree = true)
+                .fetchSemanticsNodes().firstOrNull()?.boundsInRoot?.top ?: bounds.bottom
             var painted = 0
+            var paintedBottom = Int.MIN_VALUE
             compose.runOnIdle {
                 val bitmap = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
                 root.draw(Canvas(bitmap))
                 val background = bitmap.getPixel(bounds.left.toInt().coerceIn(0, bitmap.width - 1),
                     bounds.top.toInt().coerceIn(0, bitmap.height - 1))
-                for (y in bounds.top.toInt().coerceAtLeast(0) until bounds.bottom.toInt().coerceAtMost(bitmap.height)) {
+                for (y in bounds.top.toInt().coerceAtLeast(0) until minOf(bounds.bottom, captionTop).toInt().coerceAtMost(bitmap.height)) {
                     for (x in bounds.left.toInt().coerceAtLeast(0) until bounds.right.toInt().coerceAtMost(bitmap.width)) {
-                        if (bitmap.getPixel(x, y) != background) painted++
+                        if (bitmap.getPixel(x, y) != background) {
+                            painted++
+                            paintedBottom = y
+                        }
                     }
                 }
                 val output = File("build/reports/material-ui/$name.png")
@@ -78,6 +85,9 @@ class ComposePopLyricsRenderTest {
                 output.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
                 bitmap.recycle()
             }
+            if (name.startsWith("pop-complete-sentence")) assertTrue(
+                "The bilingual caption must stay close to the rendered phrase",
+                captionTop - paintedBottom in 8f..90f)
             return painted
         }
         val suffix = if (landscape) "-landscape" else ""
