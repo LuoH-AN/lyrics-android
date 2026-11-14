@@ -361,7 +361,7 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
                         val packed = packing.slots[index]
                         val slot = PopLyricSlot(packed.x + width * .04f, packed.y + height * .05f)
                         val seed = Math.floorMod(candidate.tokens[index].text.hashCode().toLong() + index * 17L, 997L).toFloat()
-                        val halfWidth = extents[index].width * packing.scale / 2f
+                        val halfWidth = (extents[index].width / 2f + rowTravelX) * packing.scale
                         val halfHeight = extents[index].height * packing.scale / 2f + rowTravel * packing.scale
                         val dx = (if (style.entrance == "scatter") sin(seed) * travelX else 0f).coerceIn(
                             (halfWidth - slot.x).coerceAtMost(0f), (width - halfWidth - slot.x).coerceAtLeast(0f))
