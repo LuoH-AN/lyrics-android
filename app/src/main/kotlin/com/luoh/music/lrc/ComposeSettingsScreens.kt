@@ -20,9 +20,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,6 +64,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -143,6 +147,8 @@ internal fun SettingsCategoryContent(
         context.getSharedPreferences(HomeMotionPrefs.PREFS, Context.MODE_PRIVATE)
     }
     val revision = settingsPreferenceRevision(overlayPrefs, appPrefs, alignmentPrefs, motionPrefs)
+    var previewPinned by rememberSaveable(category) { mutableStateOf(false) }
+    val canPreview = normalizedCategory == "HOME" && HomeLyricsPrefs.displayMode(context) == HomeLyricsPrefs.POP
     // Reading this state keeps business values current when the service or another page changes them.
     val title = remember(normalizedCategory) {
         when (normalizedCategory) {
@@ -157,17 +163,30 @@ internal fun SettingsCategoryContent(
             else -> "设置"
         }
     }
-    CollapsingSettingsScaffold(title = title, onBack = onBack) {
+    CollapsingSettingsScaffold(title = title, onBack = onBack, floatingActionButton = {
+        if (canPreview) Surface(modifier = Modifier.widthIn(max = 420.dp).fillMaxWidth().padding(horizontal = 24.dp),
+            shape = RoundedCornerShape(24.dp), tonalElevation = 4.dp, shadowElevation = 4.dp) {
+            if (previewPinned) Column {
+                Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("实时预览", style = MaterialTheme.typography.titleSmall)
+                    TextButton(onClick = { previewPinned = false }) { Text("收起") }
+                }
+                PopLyricPreview(PopLyricsPrefs.style(context), HomeLyricsPrefs.appearance(context), compact = true)
+            } else TextButton(onClick = { previewPinned = true }) { Text("固定预览，边调边看") }
+        }
+    }) {
         when (normalizedCategory) {
             "ACCESS" -> DesktopAccessSettings(context)
             "OVERLAY" -> DesktopAppearanceSettings(context, overlayPrefs, revision)
             "SYNC" -> LyricsSyncSettings(context, overlayPrefs, revision, onNavigate)
             "LYRICS" -> LyricsContentSettings(context, overlayPrefs, revision, onNavigate)
             "APPEARANCE" -> AppAppearanceSettings(context, appPrefs, revision)
-            "HOME" -> HomeAlignmentSettings(context, revision)
+            "HOME" -> HomeAlignmentSettings(context, revision, previewPinned)
             "MOTION" -> HomeMotionSettings(context, revision)
             "ABOUT" -> AboutSettings(context, onNavigate)
         }
+        if (canPreview) Spacer(Modifier.height(if (previewPinned) 280.dp else 56.dp))
     }
 }
 
@@ -778,11 +797,12 @@ private fun AppAppearanceSettings(context: Context, prefs: SharedPreferences, re
 }
 
 @Composable
-private fun HomeAlignmentSettings(context: Context, revision: Int) {
+private fun HomeAlignmentSettings(context: Context, revision: Int, previewPinned: Boolean = false) {
     val alignment = remember(revision) { HomeLyricsPrefs.alignment(context) }
     val albumBackground = remember(revision) { HomeLyricsPrefs.albumBackground(context) }
     val appearance = remember(revision) { HomeLyricsPrefs.appearance(context) }
     val displayMode = remember(revision) { HomeLyricsPrefs.displayMode(context) }
+    val keepAwake = remember(revision) { HomeLyricsPrefs.immersiveKeepAwake(context) }
     fun saveStyle(change: (HomeLyricAppearance) -> HomeLyricAppearance) {
         HomeLyricsPrefs.saveAppearance(context, change(HomeLyricsPrefs.appearance(context)))
     }
@@ -792,7 +812,11 @@ private fun HomeAlignmentSettings(context: Context, revision: Int) {
             HomeLyricsPrefs.saveDisplayMode(context, it)
         }
     }))
-    if (displayMode == HomeLyricsPrefs.POP) PopLyricSettings(context, revision)
+    if (displayMode == HomeLyricsPrefs.POP) PopLyricSettings(context, revision, previewPinned)
+    SettingsGroup(title = "沉浸观赏", items = listOf({
+        SettingsSwitchItem("播放时保持亮屏", "仅在主页沉浸观赏且正在播放时生效；主页更多菜单可进入沉浸模式",
+            Icons.Default.SettingsBrightness, keepAwake) { HomeLyricsPrefs.saveImmersiveKeepAwake(context, it) }
+    }))
     SettingsGroup(title = "背景", items = listOf({
         SettingsSwitchItem("封面模糊背景", "将专辑封面模糊处理后作为主页背景", Icons.Default.BlurOn, albumBackground) {
             HomeLyricsPrefs.saveAlbumBackground(context, it)
@@ -827,11 +851,14 @@ private fun HomeAlignmentSettings(context: Context, revision: Int) {
 }
 
 @Composable
-private fun PopLyricSettings(context: Context, revision: Int) {
+private fun PopLyricSettings(context: Context, revision: Int, previewPinned: Boolean = false) {
     val style = remember(revision) { PopLyricsPrefs.style(context) }
+    val appearance = remember(revision) { HomeLyricsPrefs.appearance(context) }
     fun save(change: (PopLyricsStyle) -> PopLyricsStyle) {
         PopLyricsPrefs.save(context, change(PopLyricsPrefs.style(context)).copy(preset = "custom"))
     }
+    if (!previewPinned) SettingsGroup(title = "跃动实时预览", items = listOf({ PopLyricPreview(style, appearance) }))
+    PopSchemeSettings(context, revision, style, appearance)
     SettingsGroup(title = "跃动参数", items = listOf(
         { SettingsChoiceItem("跳出单位", style.reveal, listOf("word" to "逐词", "character" to "逐字"), Icons.Default.TextFields) {
             value -> save { it.copy(reveal = value) }
@@ -926,6 +953,45 @@ private fun PopLyricSettings(context: Context, revision: Int) {
             Text("恢复默认参数")
         } },
     ))
+}
+
+@Composable
+private fun PopSchemeSettings(context: Context, revision: Int, style: PopLyricsStyle, appearance: HomeLyricAppearance) {
+    val saved = remember(revision) { PopLyricSchemes.saved(context) }
+    val schemes = PopLyricSchemes.builtIns + saved
+    val selected = (saved + PopLyricSchemes.builtIns).firstOrNull {
+        it.motion.copy(preset = "custom") == style.copy(preset = "custom") && it.text == appearance }?.id ?: "custom"
+    var naming by rememberSaveable { mutableStateOf(false) }
+    var name by rememberSaveable { mutableStateOf("") }
+    val savedRows: List<@Composable () -> Unit> = saved.map { scheme -> {
+        SettingsItem(headlineContent = { Text(scheme.name) },
+            supportingContent = { Text("已保存的动效方案") },
+            modifier = Modifier.clickable { PopLyricSchemes.apply(context, scheme) },
+            trailingContent = { TextButton(onClick = { PopLyricSchemes.delete(context, scheme.id) }) { Text("删除") } })
+    } }
+    SettingsGroup(title = "动效方案", items = listOf(
+        { SettingsChoiceItem("应用方案", selected, listOf("custom" to "当前自定义") + schemes.map { it.id to it.name },
+            Icons.Default.Style) { id -> schemes.firstOrNull { it.id == id }?.let { PopLyricSchemes.apply(context, it) } } },
+        { SettingsNavigationItem("保存当前方案", "保存全部跃动参数及字号、字重；最多 ${PopLyricSchemes.LIMIT} 套", Icons.Default.Add) {
+            name = ""; naming = true
+        } },
+    ) + savedRows)
+    if (naming) {
+        val normalized = name.trim()
+        val replacing = saved.any { it.name == normalized }
+        val full = !replacing && saved.size >= PopLyricSchemes.LIMIT
+        AlertDialog(onDismissRequest = { naming = false }, title = { Text("保存动效方案") },
+            text = { Column {
+                OutlinedTextField(value = name, onValueChange = { name = it.take(32) }, singleLine = true,
+                    label = { Text("方案名称") }, supportingText = {
+                        Text(when { full -> "已保存 ${PopLyricSchemes.LIMIT} 套，请先删除一套"; replacing -> "将覆盖同名方案"; else -> "最多 32 个字符" })
+                    })
+            } },
+            confirmButton = { TextButton(enabled = normalized.isNotBlank() && !full, onClick = {
+                if (PopLyricSchemes.save(context, normalized)) naming = false
+            }) { Text(if (replacing) "覆盖保存" else "保存") } },
+            dismissButton = { TextButton(onClick = { naming = false }) { Text("取消") } })
+    }
 }
 
 @Composable

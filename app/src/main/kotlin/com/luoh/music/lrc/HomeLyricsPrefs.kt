@@ -24,11 +24,20 @@ object HomeLyricsPrefs {
     const val KEY_FONT_WEIGHT = "font_weight"
     const val KEY_LINE_SPACING = "line_spacing"
     const val KEY_DISPLAY_MODE = "display_mode"
+    const val KEY_IMMERSIVE_KEEP_AWAKE = "immersive_keep_awake"
     const val SCROLL = "scroll"
     const val POP = "pop"
     const val LEFT = "left"
     const val CENTER = "center"
     const val RIGHT = "right"
+
+    fun immersiveKeepAwake(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_IMMERSIVE_KEEP_AWAKE, true)
+
+    fun saveImmersiveKeepAwake(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_IMMERSIVE_KEEP_AWAKE, enabled).apply()
+    }
 
     fun displayMode(context: Context): String =
         if (context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_DISPLAY_MODE, POP) == POP) POP else SCROLL

@@ -171,7 +171,8 @@ internal fun rememberPopPlayback(state: HomePresentationState, style: PopLyricsS
 /** Clock reads only invalidate native drawing and the shared camera's graphics layers. */
 @Composable
 internal fun PopLyricsStage(state: HomePresentationState, modifier: Modifier, albumBackground: Boolean,
-    appearance: HomeLyricAppearance, style: PopLyricsStyle, frame: PopPlaybackFrame) {
+    appearance: HomeLyricAppearance, style: PopLyricsStyle, frame: PopPlaybackFrame,
+    onLyricTap: (() -> Unit)? = null, interactive: Boolean = true) {
     val position = frame.position
     val renderCache = remember(state.document) { PopRenderCache() }
     val line = frame.line
@@ -225,9 +226,10 @@ internal fun PopLyricsStage(state: HomePresentationState, modifier: Modifier, al
                         position, appearance, style, allowMotion, foreground, activeColor,
                         cameraPath = if (sentence.timeline === frame.timeline) frame.cameraPath else null,
                         contentBottom = if (sentence.timeline === frame.timeline) contentBottom else null,
-                        modifier = Modifier.fillMaxSize().combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null,
-                                onClick = { state.seek(currentLine.startMs - state.displayOffsetMs) },
-                                onLongClickLabel = "摘句与分享", onLongClick = { state.beginSharing(sentence.index) }),
+                        modifier = Modifier.fillMaxSize().then(if (interactive) Modifier.combinedClickable(
+                                interactionSource = remember { MutableInteractionSource() }, indication = null,
+                                onClick = { if (onLyricTap != null) onLyricTap() else state.seek(currentLine.startMs - state.displayOffsetMs) },
+                                onLongClickLabel = "摘句与分享", onLongClick = { state.beginSharing(sentence.index) }) else Modifier),
                         playing = state.playing,
                         phraseMotionUntil = if (sentence.timeline === frame.timeline) frame.phraseMotionUntil else null)
                 }

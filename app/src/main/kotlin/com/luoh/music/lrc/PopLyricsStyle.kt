@@ -2,7 +2,7 @@ package com.luoh.music.lrc
 
 import android.content.Context
 
-/** Direct native visual parameters, independent of scrolling mode. The preset field only reads legacy preferences. */
+/** Direct native visual parameters, independent of scrolling mode. */
 internal data class PopLyricsStyle(
     val preset: String = "custom",
     val reveal: String = "word",

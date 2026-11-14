@@ -3,6 +3,8 @@ package com.luoh.music.lrc
 import android.graphics.Bitmap
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -109,6 +111,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -286,6 +290,20 @@ internal fun ComposeHomeScreen(
     var appearance by remember(context) { mutableStateOf(HomeLyricsPrefs.appearance(context)) }
     var popStyle by remember(context) { mutableStateOf(PopLyricsPrefs.style(context)) }
     var displayMode by remember(context) { mutableStateOf(HomeLyricsPrefs.displayMode(context)) }
+    var keepAwake by remember(context) { mutableStateOf(HomeLyricsPrefs.immersiveKeepAwake(context)) }
+    var immersive by rememberSaveable { mutableStateOf(false) }
+    var controlsVisible by rememberSaveable { mutableStateOf(false) }
+    var touching by remember { mutableStateOf(false) }
+    var controlsBusy by remember { mutableStateOf(false) }
+    val immersiveActive = immersive && state.presentationActive && !state.gateVisible
+    HomeImmersiveWindow(immersiveActive && state.shareDraft == null, keepAwake && state.playing)
+    BackHandler(immersiveActive && state.shareDraft == null) { immersive = false }
+    LaunchedEffect(immersiveActive, controlsVisible, touching, controlsBusy, state.playing, state.shareDraft) {
+        if (immersiveActive && controlsVisible && !touching && !controlsBusy && state.playing && state.shareDraft == null) {
+            delay(4000)
+            controlsVisible = false
+        }
+    }
     DisposableEffect(prefs) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == HomeLyricsPrefs.KEY_ALBUM_BACKGROUND || key == null)
@@ -293,6 +311,7 @@ internal fun ComposeHomeScreen(
             popStyle = PopLyricsPrefs.style(context)
             appearance = HomeLyricsPrefs.appearance(context)
             displayMode = HomeLyricsPrefs.displayMode(context)
+            keepAwake = HomeLyricsPrefs.immersiveKeepAwake(context)
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
@@ -308,7 +327,17 @@ internal fun ComposeHomeScreen(
     val popPlayback = if (!state.gateVisible && displayMode == HomeLyricsPrefs.POP && state.document.timed && state.document.lines.isNotEmpty())
         rememberPopPlayback(state, popStyle) else null
     val darkAlbumBackground = backgroundEnabled && state.snapshot.cover?.let { !it.isRecycled } == true
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+        .then(if (immersiveActive) Modifier.pointerInput(Unit) {
+            detectTapGestures(onTap = { controlsVisible = true })
+        } else Modifier)
+        .then(if (immersiveActive && controlsVisible) Modifier.pointerInput(Unit) {
+            try {
+                awaitPointerEventScope {
+                    while (true) touching = awaitPointerEvent(PointerEventPass.Initial).changes.any { it.pressed }
+                }
+            } finally { touching = false }
+        } else Modifier)) {
         // Keep artwork independent of word tracking so detailed covers cannot amplify lyric motion.
         if (!state.gateVisible && backgroundEnabled) HomeAlbumBackground(state,
             Modifier.fillMaxSize().testTag("home_album_background"),
@@ -340,19 +369,22 @@ internal fun ComposeHomeScreen(
                 val playerLimit = if (landscape) minOf(340.dp, maxWidth * .42f)
                     else (maxWidth - 32.dp).coerceAtLeast(80.dp)
                 // Keep lyric packing stable while the landscape controls follow a vertical gesture.
-                val sideSpace = if (landscape && playerMode != HOME_PLAYER_COVER) playerLimit + 28.dp else 0.dp
-                val bottomSpace = if (!landscape || playerMode == HOME_PLAYER_COVER)
+                val sideSpace = if (!immersive && landscape && playerMode != HOME_PLAYER_COVER) playerLimit + 28.dp else 0.dp
+                val bottomSpace = if (immersive) 0.dp else if (!landscape || playerMode == HOME_PLAYER_COVER)
                     with(density) { playerSize.height.toDp() } + 20.dp else 12.dp
                 HomeLyricsStage(state,
                     Modifier.fillMaxSize().padding(
                         start = if (!playerDockRight) sideSpace else 0.dp,
                         end = if (playerDockRight) sideSpace else 0.dp, bottom = bottomSpace)
                         .popStageCamera(popPlayback, popStyle, policy.allowSpatialTransitions),
-                    darkAlbumBackground, appearance, displayMode, popStyle, popPlayback)
+                    darkAlbumBackground, appearance, displayMode, popStyle, popPlayback,
+                    onLyricTap = if (immersive) ({ controlsVisible = true }) else null)
                 val screenWidthPx = with(density) { maxWidth.roundToPx() }
                 val insetPx = with(density) { 16.dp.roundToPx() }
-                key(landscape) {
+                if (!immersive || controlsVisible) key(landscape) {
                     HomePlayer(state, playerMode,
+                        onEnterImmersive = { immersive = true; controlsVisible = false },
+                        onBusyChange = { controlsBusy = it },
                         onModeChange = { if (landscape) landscapeMode = it else portraitMode = it }, dockRight = playerDockRight,
                         onDockChange = { if (landscape) landscapeDockRight = it else portraitDockRight = it },
                         onDockDrag = { draggedDock = it }, tall = landscape,
@@ -362,6 +394,10 @@ internal fun ComposeHomeScreen(
                             .offset {
                                 IntOffset(insetPx + ((screenWidthPx - playerSize.width - insetPx * 2).coerceAtLeast(0) * dockFraction).roundToInt(), -insetPx)
                             }, albumBackground = darkAlbumBackground)
+                }
+                if (immersive && controlsVisible) TextButton(onClick = { immersive = false },
+                    modifier = Modifier.align(Alignment.TopEnd).padding(12.dp)) {
+                    Text("退出沉浸", color = if (darkAlbumBackground) Color.White else MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -414,9 +450,12 @@ private const val HOME_PLAYER_EXPANDED = 2
 @Composable
 private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (Int) -> Unit, dockRight: Boolean,
     onDockChange: (Boolean) -> Unit, onDockDrag: (Float?) -> Unit, tall: Boolean = false,
-    modifier: Modifier = Modifier, albumBackground: Boolean = false) {
+    modifier: Modifier = Modifier, albumBackground: Boolean = false,
+    onEnterImmersive: () -> Unit = {}, onBusyChange: (Boolean) -> Unit = {}) {
     val snapshot = state.snapshot
     var showMore by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(showMore) { onBusyChange(showMore) }
+    DisposableEffect(Unit) { onDispose { onBusyChange(false) } }
     val expanded = mode == HOME_PLAYER_EXPANDED
     fun setExpanded(value: Boolean) = onModeChange(if (value) HOME_PLAYER_EXPANDED else HOME_PLAYER_COMPACT)
     var dragging by remember { mutableStateOf(false) }
@@ -646,7 +685,7 @@ private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (I
             }
         }
     }
-    if (showMore) HomeMoreSheet(state) { showMore = false }
+    if (showMore) HomeMoreSheet(state, onEnterImmersive) { showMore = false }
 }
 
 @Composable
@@ -740,18 +779,18 @@ private fun HomeProgress(state: HomePresentationState) {
 @Composable
 private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = Modifier, albumBackground: Boolean = false,
     appearance: HomeLyricAppearance = HomeLyricAppearance(), displayMode: String = HomeLyricsPrefs.SCROLL,
-    popStyle: PopLyricsStyle = PopLyricsStyle(), popPlayback: PopPlaybackFrame? = null) {
+    popStyle: PopLyricsStyle = PopLyricsStyle(), popPlayback: PopPlaybackFrame? = null, onLyricTap: (() -> Unit)? = null) {
     val pop = displayMode == HomeLyricsPrefs.POP && state.document.timed && state.document.lines.isNotEmpty()
     if (pop) {
-        PopLyricsStage(state, modifier, albumBackground, appearance, popStyle, requireNotNull(popPlayback))
+        PopLyricsStage(state, modifier, albumBackground, appearance, popStyle, requireNotNull(popPlayback), onLyricTap)
     } else {
-        HomeScrollingLyricsStage(state, modifier.homeLyricsFade(), albumBackground, appearance)
+        HomeScrollingLyricsStage(state, modifier.homeLyricsFade(), albumBackground, appearance, onLyricTap)
     }
 }
 
 @Composable
 private fun HomeScrollingLyricsStage(state: HomePresentationState, modifier: Modifier = Modifier, albumBackground: Boolean = false,
-    appearance: HomeLyricAppearance = HomeLyricAppearance()) {
+    appearance: HomeLyricAppearance = HomeLyricAppearance(), onLyricTap: (() -> Unit)? = null) {
     val document = state.document
     val foreground = if (albumBackground) Color.White else MaterialTheme.colorScheme.onSurface
     val secondary = if (albumBackground) Color.White.copy(alpha = .72f) else MaterialTheme.colorScheme.onSurfaceVariant
@@ -893,7 +932,7 @@ private fun HomeScrollingLyricsStage(state: HomePresentationState, modifier: Mod
                         position = position,
                         scrollVelocity = scrollVelocity,
                         timed = document.timed,
-                        onClick = { state.seek(line.startMs - state.displayOffsetMs) },
+                        onClick = { if (onLyricTap != null) onLyricTap() else state.seek(line.startMs - state.displayOffsetMs) },
                         onLongClick = { state.beginSharing(index) },
                         activeColor = if (albumBackground) foreground else MaterialTheme.colorScheme.primary,
                         foregroundColor = foreground,
@@ -1033,7 +1072,7 @@ private fun KaraokeLyricText(
 }
 
 @Composable
-private fun HomeMoreSheet(state: HomePresentationState, onDismiss: () -> Unit) {
+private fun HomeMoreSheet(state: HomePresentationState, onEnterImmersive: () -> Unit, onDismiss: () -> Unit) {
     val sheet = rememberSmoothBottomSheetState()
     val scroll = rememberLazyListState()
     var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -1059,6 +1098,7 @@ private fun HomeMoreSheet(state: HomePresentationState, onDismiss: () -> Unit) {
         },
     ) {
         LazyColumn(state = scroll, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+            item { HomeSheetOption("沉浸观赏", Icons.Default.Lyrics) { select(onEnterImmersive) } }
             if (state.document.lines.isNotEmpty()) item {
                 HomeSheetOption("歌词摘句与分享", Icons.Default.Share) { select { state.beginSharing() } }
             }
