@@ -51,12 +51,18 @@ object HomeLyricsPrefs {
             .putInt(KEY_FONT_WEIGHT, style.fontWeight).putInt(KEY_LINE_SPACING, style.lineSpacing).apply()
     }
 
-    fun albumBackground(context: Context): Boolean = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        .getBoolean(KEY_ALBUM_BACKGROUND, true)
+    fun albumBackground(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (prefs.getInt("background_revision", 0) < 1) {
+            prefs.edit().putBoolean(KEY_ALBUM_BACKGROUND, false).putInt("background_revision", 1).apply()
+            return false
+        }
+        return prefs.getBoolean(KEY_ALBUM_BACKGROUND, false)
+    }
 
     fun saveAlbumBackground(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putBoolean(KEY_ALBUM_BACKGROUND, enabled).apply()
+            .putBoolean(KEY_ALBUM_BACKGROUND, enabled).putInt("background_revision", 1).apply()
     }
 
     fun alignment(context: Context): String {

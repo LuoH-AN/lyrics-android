@@ -42,6 +42,7 @@ class HomeAppearanceRenderTest {
 
     private fun render(dark: Boolean) {
         compose.activity.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+        HomeLyricsPrefs.saveAlbumBackground(compose.activity, true)
         val cover = Bitmap.createBitmap(48, 48, Bitmap.Config.ARGB_8888)
         val tones = intArrayOf(0xFFD36544.toInt(), 0xFF7B568F.toInt(), 0xFFDFB269.toInt(), 0xFF416C82.toInt())
         for (y in 0 until 48) for (x in 0 until 48) cover.setPixel(x, y, tones[(x / 24) + (y / 24) * 2])

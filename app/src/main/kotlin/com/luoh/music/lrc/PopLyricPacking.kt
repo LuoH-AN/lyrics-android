@@ -2,20 +2,22 @@ package com.luoh.music.lrc
 
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sin
 
 internal data class PopLyricSlot(val x: Float, val y: Float)
 internal data class PopLyricPacking(val slots: List<PopLyricSlot>, val scale: Float)
 
 /** Reserve the animated extents before drawing; resizing never depends on playback time. */
-internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float, height: Float, gap: Float, layoutStyle: String = "staggered", maxScale: Float = PopLyricMotion.MAX_SCALE): PopLyricPacking {
+internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float, height: Float, gap: Float, layoutStyle: String = "staggered", maxScale: Float = PopLyricMotion.MAX_SCALE, rotationDegrees: Int = 20): PopLyricPacking {
     require(widths.size == heights.size && widths.size <= PopLyricTimeline.MAX_TOKENS)
     if (widths.isEmpty() || width <= 0f || height <= 0f) return PopLyricPacking(emptyList(), 1f)
-    val reservedWidths = FloatArray(widths.size) { widths[it] * maxScale + heights[it] * .52f + gap }
-    val reservedHeights = FloatArray(heights.size) { heights[it] * maxScale + widths[it] * .52f + gap }
+    val rotationReach = (sin(rotationDegrees * 1.15 * Math.PI / 180) * maxScale).toFloat()
+    val reservedWidths = FloatArray(widths.size) { widths[it] * maxScale + heights[it] * rotationReach + gap }
+    val reservedHeights = FloatArray(heights.size) { heights[it] * maxScale + widths[it] * rotationReach + gap }
     val rowStarts = ArrayList<Int>()
     val rowWidths = ArrayList<Float>()
     val rowHeights = ArrayList<Float>()
-    val rowLimit = width * if (height > width * 1.1f) .78f else .94f
+    val rowLimit = if (layoutStyle == "centered") width else width * if (height > width * 1.1f) .78f else .94f
     var start = 0
     var rowWidth = 0f
     var rowHeight = 0f

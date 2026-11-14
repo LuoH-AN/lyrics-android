@@ -12,6 +12,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.geometry.Offset
@@ -80,6 +81,13 @@ class ComposePopLyricsRenderTest {
             return painted
         }
         val suffix = if (landscape) "-landscape" else ""
+        if (landscape) {
+            capture(4200, "pop-landscape-default")
+            val cover = compose.onNodeWithTag("home_player").fetchSemanticsNode().boundsInRoot
+            assertTrue(cover.width <= 56 && cover.right >= 780 && cover.bottom >= 380)
+            compose.onNodeWithContentDescription("开始播放").performTouchInput { longClick() }
+            compose.onNodeWithContentDescription("展开播放控制栏").performTouchInput { click() }
+        }
         val first = capture(1100, "pop-first-word$suffix")
         val second = capture(2500, "pop-second-word$suffix")
         val complete = capture(4200, "pop-complete-sentence$suffix")
@@ -107,10 +115,24 @@ class ComposePopLyricsRenderTest {
         val right = compose.onNodeWithTag("home_player").fetchSemanticsNode().boundsInRoot
         assertTrue(right.right >= (if (landscape) 800 else 400) - 20f)
         capture(2500, "pop-right-cover$suffix")
-        compose.runOnIdle { PopLyricsPrefs.save(compose.activity, PopLyricsStyle.preset("dynamic")) }
+        compose.runOnIdle { PopLyricsPrefs.save(compose.activity, PopLyricsStyle(reveal = "character", layout = "stairs", entrance = "scatter",
+            travelPercent = 150, rotationDegrees = 15, activeScalePercent = 150)) }
         assertTrue(capture(2500, "pop-dynamic$suffix") > 0)
         compose.runOnIdle { PopLyricsPrefs.save(compose.activity, PopLyricsPrefs.style(compose.activity).copy(camera = "off")) }
         assertTrue(capture(2500, "pop-fixed-camera$suffix") > 0)
+        if (!landscape) {
+            compose.runOnIdle {
+                PopLyricsPrefs.save(compose.activity, PopLyricsStyle())
+                val words = listOf("让", "音乐", "陪你", "走过", "每一个", "夜晚")
+                state.setLyrics(LyricDocument(listOf(LyricLine(1000, words.joinToString(""), endMs = 9500,
+                    words = words.mapIndexed { index, text -> LyricWord(1000 + index * 700L, 700, text) })), true))
+            }
+            assertTrue(capture(6500, "pop-portrait-long-default") > 0)
+            compose.runOnIdle { HomeLyricsPrefs.saveAppearance(compose.activity, HomeLyricAppearance(fontSize = 48)) }
+            assertTrue(capture(6500, "pop-portrait-large-type") > 0)
+            compose.runOnIdle { HomeLyricsPrefs.saveAppearance(compose.activity, HomeLyricAppearance(fontSize = 16)) }
+            assertTrue(capture(6500, "pop-portrait-small-type") > 0)
+        }
     }
 
     @Test fun nativeCanvasRevealsMoreWordsAsTheRealTimelineAdvances() = renderStage(false)

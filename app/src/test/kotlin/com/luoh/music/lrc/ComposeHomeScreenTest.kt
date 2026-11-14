@@ -230,6 +230,12 @@ class ComposeHomeScreenTest {
                 MaterialTheme { Box(Modifier.size(widthDp.dp, heightDp.dp)) { ComposeHomeScreen(state, {}, {}, {}) } }
             }
         }
+        if (widthDp > heightDp) {
+            val cover = compose.onNodeWithTag("home_player").fetchSemanticsNode().boundsInRoot
+            assertEquals(widthDp - 16f, cover.right, .1f)
+            compose.onNodeWithContentDescription("开始播放").performTouchInput { longClick() }
+            compose.onNodeWithContentDescription("展开播放控制栏").performTouchInput { click() }
+        }
         compose.onNodeWithTag("home_player").performTouchInput {
             swipe(Offset(80f, 30f), Offset(80f, 150f), durationMillis = 500)
         }
@@ -283,9 +289,12 @@ class ComposeHomeScreenTest {
 
     @Test
     @Config(qualifiers = "w800dp-h800dp-mdpi")
-    fun coverOnlyStateSurvivesPortraitLandscapeLayoutChanges() {
+    fun rotationStartsLandscapeAsRightCoverAndRestoresUnlimitedPortraitControls() {
         val landscape = mutableStateOf(false)
-        val state = HomePresentationState().apply { setSnapshot(HomePresentationState.Snapshot(track = "Song")) }
+        val state = HomePresentationState().apply {
+            setSnapshot(HomePresentationState.Snapshot(track = "Song"))
+            setTranslationStatus((1..9).joinToString("\n") { "翻译状态 $it" })
+        }
         compose.setContent {
             CompositionLocalProvider(LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduceMotion = true)) {
                 MaterialTheme {
@@ -295,16 +304,25 @@ class ComposeHomeScreenTest {
                 }
             }
         }
-        compose.onNodeWithContentDescription("收起播放控制栏").performTouchInput { click() }
-        compose.onNodeWithTag("home_player").performTouchInput {
-            swipe(Offset(width * .8f, centerY), Offset(width * .2f, centerY), durationMillis = 500)
-        }
-        repeat(2) {
-            compose.runOnIdle { landscape.value = !landscape.value }
-            assertEquals(56, compose.onNodeWithTag("home_player").fetchSemanticsNode().size.width)
-            compose.onNodeWithContentDescription("开始播放").assertIsDisplayed()
-            compose.onNodeWithText("Song").assertDoesNotExist()
-        }
+        val portrait = compose.onNodeWithTag("home_player").fetchSemanticsNode().boundsInRoot
+        assertEquals(368f, portrait.width, .1f)
+        assertTrue("Portrait controls must not retain the former 280dp height cap", portrait.height > 280f)
+        compose.runOnIdle { landscape.value = true }
+        var cover = compose.onNodeWithTag("home_player").fetchSemanticsNode().boundsInRoot
+        assertEquals(56f, cover.width, .1f)
+        assertEquals(784f, cover.right, .1f)
+        assertEquals(384f, cover.bottom, .1f)
+        compose.onNodeWithContentDescription("开始播放").performTouchInput { longClick() }
+        compose.onNodeWithContentDescription("展开播放控制栏").performTouchInput { click() }
+        val expanded = compose.onNodeWithTag("home_player").fetchSemanticsNode().boundsInRoot
+        assertEquals(368f, expanded.height, .1f)
+        compose.runOnIdle { landscape.value = false }
+        assertEquals(portrait.height, compose.onNodeWithTag("home_player").fetchSemanticsNode().size.height.toFloat(), .1f)
+        compose.onNodeWithContentDescription("收起播放控制栏").assertIsDisplayed()
+        compose.runOnIdle { landscape.value = true }
+        cover = compose.onNodeWithTag("home_player").fetchSemanticsNode().boundsInRoot
+        assertEquals(56f, cover.width, .1f)
+        assertEquals(784f, cover.right, .1f)
     }
 
     private fun exerciseRightDock(widthDp: Int, heightDp: Int) {
@@ -315,14 +333,21 @@ class ComposeHomeScreenTest {
                 MaterialTheme { Box(Modifier.size(widthDp.dp, heightDp.dp)) { ComposeHomeScreen(state, {}, {}, {}) } }
             }
         }
+        if (widthDp > heightDp) {
+            compose.onNodeWithContentDescription("开始播放").performTouchInput { longClick() }
+            compose.onNodeWithContentDescription("展开播放控制栏").performTouchInput { click() }
+        }
         val fullBounds = compose.onNodeWithTag("home_player").fetchSemanticsNode().boundsInRoot
-        assertTrue(fullBounds.width < widthDp * .9f)
-        assertTrue(fullBounds.height < heightDp * .8f)
+        if (widthDp > heightDp) {
+            assertTrue(fullBounds.width < widthDp * .5f)
+            assertEquals(heightDp - 32f, fullBounds.height, .1f)
+        } else assertEquals(widthDp - 32f, fullBounds.width, .1f)
         assertTrue(fullBounds.bottom >= heightDp - 25f)
-        assertTrue(fullBounds.left <= 20f)
+        if (widthDp <= heightDp) assertTrue(fullBounds.left <= 20f)
         compose.onNodeWithContentDescription("收起播放控制栏").performTouchInput { click() }
         val compactBounds = compose.onNodeWithTag("home_player").fetchSemanticsNode().boundsInRoot
-        assertTrue(compactBounds.width < fullBounds.width && compactBounds.width < widthDp * .8f)
+        if (widthDp > heightDp) assertTrue(compactBounds.width < fullBounds.width)
+        else assertEquals(fullBounds.width, compactBounds.width, .1f)
         compose.onNodeWithTag("home_player").performTouchInput {
             swipe(Offset(width * .2f, centerY), Offset(width * .8f, centerY), durationMillis = 500)
         }
@@ -359,12 +384,12 @@ class ComposeHomeScreenTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val state = HomePresentationState()
         compose.setContent { MaterialTheme { ComposeHomeScreen(state, {}, {}, {}) } }
+        compose.onNodeWithTag("home_album_background").assertDoesNotExist()
+        compose.runOnIdle { HomeLyricsPrefs.saveAlbumBackground(context, true) }
         compose.onNodeWithTag("home_album_background").assertExists()
         compose.runOnIdle { HomeLyricsPrefs.saveAlbumBackground(context, false) }
         compose.onNodeWithTag("home_album_background").assertDoesNotExist()
         compose.runOnIdle { assertFalse(HomeLyricsPrefs.albumBackground(context)) }
-        compose.runOnIdle { HomeLyricsPrefs.saveAlbumBackground(context, true) }
-        compose.onNodeWithTag("home_album_background").assertExists()
     }
 
     @Test fun moreSheetDimmingFollowsCloseMotionAndRepeatedOpenUsesANewDialog() {

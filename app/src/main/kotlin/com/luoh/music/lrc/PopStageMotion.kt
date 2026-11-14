@@ -5,35 +5,67 @@ import androidx.compose.ui.graphics.graphicsLayer
 import kotlin.math.sin
 
 internal data class PopStagePose(val x: Float = 0f, val y: Float = 0f, val zoom: Float = 1f, val rotation: Float = 0f)
+internal data class PopCameraPoint(val x: Float, val y: Float)
+internal data class PopCameraWaypoint(val startMs: Long, val durationMs: Long,
+    val from: PopCameraPoint, val target: PopCameraPoint)
+internal data class PopCameraPath(val waypoints: List<PopCameraWaypoint>)
 
-/** A single camera for the entire lyric field and its album background. No per-word camera objects. */
+/** Cache a continuous camera trajectory from actual measured word centers, never token parity. */
 internal object PopStageMotion {
     private val wave = FloatArray(257) { sin(it / 256.0 * Math.PI * 2).toFloat() }
     private fun wave(time: Long, period: Long, offset: Int = 0): Float {
         val index = Math.floorMod(time, period) * 256 / period
         return wave[(index.toInt() + offset) % 256]
     }
+    private fun at(point: PopCameraWaypoint, time: Long): PopCameraPoint {
+        val progress = ((time - point.startMs).toFloat() / point.durationMs).coerceIn(0f, 1f)
+        val eased = progress * progress * (3f - 2f * progress)
+        return PopCameraPoint(point.from.x + (point.target.x - point.from.x) * eased,
+            point.from.y + (point.target.y - point.from.y) * eased)
+    }
 
-    fun sample(time: Long, timeline: PopLyricTimeline?, style: PopLyricsStyle, allowMotion: Boolean = true): PopStagePose {
-        if (!allowMotion || style.camera == "off" || style.cameraPercent == 0 || timeline == null) return PopStagePose()
+    fun path(timeline: PopLyricTimeline, centers: List<PopCameraPoint>, style: PopLyricsStyle): PopCameraPath {
+        require(centers.size == timeline.tokens.size)
+        val points = ArrayList<PopCameraWaypoint>(centers.size)
+        val duration = (style.entranceMs * 1.2f).toLong().coerceIn(400L, 900L)
+        val amount = style.cameraPercent / 100f
+        var index = 0
+        while (index < centers.size) {
+            val token = timeline.tokens[index]
+            var until = index + 1
+            while (until < centers.size && timeline.tokens[until].startMs == token.startMs &&
+                timeline.tokens[until].endMs == token.endMs) until++
+            // A visual character cascade shares one word focus, avoiding a camera restart per letter.
+            var x = 0f
+            var y = 0f
+            for (character in index until until) { x += centers[character].x; y += centers[character].y }
+            val center = PopCameraPoint(x / (until - index), y / (until - index))
+            val start = token.startMs - style.lookaheadMs + token.visualDelayMs
+            val from = points.lastOrNull()?.let { at(it, start) } ?: PopCameraPoint(0f, 0f)
+            points += PopCameraWaypoint(start, duration, from,
+                PopCameraPoint((-center.x * amount).coerceIn(-.30f, .30f), (-center.y * amount).coerceIn(-.34f, .34f)))
+            index = until
+        }
+        return PopCameraPath(points)
+    }
+
+    fun nextChangeDelayMs(time: Long, path: PopCameraPath?, style: PopLyricsStyle): Long {
+        if (style.camera != "follow" || style.cameraPercent == 0 || path == null) return 1000L
+        val point = path.waypoints.lastOrNull { it.startMs <= time }
+        if (point != null && time - point.startMs < point.durationMs) return 0L
+        return path.waypoints.firstOrNull { it.startMs > time }?.let { (it.startMs - time).coerceIn(1L, 1000L) } ?: 1000L
+    }
+
+    fun sample(time: Long, path: PopCameraPath?, style: PopLyricsStyle, allowMotion: Boolean = true): PopStagePose {
+        if (!allowMotion || style.camera == "off" || style.cameraPercent == 0 || path == null) return PopStagePose()
         val amount = style.cameraPercent / 100f
         val floatY = if (style.breathing) wave(time, 7000) * .014f * amount else 0f
         val floatX = if (style.breathing) wave(time, 8500, 40) * .007f * amount else 0f
         val breathe = if (style.breathing) wave(time, 7000, 64) * .008f * amount else 0f
-        if (style.camera == "drift") return PopStagePose(floatX, floatY, 1.02f + breathe)
-        val tokens = timeline.tokens
-        val index = tokens.indexOfLast { time >= it.startMs - style.lookaheadMs + it.visualDelayMs }
-        if (index < 0) return PopStagePose(floatX, floatY, 1.02f + breathe)
-        val token = tokens[index]
-        val phase = PopLyricMotion.enter(time - (token.startMs - style.lookaheadMs + token.visualDelayMs),
-            style.entranceMs.toLong()).coerceIn(0f, 1f)
-        fun targetX(i: Int) = ((i % 3 + 3) % 3 - 1) * .022f * amount
-        fun targetY(i: Int) = (if (i % 2 == 0) -1f else 1f) * .019f * amount
-        val panX = targetX(index - 1) + (targetX(index) - targetX(index - 1)) * phase
-        val panY = targetY(index - 1) + (targetY(index) - targetY(index - 1)) * phase
-        val turn = (if (index % 2 == 0) -.7f else .7f) * amount * phase
-        val pulse = (1f - phase) * .025f * amount
-        return PopStagePose(panX + floatX, panY + floatY, 1.025f + breathe + pulse, turn)
+        if (style.camera == "drift") return PopStagePose(floatX, floatY, 1f + breathe)
+        val point = path.waypoints.lastOrNull { it.startMs <= time }
+        val position = point?.let { at(it, time) } ?: PopCameraPoint(0f, 0f)
+        return PopStagePose(position.x + floatX, position.y + floatY, 1f + breathe)
     }
 }
 
@@ -41,11 +73,11 @@ internal fun Modifier.popStageCamera(frame: PopPlaybackFrame?, style: PopLyricsS
     background: Boolean = false): Modifier {
     if (frame == null || !allowMotion || style.camera == "off" || style.cameraPercent == 0) return this
     return graphicsLayer {
-        val pose = PopStageMotion.sample(frame.position.value, if (frame.interlude == null) frame.timeline else null, style)
+        val pose = PopStageMotion.sample(frame.position.value, if (frame.interlude == null) frame.cameraPath.value else null, style)
         translationX = pose.x * size.width
         translationY = pose.y * size.height
         rotationZ = pose.rotation
-        val overscan = if (background) 1.3f else 1f
+        val overscan = if (background) 1.8f else 1f
         scaleX = pose.zoom * overscan
         scaleY = pose.zoom * overscan
     }

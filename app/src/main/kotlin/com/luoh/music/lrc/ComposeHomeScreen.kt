@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -296,16 +295,14 @@ internal fun ComposeHomeScreen(
         prefs.registerOnSharedPreferenceChangeListener(listener)
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
-    var playerMode by rememberSaveable { mutableIntStateOf(HOME_PLAYER_EXPANDED) }
-    var playerDockRight by rememberSaveable { mutableStateOf(false) }
+    var portraitMode by rememberSaveable { mutableIntStateOf(HOME_PLAYER_EXPANDED) }
+    var portraitDockRight by rememberSaveable { mutableStateOf(false) }
+    var landscapeMode by rememberSaveable { mutableIntStateOf(HOME_PLAYER_COVER) }
+    var landscapeDockRight by rememberSaveable { mutableStateOf(true) }
+    var lastLandscape by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var draggedDock by remember { mutableStateOf<Float?>(null) }
     var playerSize by remember { mutableStateOf(IntSize.Zero) }
     val policy = LocalAgoraMotionPolicy.current
-    val dockFraction by animateFloatAsState(
-        targetValue = draggedDock ?: if (playerDockRight) 1f else 0f,
-        animationSpec = tween(if (draggedDock != null || !policy.allowSpatialTransitions) 0 else 360, easing = FastOutSlowInEasing),
-        label = "homePlayerDock",
-    )
     val popPlayback = if (!state.gateVisible && displayMode == HomeLyricsPrefs.POP && state.document.timed && state.document.lines.isNotEmpty())
         rememberPopPlayback(state, popStyle) else null
     val darkAlbumBackground = backgroundEnabled && state.snapshot.cover?.let { !it.isRecycled } == true
@@ -316,13 +313,31 @@ internal fun ComposeHomeScreen(
                 .popStageCamera(popPlayback, popStyle, policy.allowSpatialTransitions, background = true),
             continuousMotion = displayMode != HomeLyricsPrefs.POP)
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+            val landscape = maxWidth > maxHeight
+            LaunchedEffect(landscape) {
+                if (landscape && lastLandscape != true) {
+                    landscapeMode = HOME_PLAYER_COVER
+                    landscapeDockRight = true
+                }
+                draggedDock = null
+                lastLandscape = landscape
+            }
+            val playerMode = if (landscape) landscapeMode else portraitMode
+            val playerDockRight = if (landscape) landscapeDockRight else portraitDockRight
+            val dockFraction by animateFloatAsState(
+                targetValue = draggedDock ?: if (playerDockRight) 1f else 0f,
+                animationSpec = tween(if (draggedDock != null || !policy.allowSpatialTransitions) 0 else 360, easing = FastOutSlowInEasing),
+                label = "homePlayerDock",
+            )
             if (state.gateVisible) {
                 HomePermissionGate(state.gateStatus, onListenerPermission, onOverlayPermission, onStartOverlay) { state.actions?.openSettings() }
             } else {
                 val density = LocalDensity.current
-                val landscape = maxWidth > maxHeight && maxWidth >= 560.dp
-                val playerLimit = if (playerMode == HOME_PLAYER_EXPANDED) minOf(340.dp, maxWidth * .84f)
-                    else minOf(300.dp, maxWidth * .76f)
+                val playerLimit = if (landscape) {
+                    if (playerMode == HOME_PLAYER_EXPANDED) minOf(340.dp, maxWidth * .42f)
+                    else minOf(300.dp, maxWidth * .42f)
+                } else (maxWidth - 32.dp).coerceAtLeast(80.dp)
+                val tallLandscapePlayer = landscape && playerMode == HOME_PLAYER_EXPANDED
                 val occupiedWidth = with(density) { playerSize.width.toDp() } + 28.dp
                 val occupiedHeight = with(density) { playerSize.height.toDp() } + 20.dp
                 val sideSpace = if (landscape && playerMode != HOME_PLAYER_COVER) occupiedWidth else 0.dp
@@ -335,10 +350,12 @@ internal fun ComposeHomeScreen(
                     darkAlbumBackground, appearance, displayMode, popStyle, popPlayback)
                 val screenWidthPx = with(density) { maxWidth.roundToPx() }
                 val insetPx = with(density) { 16.dp.roundToPx() }
-                HomePlayer(state, playerMode, { playerMode = it }, playerDockRight,
-                    onDockChange = { playerDockRight = it }, onDockDrag = { draggedDock = it },
+                HomePlayer(state, playerMode,
+                    onModeChange = { if (landscape) landscapeMode = it else portraitMode = it }, dockRight = playerDockRight,
+                    onDockChange = { if (landscape) landscapeDockRight = it else portraitDockRight = it },
+                    onDockDrag = { draggedDock = it }, tall = tallLandscapePlayer,
                     modifier = Modifier.align(Alignment.BottomStart).widthIn(max = playerLimit)
-                        .heightIn(max = minOf(280.dp, maxHeight * .75f))
+                        .then(if (tallLandscapePlayer) Modifier.height((maxHeight - 32.dp).coerceAtLeast(56.dp)) else Modifier)
                         .onSizeChanged { playerSize = it }
                         .offset {
                             IntOffset(insetPx + ((screenWidthPx - playerSize.width - insetPx * 2).coerceAtLeast(0) * dockFraction).roundToInt(), -insetPx)
@@ -393,7 +410,7 @@ private const val HOME_PLAYER_EXPANDED = 2
 
 @Composable
 private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (Int) -> Unit, dockRight: Boolean,
-    onDockChange: (Boolean) -> Unit, onDockDrag: (Float?) -> Unit,
+    onDockChange: (Boolean) -> Unit, onDockDrag: (Float?) -> Unit, tall: Boolean = false,
     modifier: Modifier = Modifier, albumBackground: Boolean = false) {
     val snapshot = state.snapshot
     var showMore by rememberSaveable { mutableStateOf(false) }
@@ -456,7 +473,8 @@ private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (I
                 }
             }
             Surface(
-                Modifier.width(56.dp + (fullWidth - 56.dp) * reveal).testTag("home_player").semantics {
+                Modifier.width(56.dp + (fullWidth - 56.dp) * reveal)
+                    .then(if (tall) Modifier.fillMaxHeight() else Modifier).testTag("home_player").semantics {
                     stateDescription = when (mode) {
                         HOME_PLAYER_COVER -> "仅封面"
                         HOME_PLAYER_COMPACT -> "已收起"
@@ -494,12 +512,12 @@ private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (I
                         dragging = false
                     },
                 ),
-                shape = RoundedCornerShape(28.dp),
-                // Elevation shadows show their rectangular interior through this translucent card.
-                color = if (albumBackground) Color.Black.copy(alpha = .20f) else MaterialTheme.colorScheme.surface.copy(alpha = .88f),
+                color = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onSurface,
             ) {
-                Column(Modifier.padding(horizontal = 12.dp * reveal, vertical = 8.dp * reveal)) {
+                Column(Modifier.then(if (tall) Modifier.fillMaxHeight() else Modifier)
+                    .padding(horizontal = 12.dp * reveal, vertical = 8.dp * reveal),
+                    verticalArrangement = if (tall) Arrangement.SpaceBetween else Arrangement.Top) {
                     Row(Modifier.fillMaxWidth().draggable(
                         state = horizontalDragState, orientation = Orientation.Horizontal,
                         enabled = !expanded && !dragging,

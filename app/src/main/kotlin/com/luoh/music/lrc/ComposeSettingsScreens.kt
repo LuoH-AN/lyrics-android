@@ -832,11 +832,7 @@ private fun PopLyricSettings(context: Context, revision: Int) {
     fun save(change: (PopLyricsStyle) -> PopLyricsStyle) {
         PopLyricsPrefs.save(context, change(PopLyricsPrefs.style(context)).copy(preset = "custom"))
     }
-    SettingsGroup(title = "跃动风格", items = listOf(
-        { SettingsChoiceItem("动效预设", style.preset,
-            listOf("calm" to "轻柔", "flow" to "流动", "dynamic" to "灵动", "custom" to "自定义"), Icons.Default.Style) {
-            PopLyricsPrefs.save(context, if (it == "custom") style.copy(preset = "custom") else PopLyricsStyle.preset(it))
-        } },
+    SettingsGroup(title = "跃动参数", items = listOf(
         { SettingsChoiceItem("跳出单位", style.reveal, listOf("word" to "逐词", "character" to "逐字"), Icons.Default.TextFields) {
             value -> save { it.copy(reveal = value) }
         } },
@@ -881,7 +877,7 @@ private fun PopLyricSettings(context: Context, revision: Int) {
             value -> save { it.copy(transition = value) }
         } },
         { TextButton(onClick = { PopLyricsPrefs.save(context, PopLyricsStyle()) }, modifier = Modifier.fillMaxWidth()) {
-            Text("恢复跃动默认设置")
+            Text("恢复默认参数")
         } },
     ))
 }
