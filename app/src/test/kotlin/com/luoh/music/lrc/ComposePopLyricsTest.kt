@@ -54,7 +54,7 @@ class ComposePopLyricsTest {
         }
     }
 
-    @Test fun modePersistsUpdatesTheExistingPageAndRetainsFullLyricBrowsing() {
+    @Test fun modePersistsUpdatesTheExistingPageWithoutRedundantNavigation() {
         assertEquals(HomeLyricsPrefs.SCROLL, HomeLyricsPrefs.displayMode(context))
         show()
         compose.onNodeWithTag("home_pop_stage").assertDoesNotExist()
@@ -62,10 +62,8 @@ class ComposePopLyricsTest {
         compose.onNodeWithTag("home_pop_stage").assertIsDisplayed()
         compose.onNodeWithText("让音乐陪你").assertIsDisplayed()
         compose.onNodeWithText("Let the music stay").assertIsDisplayed()
-        compose.onNodeWithText("浏览歌词").performTouchInput { click() }
-        compose.onNodeWithTag("home_pop_stage").assertDoesNotExist()
-        compose.onNodeWithText("返回跃动").performTouchInput { click() }
-        compose.onNodeWithTag("home_pop_stage").assertIsDisplayed()
+        compose.onNodeWithText("浏览歌词").assertDoesNotExist()
+        compose.onNodeWithText("返回跃动").assertDoesNotExist()
         compose.runOnIdle {
             assertEquals(HomeLyricsPrefs.POP, HomeLyricsPrefs.displayMode(context))
             HomeLyricsPrefs.saveDisplayMode(context, "unknown")

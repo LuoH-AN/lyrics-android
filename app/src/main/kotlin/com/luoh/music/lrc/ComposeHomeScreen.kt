@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -288,6 +289,7 @@ internal fun ComposeHomeScreen(
         prefs.registerOnSharedPreferenceChangeListener(listener)
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
+    var playerMode by rememberSaveable { mutableIntStateOf(HOME_PLAYER_EXPANDED) }
     val darkAlbumBackground = backgroundEnabled && state.snapshot.cover?.let { !it.isRecycled } == true
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         if (!state.gateVisible && backgroundEnabled) HomeAlbumBackground(state,
@@ -297,15 +299,17 @@ internal fun ComposeHomeScreen(
         ) {
             if (state.gateVisible) {
                 HomePermissionGate(state.gateStatus, onListenerPermission, onOverlayPermission, onStartOverlay) { state.actions?.openSettings() }
-            } else if (maxWidth >= 840.dp) {
-                Row(Modifier.fillMaxSize().padding(24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            } else if (maxWidth >= 840.dp || (maxWidth > maxHeight && maxWidth >= 560.dp)) {
+                Row(Modifier.fillMaxSize().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     HomeLyricsStage(state, Modifier.weight(1f).fillMaxHeight(), darkAlbumBackground, appearance, displayMode)
-                    HomePlayer(state, Modifier.width(360.dp).align(Alignment.CenterVertically), darkAlbumBackground)
+                    HomePlayer(state, playerMode, { playerMode = it },
+                        Modifier.widthIn(max = minOf(360.dp, maxWidth * .42f)).align(Alignment.CenterVertically), darkAlbumBackground)
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
                     HomeLyricsStage(state, Modifier.weight(1f).fillMaxWidth(), darkAlbumBackground, appearance, displayMode)
-                    HomePlayer(state, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), darkAlbumBackground)
+                    HomePlayer(state, playerMode, { playerMode = it },
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), darkAlbumBackground)
                 }
             }
         }
@@ -351,11 +355,17 @@ private fun HomePermissionGate(
     }
 }
 
+private const val HOME_PLAYER_COVER = 0
+private const val HOME_PLAYER_COMPACT = 1
+private const val HOME_PLAYER_EXPANDED = 2
+
 @Composable
-private fun HomePlayer(state: HomePresentationState, modifier: Modifier = Modifier, albumBackground: Boolean = false) {
+private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (Int) -> Unit,
+    modifier: Modifier = Modifier, albumBackground: Boolean = false) {
     val snapshot = state.snapshot
     var showMore by rememberSaveable { mutableStateOf(false) }
-    var expanded by rememberSaveable { mutableStateOf(true) }
+    val expanded = mode == HOME_PLAYER_EXPANDED
+    fun setExpanded(value: Boolean) = onModeChange(if (value) HOME_PLAYER_EXPANDED else HOME_PLAYER_COMPACT)
     var dragging by remember { mutableStateOf(false) }
     var dragFraction by remember { mutableFloatStateOf(1f) }
     var dragDistance by remember { mutableFloatStateOf(0f) }
@@ -374,6 +384,15 @@ private fun HomePlayer(state: HomePresentationState, modifier: Modifier = Modifi
         dragDistance += delta
         dragFraction = (dragFraction - delta / detailsHeight.coerceAtLeast(1)).coerceIn(0f, 1f)
     }
+    var horizontalDragging by remember { mutableStateOf(false) }
+    var horizontalFraction by remember { mutableFloatStateOf(1f) }
+    var horizontalDistance by remember { mutableFloatStateOf(0f) }
+    val settledHorizontal by animateFloatAsState(
+        targetValue = if (horizontalDragging) horizontalFraction else if (mode == HOME_PLAYER_COVER) 0f else 1f,
+        animationSpec = tween(if (horizontalDragging || !policy.allowSpatialTransitions) 0 else 320, easing = FastOutSlowInEasing),
+        label = "homePlayerRetraction",
+    )
+    val reveal = if (horizontalDragging) horizontalFraction else settledHorizontal
     val scheme = MaterialTheme.colorScheme
     val playerColors = if (albumBackground) scheme.copy(
         primary = Color.White,
@@ -386,88 +405,139 @@ private fun HomePlayer(state: HomePresentationState, modifier: Modifier = Modifi
         onSecondaryContainer = Color.White,
     ) else scheme
     MaterialTheme(colorScheme = playerColors) {
-        Surface(
-            modifier.testTag("home_player").semantics {
-                stateDescription = if (expanded) "已展开" else "已收起"
-                customActions = listOf(CustomAccessibilityAction(if (expanded) "收起播放控制栏" else "展开播放控制栏") {
-                    expanded = !expanded
-                    true
-                })
-            }.draggable(
-                state = dragState,
-                orientation = Orientation.Vertical,
-                onDragStarted = {
-                    dragFraction = settledFraction
-                    dragDistance = 0f
-                    dragging = true
-                },
-                onDragStopped = { velocity ->
-                    expanded = when {
-                        abs(velocity) >= flingThreshold -> velocity < 0f
-                        abs(dragDistance) >= threshold -> dragDistance < 0f
-                        else -> dragFraction >= .5f
+        BoxWithConstraints(modifier) {
+            val fullWidth = maxWidth.coerceAtLeast(80.dp)
+            val bodyWidthPx = with(density) { (fullWidth - 80.dp).roundToPx().coerceAtLeast(1) }
+            val retractWidthPx = with(density) { (fullWidth - 56.dp).toPx().coerceAtLeast(1f) }
+            val horizontalDragState = rememberDraggableState { delta ->
+                horizontalDistance += delta
+                horizontalFraction = (horizontalFraction + delta / retractWidthPx).coerceIn(0f, 1f)
+            }
+            Surface(
+                Modifier.width(56.dp + (fullWidth - 56.dp) * reveal).testTag("home_player").semantics {
+                    stateDescription = when (mode) {
+                        HOME_PLAYER_COVER -> "仅封面"
+                        HOME_PLAYER_COMPACT -> "已收起"
+                        else -> "已展开"
                     }
-                    dragging = false
-                },
-            ),
-            shape = RoundedCornerShape(28.dp),
-            // Elevation shadows show their rectangular interior through this translucent card.
-            color = if (albumBackground) Color.Black.copy(alpha = .20f) else MaterialTheme.colorScheme.surface.copy(alpha = .88f),
-            contentColor = MaterialTheme.colorScheme.onSurface,
-        ) {
-            Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    HomePlayerArtwork(state, ringAlpha = 1f - fraction, interactive = !expanded && !dragging && fraction <= .001f)
-                    Column(Modifier.weight(1f).clickable(
-                        onClickLabel = if (expanded) "收起播放控制栏" else "展开播放控制栏",
-                    ) { expanded = !expanded }.semantics {
-                        contentDescription = if (expanded) "收起播放控制栏" else "展开播放控制栏"
-                    }.padding(start = 12.dp)) {
-                        Text(snapshot.track.ifBlank { "暂未播放" }, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        val artist = if (state.custom) listOf(snapshot.artist, "自定义歌词").filter(String::isNotBlank).joinToString(" · ") else snapshot.artist
-                        if (artist.isNotBlank()) Text(artist, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    customActions = buildList {
+                        add(CustomAccessibilityAction(if (expanded) "收起播放控制栏" else "展开播放控制栏") {
+                            setExpanded(!expanded)
+                            true
+                        })
+                        if (mode == HOME_PLAYER_COMPACT) add(CustomAccessibilityAction("仅显示封面") {
+                            onModeChange(HOME_PLAYER_COVER)
+                            true
+                        })
                     }
-                    IconButton(onClick = { state.actions?.toggleOverlay() }) {
-                        Icon(Icons.Default.Lyrics, if (state.isOverlayRunning) "关闭桌面歌词" else "开启桌面歌词",
-                            tint = if (state.isOverlayRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    IconButton(onClick = { showMore = true }) { Icon(Icons.Default.MoreVert, "更多") }
-                }
-                if (expanded || dragging || fraction > 0f) Column(
-                    Modifier.fillMaxWidth().clipToBounds()
-                        .semantics { if (!expanded) hideFromAccessibility() }
-                        .layout { measurable, constraints ->
-                            val placeable = measurable.measure(constraints.copy(minHeight = 0))
-                            detailsHeight = placeable.height.coerceAtLeast(1)
-                            layout(placeable.width, (placeable.height * fraction).roundToInt()) {
-                                placeable.placeRelative(0, 0)
-                            }
+                }.draggable(
+                    state = dragState,
+                    orientation = Orientation.Vertical,
+                    enabled = mode != HOME_PLAYER_COVER && !horizontalDragging,
+                    onDragStarted = {
+                        dragFraction = settledFraction
+                        dragDistance = 0f
+                        dragging = true
+                    },
+                    onDragStopped = { velocity ->
+                        setExpanded(when {
+                            abs(velocity) >= flingThreshold -> velocity < 0f
+                            abs(dragDistance) >= threshold -> dragDistance < 0f
+                            else -> dragFraction >= .5f
+                        })
+                        dragging = false
+                    },
+                ),
+                shape = RoundedCornerShape(28.dp),
+                // Elevation shadows show their rectangular interior through this translucent card.
+                color = if (albumBackground) Color.Black.copy(alpha = .20f) else MaterialTheme.colorScheme.surface.copy(alpha = .88f),
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            ) {
+                Column(Modifier.padding(horizontal = 12.dp * reveal, vertical = 8.dp * reveal)) {
+                    Row(Modifier.fillMaxWidth().draggable(
+                        state = horizontalDragState, orientation = Orientation.Horizontal,
+                        enabled = !expanded && !dragging,
+                        onDragStarted = {
+                            horizontalFraction = settledHorizontal
+                            horizontalDistance = 0f
+                            horizontalDragging = true
                         },
-                ) {
-                    if (state.translationMessage.isNotBlank()) {
-                        SettingsItem(
-                            headlineContent = { Text(state.translationMessage, style = MaterialTheme.typography.bodySmall) },
-                            trailingContent = { Text("查看设置", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) },
-                            modifier = Modifier.clickable { state.onTranslationSettings?.invoke() },
-                        )
+                        onDragStopped = { velocity ->
+                            val open = when {
+                                abs(velocity) >= flingThreshold -> velocity > 0f
+                                abs(horizontalDistance) >= threshold -> horizontalDistance > 0f
+                                else -> horizontalFraction >= .5f
+                            }
+                            onModeChange(if (open) HOME_PLAYER_COMPACT else HOME_PLAYER_COVER)
+                            horizontalDragging = false
+                        },
+                    ), verticalAlignment = Alignment.CenterVertically) {
+                        HomePlayerArtwork(state, ringAlpha = 1f - fraction,
+                            interactive = !expanded && !dragging && !horizontalDragging && fraction <= .001f,
+                            onExpand = { onModeChange(HOME_PLAYER_COMPACT) })
+                        if (mode != HOME_PLAYER_COVER || horizontalDragging || reveal > 0f) Row(
+                            Modifier.clipToBounds().graphicsLayer { alpha = reveal }
+                                .semantics { if (mode == HOME_PLAYER_COVER) hideFromAccessibility() }
+                                .layout { measurable, constraints ->
+                                    val placeable = measurable.measure(constraints.copy(minWidth = bodyWidthPx, maxWidth = bodyWidthPx))
+                                    layout((bodyWidthPx * reveal).roundToInt(), placeable.height) {
+                                        // The trailing controls slide into the fixed album artwork.
+                                        placeable.placeRelative(((reveal - 1f) * bodyWidthPx).roundToInt(), 0)
+                                    }
+                                }, verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                        Column(Modifier.weight(1f).clickable(
+                            onClickLabel = if (expanded) "收起播放控制栏" else "展开播放控制栏",
+                        ) { setExpanded(!expanded) }.semantics {
+                            contentDescription = if (expanded) "收起播放控制栏" else "展开播放控制栏"
+                        }.padding(start = 12.dp)) {
+                            Text(snapshot.track.ifBlank { "暂未播放" }, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            val artist = if (state.custom) listOf(snapshot.artist, "自定义歌词").filter(String::isNotBlank).joinToString(" · ") else snapshot.artist
+                            if (artist.isNotBlank()) Text(artist, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        IconButton(onClick = { state.actions?.toggleOverlay() }) {
+                            Icon(Icons.Default.Lyrics, if (state.isOverlayRunning) "关闭桌面歌词" else "开启桌面歌词",
+                                tint = if (state.isOverlayRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        IconButton(onClick = { showMore = true }) { Icon(Icons.Default.MoreVert, "更多") }
+                        }
                     }
-                    HomeProgress(state)
-                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                        IconButton(onClick = { state.actions?.skipPrev() }, enabled = snapshot.track.isNotBlank() && snapshot.canPrevious) {
-                            Icon(Icons.Default.SkipPrevious, "上一首")
+                    if (expanded || dragging || fraction > 0f) Column(
+                        Modifier.fillMaxWidth().clipToBounds()
+                            .semantics { if (!expanded) hideFromAccessibility() }
+                            .layout { measurable, constraints ->
+                                val placeable = measurable.measure(constraints.copy(minHeight = 0))
+                                detailsHeight = placeable.height.coerceAtLeast(1)
+                                layout(placeable.width, (placeable.height * fraction).roundToInt()) {
+                                    placeable.placeRelative(0, 0)
+                                }
+                            },
+                    ) {
+                        if (state.translationMessage.isNotBlank()) {
+                            SettingsItem(
+                                headlineContent = { Text(state.translationMessage, style = MaterialTheme.typography.bodySmall) },
+                                trailingContent = { Text("查看设置", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) },
+                                modifier = Modifier.clickable { state.onTranslationSettings?.invoke() },
+                            )
                         }
-                        FilledIconButton(onClick = { state.actions?.togglePlay() }, enabled = snapshot.track.isNotBlank(),
-                            colors = if (albumBackground) IconButtonDefaults.filledIconButtonColors(
-                                containerColor = Color.White.copy(alpha = .14f), contentColor = Color.White,
-                                disabledContainerColor = Color.White.copy(alpha = .05f),
-                                disabledContentColor = Color.White.copy(alpha = .30f),
-                            ) else IconButtonDefaults.filledIconButtonColors(),
-                            modifier = Modifier.padding(horizontal = 20.dp).width(88.dp).height(56.dp), shape = CircleShape) {
-                            Icon(if (state.playing) Icons.Default.Pause else Icons.Default.PlayArrow, if (state.playing) "暂停" else "播放", modifier = Modifier.size(30.dp))
-                        }
-                        IconButton(onClick = { state.actions?.skipNext() }, enabled = snapshot.track.isNotBlank() && snapshot.canNext) {
-                            Icon(Icons.Default.SkipNext, "下一首")
+                        HomeProgress(state)
+                        Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                            IconButton(onClick = { state.actions?.skipPrev() }, enabled = snapshot.track.isNotBlank() && snapshot.canPrevious) {
+                                Icon(Icons.Default.SkipPrevious, "上一首")
+                            }
+                            FilledIconButton(onClick = { state.actions?.togglePlay() }, enabled = snapshot.track.isNotBlank(),
+                                colors = if (albumBackground) IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = Color.White.copy(alpha = .14f), contentColor = Color.White,
+                                    disabledContainerColor = Color.White.copy(alpha = .05f),
+                                    disabledContentColor = Color.White.copy(alpha = .30f),
+                                ) else IconButtonDefaults.filledIconButtonColors(),
+                                modifier = Modifier.padding(horizontal = 20.dp).width(88.dp).height(56.dp), shape = CircleShape) {
+                                Icon(if (state.playing) Icons.Default.Pause else Icons.Default.PlayArrow, if (state.playing) "暂停" else "播放", modifier = Modifier.size(30.dp))
+                            }
+                            IconButton(onClick = { state.actions?.skipNext() }, enabled = snapshot.track.isNotBlank() && snapshot.canNext) {
+                                Icon(Icons.Default.SkipNext, "下一首")
+                            }
                         }
                     }
                 }
@@ -478,12 +548,13 @@ private fun HomePlayer(state: HomePresentationState, modifier: Modifier = Modifi
 }
 
 @Composable
-private fun HomePlayerArtwork(state: HomePresentationState, ringAlpha: Float, interactive: Boolean) {
+private fun HomePlayerArtwork(state: HomePresentationState, ringAlpha: Float, interactive: Boolean, onExpand: () -> Unit) {
     val snapshot = state.snapshot
     val position = remember { mutableLongStateOf(state.clock.positionMs()) }
-    LaunchedEffect(state.presentationActive, state.playing, state.playbackRevision) {
+    val ringVisible = ringAlpha > 0f
+    LaunchedEffect(state.presentationActive, state.playing, state.playbackRevision, ringVisible) {
         position.longValue = state.clock.positionMs()
-        while (state.presentationActive && state.playing) {
+        while (state.presentationActive && state.playing && ringVisible) {
             delay(100)
             position.longValue = state.clock.positionMs()
         }
@@ -510,8 +581,9 @@ private fun HomePlayerArtwork(state: HomePresentationState, ringAlpha: Float, in
                 style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = StrokeCap.Round))
         }
         val artwork = Modifier.size(46.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainer)
-        Box(if (interactive) artwork.clickable(enabled = snapshot.track.isNotBlank(), role = Role.Button,
-                onClickLabel = if (state.playing) "暂停播放" else "开始播放") { state.actions?.togglePlay() }
+        Box(if (interactive) artwork.combinedClickable(enabled = snapshot.track.isNotBlank(), role = Role.Button,
+                onClickLabel = if (state.playing) "暂停播放" else "开始播放",
+                onClick = { state.actions?.togglePlay() }, onLongClickLabel = "展开播放控制栏", onLongClick = onExpand)
             .semantics {
                 contentDescription = if (state.playing) "暂停播放" else "开始播放"
                 stateDescription = if (state.playing) "正在播放" else "已暂停"
@@ -566,17 +638,11 @@ private fun HomeProgress(state: HomePresentationState) {
 @Composable
 private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = Modifier, albumBackground: Boolean = false,
     appearance: HomeLyricAppearance = HomeLyricAppearance(), displayMode: String = HomeLyricsPrefs.SCROLL) {
-    var browsing by rememberSaveable(displayMode) { mutableStateOf(false) }
     val pop = displayMode == HomeLyricsPrefs.POP && state.document.timed && state.document.lines.isNotEmpty()
-    if (pop && !browsing) {
-        PopLyricsStage(state, modifier, albumBackground, appearance, onBrowse = { browsing = true })
+    if (pop) {
+        PopLyricsStage(state, modifier, albumBackground, appearance)
     } else {
-        Box(modifier) {
-            HomeScrollingLyricsStage(state, Modifier.fillMaxSize().homeLyricsFade(), albumBackground, appearance)
-            if (pop) TextButton(onClick = { browsing = false }, modifier = Modifier.align(Alignment.TopEnd)) {
-                Text("返回跃动", color = if (albumBackground) Color.White else MaterialTheme.colorScheme.primary)
-            }
-        }
+        HomeScrollingLyricsStage(state, modifier.homeLyricsFade(), albumBackground, appearance)
     }
 }
 

@@ -13,6 +13,8 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.swipe
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -81,6 +83,11 @@ class HomeAppearanceRenderTest {
         compose.onNodeWithContentDescription("收起播放控制栏").performTouchInput { click() }
         compose.onNodeWithTag("home_cover_progress").assertExists()
         save("home-cover-compact-$suffix")
+        compose.onNodeWithTag("home_player").performTouchInput {
+            swipe(Offset(width * .8f, centerY), Offset(width * .2f, centerY), durationMillis = 500)
+        }
+        assertTrue(compose.onNodeWithTag("home_player").fetchSemanticsNode().size.width <= 56)
+        save("home-cover-only-$suffix")
         compose.runOnIdle { HomeLyricsPrefs.saveAlbumBackground(compose.activity, false) }
         compose.onNodeWithTag("home_album_background").assertDoesNotExist()
         save("home-background-off-$suffix")

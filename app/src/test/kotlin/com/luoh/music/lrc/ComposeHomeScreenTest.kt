@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
@@ -22,6 +23,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.unit.dp
@@ -212,6 +214,97 @@ class ComposeHomeScreenTest {
         compose.runOnIdle { assertEquals(listOf("play", "play"), actions.calls) }
         compose.onNodeWithContentDescription("展开播放控制栏").assertIsDisplayed()
         compose.onNodeWithContentDescription("播放").assertDoesNotExist()
+    }
+
+    private fun exerciseThreePlayerForms(widthDp: Int, heightDp: Int) {
+        val actions = RecordingHomeActions()
+        val state = HomePresentationState().apply {
+            this.actions = actions
+            setSnapshot(HomePresentationState.Snapshot(track = "Song", artist = "Artist", durationMs = 10_000))
+            setLyrics(LyricDocument(listOf(LyricLine(0, "歌词保持可见", endMs = 10_000)), true))
+        }
+        HomeLyricsPrefs.saveDisplayMode(ApplicationProvider.getApplicationContext(), HomeLyricsPrefs.POP)
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent {
+            CompositionLocalProvider(LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduceMotion = true)) {
+                MaterialTheme { Box(Modifier.size(widthDp.dp, heightDp.dp)) { ComposeHomeScreen(state, {}, {}, {}) } }
+            }
+        }
+        compose.onNodeWithTag("home_player").performTouchInput {
+            swipe(Offset(80f, 30f), Offset(80f, 150f), durationMillis = 500)
+        }
+        compose.onNodeWithContentDescription("展开播放控制栏").assertIsDisplayed()
+        val compact = compose.onNodeWithTag("home_player").fetchSemanticsNode().size
+        val lyricBefore = compose.onNodeWithTag("home_pop_stage").fetchSemanticsNode().size
+        compose.onNodeWithTag("home_player").performTouchInput {
+            swipe(Offset(width * .8f, centerY), Offset(width * .2f, centerY), durationMillis = 500)
+        }
+        val cover = compose.onNodeWithTag("home_player").fetchSemanticsNode().size
+        assertEquals(56, cover.width)
+        assertEquals(56, cover.height)
+        assertTrue(cover.width < compact.width / 2)
+        compose.onNodeWithText("Song").assertDoesNotExist()
+        compose.onNodeWithContentDescription("更多").assertDoesNotExist()
+        compose.onNodeWithContentDescription("开启桌面歌词").assertDoesNotExist()
+        compose.onNodeWithText("歌词保持可见").assertIsDisplayed()
+        val lyricAfter = compose.onNodeWithTag("home_pop_stage").fetchSemanticsNode().size
+        if (widthDp > heightDp) assertTrue(lyricAfter.width > lyricBefore.width + 100)
+        else assertTrue(lyricAfter.height > lyricBefore.height)
+        compose.onNodeWithContentDescription("开始播放").performTouchInput { click() }
+        compose.runOnIdle { assertEquals(listOf("play"), actions.calls) }
+        restoration.emulateSavedInstanceStateRestore()
+        compose.runOnIdle { state.setSnapshot(HomePresentationState.Snapshot(track = "Next Song", durationMs = 10_000)) }
+        assertEquals(56, compose.onNodeWithTag("home_player").fetchSemanticsNode().size.width)
+        compose.onNodeWithText("Next Song").assertDoesNotExist()
+        compose.onNodeWithTag("home_player").performTouchInput {
+            swipe(center, Offset(centerX + 160f, centerY), durationMillis = 500)
+        }
+        compose.onNodeWithText("Next Song").assertIsDisplayed()
+        compose.onNodeWithContentDescription("展开播放控制栏").assertIsDisplayed()
+        compose.onNodeWithTag("home_player").performTouchInput {
+            swipe(Offset(80f, 35f), Offset(80f, -100f), durationMillis = 500)
+        }
+        compose.onNodeWithContentDescription("播放").assertIsDisplayed()
+        // Cover-only also has a discoverable long-press route back to the compact row.
+        compose.onNodeWithContentDescription("收起播放控制栏").performTouchInput { click() }
+        compose.onNodeWithTag("home_player").performTouchInput {
+            swipe(Offset(width * .8f, centerY), Offset(width * .2f, centerY), durationMillis = 500)
+        }
+        compose.onNodeWithContentDescription("开始播放").performTouchInput { longClick() }
+        compose.onNodeWithText("Next Song").assertIsDisplayed()
+        compose.runOnIdle { assertEquals(listOf("play"), actions.calls) }
+    }
+
+    @Test fun portraitPlayerRetractsToOnlyTheCoverAndRestoresItsControls() = exerciseThreePlayerForms(400, 700)
+
+    @Test
+    @Config(qualifiers = "w800dp-h400dp-mdpi")
+    fun phoneLandscapePlayerFreesLyricWidthAndPreservesTheSameGestures() = exerciseThreePlayerForms(800, 400)
+
+    @Test
+    @Config(qualifiers = "w800dp-h800dp-mdpi")
+    fun coverOnlyStateSurvivesPortraitLandscapeLayoutChanges() {
+        val landscape = mutableStateOf(false)
+        val state = HomePresentationState().apply { setSnapshot(HomePresentationState.Snapshot(track = "Song")) }
+        compose.setContent {
+            CompositionLocalProvider(LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduceMotion = true)) {
+                MaterialTheme {
+                    Box(Modifier.size(if (landscape.value) 800.dp else 400.dp, if (landscape.value) 400.dp else 700.dp)) {
+                        ComposeHomeScreen(state, {}, {}, {})
+                    }
+                }
+            }
+        }
+        compose.onNodeWithContentDescription("收起播放控制栏").performTouchInput { click() }
+        compose.onNodeWithTag("home_player").performTouchInput {
+            swipe(Offset(width * .8f, centerY), Offset(width * .2f, centerY), durationMillis = 500)
+        }
+        repeat(2) {
+            compose.runOnIdle { landscape.value = !landscape.value }
+            assertEquals(56, compose.onNodeWithTag("home_player").fetchSemanticsNode().size.width)
+            compose.onNodeWithContentDescription("开始播放").assertIsDisplayed()
+            compose.onNodeWithText("Song").assertDoesNotExist()
+        }
     }
 
     @Test fun backgroundPreferenceRemovesAndRestoresTheDrawingLayerImmediately() {

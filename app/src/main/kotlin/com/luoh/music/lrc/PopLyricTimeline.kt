@@ -5,6 +5,7 @@ import java.text.BreakIterator
 import java.util.Locale
 import kotlin.math.cos
 import kotlin.math.exp
+import kotlin.math.sin
 import kotlin.math.min
 
 /** A bounded, immutable plan for ONE sentence. No generated singing timestamps. */
@@ -16,9 +17,9 @@ internal class PopLyricTimeline(val tokens: List<PopLyricToken>, val wordTimed: 
         var delay = nextLineMs?.minus(positionMs)?.coerceAtLeast(1L) ?: 1000L
         if (wordTimed) for (index in tokens.indices) {
             val token = tokens[index]
-            val entering = positionMs - token.startMs
+            val entering = positionMs - (token.startMs - PopLyricMotion.LOOKAHEAD_MS)
             val passing = positionMs - token.endMs
-            if (entering in 0 until PopLyricMotion.DURATION_MS || passing in 0 until PopLyricMotion.DURATION_MS) return 0L
+            if (entering in 0 until PopLyricMotion.DURATION_MS || passing in 0 until PopLyricMotion.PASS_DURATION_MS) return 0L
             if (entering < 0L) delay = min(delay, -entering)
             if (passing < 0L) delay = min(delay, -passing)
         }
@@ -70,12 +71,16 @@ internal fun popLyricPreview(text: String): String {
 
 /** Lookup once at startup; no springs, trigonometry or per-word animation objects in a frame. */
 internal object PopLyricMotion {
-    const val DURATION_MS = 320L
+    const val DURATION_MS = 600L
+    const val PASS_DURATION_MS = 500L
+    const val LOOKAHEAD_MS = 150L
     const val FRAME_INTERVAL_NS = 33_333_333L
-    const val MAX_SCALE = 1.16f
+    const val MAX_SCALE = 1.45f
     private val entrance = FloatArray(129) { index ->
-        val t = index / 128f
-        (1.0 - exp(-7.0 * t) * cos(9.0 * t)).toFloat().coerceIn(0f, 1.06f)
+        // Unit-mass spring response: stiffness 200, damping 20, sampled once.
+        val seconds = index / 128.0 * DURATION_MS / 1000.0
+        (1.0 - exp(-10.0 * seconds) * (cos(10.0 * seconds) + sin(10.0 * seconds)))
+            .toFloat().coerceIn(0f, 1.05f)
     }.also { it[it.lastIndex] = 1f }
 
     fun enter(elapsedMs: Long): Float {
@@ -84,5 +89,5 @@ internal object PopLyricMotion {
         return entrance[(elapsedMs * entrance.lastIndex / DURATION_MS).toInt()]
     }
 
-    fun pass(elapsedMs: Long): Float = (elapsedMs.toFloat() / DURATION_MS).coerceIn(0f, 1f)
+    fun pass(elapsedMs: Long): Float = (elapsedMs.toFloat() / PASS_DURATION_MS).coerceIn(0f, 1f)
 }

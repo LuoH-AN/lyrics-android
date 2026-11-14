@@ -791,10 +791,7 @@ private fun HomeAlignmentSettings(context: Context, revision: Int) {
             listOf(HomeLyricsPrefs.SCROLL to "滚动", HomeLyricsPrefs.POP to "逐词跃动"), Icons.Default.Lyrics) {
             HomeLyricsPrefs.saveDisplayMode(context, it)
         }
-    }, {
-        Text("逐词跃动：歌词随演唱逐个跳出，错落排版；没有逐字时间轴时显示整句，可随时浏览完整歌词。",
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
-            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
     }))
     SettingsGroup(title = "背景", items = listOf({
         SettingsSwitchItem("封面模糊背景", "将专辑封面模糊处理后作为主页背景", Icons.Default.BlurOn, albumBackground) {

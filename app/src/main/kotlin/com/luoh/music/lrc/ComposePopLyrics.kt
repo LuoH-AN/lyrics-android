@@ -7,14 +7,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -31,6 +29,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
@@ -46,12 +45,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
 import kotlinx.coroutines.delay
-import kotlin.math.min
+import kotlin.math.sin
+import kotlin.math.cos
+import androidx.compose.ui.text.style.TextAlign
 
 /** A sentence-sized native stage: layout on sentence changes; clock reads only invalidate drawing. */
 @Composable
 internal fun PopLyricsStage(state: HomePresentationState, modifier: Modifier, albumBackground: Boolean,
-    appearance: HomeLyricAppearance, onBrowse: () -> Unit) {
+    appearance: HomeLyricAppearance) {
     val document = state.document
     val position = remember(state) { mutableLongStateOf(state.clock.positionMs() + state.displayOffsetMs) }
     var index by remember(document) { mutableIntStateOf(LyricTiming.activeIndex(document.lines, state.clock.positionMs() + state.displayOffsetMs)) }
@@ -120,17 +121,14 @@ internal fun PopLyricsStage(state: HomePresentationState, modifier: Modifier, al
         }
         if (line != null && interlude == null && state.translationDisplayMode == LyricsOverlayService.TRANSLATION_BILINGUAL && line.translation.isNotBlank()) {
             Text(line.translation, color = foreground.copy(alpha = .75f), fontSize = appearance.translationSize.sp,
-                maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
+                maxLines = 3, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp))
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(if (index >= 0) "${index + 1} / ${document.lines.size}" else "逐词跃动",
-                style = MaterialTheme.typography.labelMedium, color = foreground.copy(alpha = .6f))
-            TextButton(onClick = onBrowse) { Text("浏览歌词", color = activeColor) }
-        }
+
     }
 }
 
-private data class PopGlyph(val layout: TextLayoutResult, val slot: PopLyricSlot, val angle: Float)
+private data class PopGlyph(val layout: TextLayoutResult, val slot: PopLyricSlot, val angle: Float, val entranceOffset: Offset)
 private data class PopScene(val glyphs: List<PopGlyph>, val scale: Float)
 
 @Composable
@@ -138,26 +136,42 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, position: State<Long>, ap
     allowMotion: Boolean, foreground: Color, activeColor: Color, modifier: Modifier) {
     val measurer = rememberTextMeasurer(cacheSize = 0)
     val density = LocalDensity.current
+    val configuration = LocalConfiguration.current
+    // Shaping width is stable while player controls resize the stage; only packing repeats.
+    val shapingWidth = with(density) {
+        (minOf(configuration.screenWidthDp, configuration.screenHeightDp).coerceAtLeast(160) * .85f).dp.roundToPx()
+    }.coerceAtLeast(1)
     val textStyle = MaterialTheme.typography.headlineLarge.copy(
-        fontSize = (appearance.fontSize + 6).coerceAtMost(48).sp,
-        lineHeight = ((appearance.fontSize + 6).coerceAtMost(48) * 1.3f).sp,
+        fontSize = (appearance.fontSize + 18).coerceIn(34, 60).sp,
+        lineHeight = ((appearance.fontSize + 18).coerceIn(34, 60) * 1.3f).sp,
         fontWeight = FontWeight(appearance.fontWeight), color = foreground,
     )
+    val layouts = remember(timeline, textStyle, density, shapingWidth) {
+        timeline.tokens.map { token ->
+            measurer.measure(AnnotatedString(popLyricPreview(token.text)), style = textStyle,
+                constraints = Constraints(maxWidth = shapingWidth), maxLines = 8, overflow = TextOverflow.Ellipsis)
+        }
+    }
     BoxWithConstraints(modifier.clipToBounds()) {
         val width = with(density) { maxWidth.toPx() }
         val height = with(density) { maxHeight.toPx() }
         val gap = with(density) { (appearance.lineSpacing / 2f + 6f).dp.toPx() }
-        val scene = remember(timeline, width, height, gap, textStyle, density) {
-            val layouts = timeline.tokens.map { token ->
-                measurer.measure(AnnotatedString(popLyricPreview(token.text)), style = textStyle,
-                    constraints = Constraints(maxWidth = (width * .85f).toInt().coerceAtLeast(1)),
-                    maxLines = 8, overflow = TextOverflow.Ellipsis)
-            }
+        val scene = remember(timeline, layouts, width, height, gap, density) {
             val packing = packPopLyrics(FloatArray(layouts.size) { layouts[it].size.width.toFloat() },
                 FloatArray(layouts.size) { layouts[it].size.height.toFloat() }, width, height, gap)
+            val travelX = with(density) { 72.dp.toPx() }
+            val travelY = with(density) { 36.dp.toPx() }
             PopScene(layouts.mapIndexed { index, layout ->
-                PopGlyph(layout, packing.slots.getOrElse(index) { PopLyricSlot(0f, 0f) },
-                    if (timeline.wordTimed) (Math.floorMod(timeline.tokens[index].text.hashCode().toLong() + index * 17L, 7L) - 3L).toFloat() else 0f)
+                val slot = packing.slots.getOrElse(index) { PopLyricSlot(0f, 0f) }
+                val seed = Math.floorMod(timeline.tokens[index].text.hashCode().toLong() + index * 17L, 997L).toFloat()
+                val halfWidth = (layout.size.width * PopLyricMotion.MAX_SCALE + layout.size.height * .52f) * packing.scale / 2f
+                val halfHeight = (layout.size.height * PopLyricMotion.MAX_SCALE + layout.size.width * .52f) * packing.scale / 2f
+                // Cache a seeded entrance, kept inside the viewport even in small landscape windows.
+                val dx = (sin(seed) * travelX).coerceIn(
+                    (halfWidth - slot.x).coerceAtMost(0f), (width - halfWidth - slot.x).coerceAtLeast(0f))
+                val dy = (cos(seed) * travelY).coerceIn(
+                    (halfHeight - slot.y).coerceAtMost(0f), (height - halfHeight - slot.y).coerceAtLeast(0f))
+                PopGlyph(layout, slot, if (timeline.wordTimed) (seed % 7f) - 3f else 0f, Offset(dx, dy))
             }, packing.scale)
         }
         Canvas(Modifier.fillMaxSize().testTag("home_pop_canvas")) {
@@ -165,17 +179,19 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, position: State<Long>, ap
             for (index in scene.glyphs.indices) {
                 val token = timeline.tokens[index]
                 val animated = timeline.wordTimed && allowMotion
-                if (animated && now < token.startMs) continue
-                val entered = if (animated) PopLyricMotion.enter(now - token.startMs) else 1f
+                val elapsed = now - (token.startMs - PopLyricMotion.LOOKAHEAD_MS)
+                if (animated && elapsed < 0L) continue
+                val entered = if (animated) PopLyricMotion.enter(elapsed) else 1f
                 val passed = if (animated) PopLyricMotion.pass(now - token.endMs) else 0f
-                val alpha = if (animated) (.2f + .8f * min(entered, 1f)) * (1f - passed * .2f) else 1f
-                val scale = if (animated) (.65f + entered * .41f - passed * .06f).coerceAtMost(PopLyricMotion.MAX_SCALE) else 1f
+                val alpha = if (animated) (elapsed / 100f).coerceIn(0f, 1f) * (1f - passed * .18f) else 1f
+                val scale = if (animated) (.5f + entered * .9f - passed * .4f).coerceIn(.5f, PopLyricMotion.MAX_SCALE) else 1f
                 val glyph = scene.glyphs[index]
                 val origin = Offset(glyph.slot.x, glyph.slot.y)
                 withTransform({
-                    translate(origin.x, origin.y)
+                    val remaining = if (animated) 1f - entered else 0f
+                    translate(origin.x + glyph.entranceOffset.x * remaining, origin.y + glyph.entranceOffset.y * remaining)
                     scale(scene.scale * scale, scene.scale * scale, pivot = Offset.Zero)
-                    if (animated) rotate(glyph.angle * min(entered, 1f), pivot = Offset.Zero)
+                    if (animated) rotate(glyph.angle + 20f * (1f - entered), pivot = Offset.Zero)
                     translate(-glyph.layout.size.width / 2f, -glyph.layout.size.height / 2f)
                 }) {
                     drawText(glyph.layout, color = if (animated && now < token.endMs) activeColor else foreground, alpha = alpha)

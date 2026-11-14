@@ -16,19 +16,20 @@ class PopLyricTimelineTest {
         assertEquals(listOf(1600L, 3600L, 6000L), plan.tokens.map { it.endMs })
         assertEquals(0L, plan.nextChangeDelayMs(5100, 9000))
         assertEquals(0L, plan.nextChangeDelayMs(1100, 9000))
-        assertEquals(400L, plan.nextChangeDelayMs(2000, 9000))
+        assertEquals(0L, plan.nextChangeDelayMs(2000, 9000))
         assertEquals(1000L, plan.nextChangeDelayMs(7000, 9000))
         assertEquals(50L, plan.nextChangeDelayMs(8950, 9000))
     }
 
     @Test fun stableWordsSleepButEntrancesAndPassTransitionsRequestFrames() {
         val plan = PopLyricTimeline.prepare(line)
-        assertEquals(1000L, plan.nextChangeDelayMs(0, 9000))
-        assertEquals(0L, plan.nextChangeDelayMs(1000, 9000))
-        assertEquals(0L, plan.nextChangeDelayMs(1319, 9000))
-        assertEquals(280L, plan.nextChangeDelayMs(1320, 9000))
+        assertEquals(850L, plan.nextChangeDelayMs(0, 9000))
+        assertEquals(0L, plan.nextChangeDelayMs(850, 9000))
+        assertEquals(0L, plan.nextChangeDelayMs(1449, 9000))
+        assertEquals(150L, plan.nextChangeDelayMs(1450, 9000))
         assertEquals(0L, plan.nextChangeDelayMs(1600, 9000))
-        assertEquals(480L, plan.nextChangeDelayMs(1920, 9000))
+        assertEquals(0L, plan.nextChangeDelayMs(2099, 9000))
+        assertEquals(150L, plan.nextChangeDelayMs(2100, 9000))
     }
 
     @Test fun translationsMissingTimingMismatchesAndTooManyWordsKeepTheWholeSentence() {
@@ -78,14 +79,14 @@ class PopLyricTimelineTest {
             assertTrue(packed.scale in 0f..1f)
             for (index in widths.indices) {
                 val slot = packed.slots[index]
-                val halfWidth = (widths[index] * PopLyricMotion.MAX_SCALE + heights[index] * .08f) * packed.scale / 2f
-                val halfHeight = (heights[index] * PopLyricMotion.MAX_SCALE + widths[index] * .08f) * packed.scale / 2f
+                val halfWidth = (widths[index] * PopLyricMotion.MAX_SCALE + heights[index] * .52f) * packed.scale / 2f
+                val halfHeight = (heights[index] * PopLyricMotion.MAX_SCALE + widths[index] * .52f) * packed.scale / 2f
                 assertTrue(slot.x - halfWidth >= -.01f && slot.x + halfWidth <= width + .01f)
                 assertTrue(slot.y - halfHeight >= -.01f && slot.y + halfHeight <= height + .01f)
                 for (previous in 0 until index) {
                     val other = packed.slots[previous]
-                    val otherWidth = (widths[previous] * PopLyricMotion.MAX_SCALE + heights[previous] * .08f) * packed.scale / 2f
-                    val otherHeight = (heights[previous] * PopLyricMotion.MAX_SCALE + widths[previous] * .08f) * packed.scale / 2f
+                    val otherWidth = (widths[previous] * PopLyricMotion.MAX_SCALE + heights[previous] * .52f) * packed.scale / 2f
+                    val otherHeight = (heights[previous] * PopLyricMotion.MAX_SCALE + widths[previous] * .52f) * packed.scale / 2f
                     assertTrue(abs(slot.x - other.x) >= halfWidth + otherWidth - .01f ||
                         abs(slot.y - other.y) >= halfHeight + otherHeight - .01f)
                 }
@@ -93,7 +94,7 @@ class PopLyricTimelineTest {
         }
     }
 
-    @Test fun longImportedTextHasBoundedShapingButRetainsItsFullSourceForBrowsing() {
+    @Test fun longImportedTextHasBoundedShapingButRetainsItsFullSourceForSharing() {
         val text = "a".repeat(510) + "😀" + "b".repeat(300)
         val plan = PopLyricTimeline.prepare(LyricLine(1000, text, words = listOf(LyricWord(1000, 1000, text))))
         assertFalse(plan.wordTimed)
@@ -108,9 +109,9 @@ class PopLyricTimelineTest {
     @Test fun motionHasBoundedOvershootAndSettlesAtBothEnds() {
         assertEquals(0f, PopLyricMotion.enter(-1000), 0f)
         assertEquals(0f, PopLyricMotion.enter(0), 0f)
-        assertEquals(1f, PopLyricMotion.enter(320), 0f)
+        assertEquals(1f, PopLyricMotion.enter(PopLyricMotion.DURATION_MS), 0f)
         assertEquals(1f, PopLyricMotion.enter(Long.MAX_VALUE), 0f)
-        for (time in 0L..320L) assertTrue(PopLyricMotion.enter(time) in 0f..1.06f)
+        for (time in 0L..PopLyricMotion.DURATION_MS) assertTrue(PopLyricMotion.enter(time) in 0f..1.05f)
         assertEquals(0f, PopLyricMotion.pass(-1000), 0f)
         assertEquals(1f, PopLyricMotion.pass(1000), 0f)
     }
