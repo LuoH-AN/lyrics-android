@@ -4,12 +4,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,7 +38,8 @@ import kotlinx.coroutines.delay
 
 /** A silent example using exactly the home renderer and its playback clock. */
 @Composable
-internal fun PopLyricPreview(style: PopLyricsStyle, appearance: HomeLyricAppearance, compact: Boolean = false) {
+internal fun PopLyricPreview(style: PopLyricsStyle, appearance: HomeLyricAppearance, compact: Boolean = false,
+    onPin: (() -> Unit)? = null) {
     val state = remember {
         fun line(start: Long, text: String, step: Long, lastHold: Long): LyricLine {
             val words = text.mapIndexed { index, char ->
@@ -86,10 +89,12 @@ internal fun PopLyricPreview(style: PopLyricsStyle, appearance: HomeLyricAppeara
                 false, appearance, style, frame, interactive = false)
         }
         Row(Modifier.fillMaxWidth()) {
-            TextButton(onClick = { play = !play }) { Text(if (play) "暂停预览" else "继续预览") }
-            TextButton(onClick = { state.seek(0) }) { Text("重新播放") }
+            TextButton(onClick = { play = !play }) { Text(if (play) "暂停" else "继续") }
+            TextButton(onClick = { state.seek(0) }) { Text("重播") }
+            if (onPin != null) {
+                Spacer(Modifier.weight(1f))
+                FilledTonalButton(onClick = onPin) { Text("固定") }
+            }
         }
-        Text("无声示例 · 快句、长音与换段", style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
     }
 }
