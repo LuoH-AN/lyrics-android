@@ -5,6 +5,15 @@ import org.junit.Test
 import kotlin.math.abs
 
 class PopLyricPackingTest {
+    @Test fun lineLengthPreferenceChangesRowsOnPhoneSizedStages() {
+        for (mode in listOf("centered", "staggered", "stairs")) {
+            fun pack(percent: Int) = packPopLyrics(FloatArray(12) { 40f }, FloatArray(12) { 70f },
+                320f, 800f, 0f, mode, 1f, 0, lineWidthPercent = percent)
+            assertTrue(pack(60).rowStarts.size > pack(100).rowStarts.size)
+            assertTrue(popLyricRowLimit(320f, 70f, mode, 60) < popLyricRowLimit(320f, 70f, mode, 100))
+        }
+    }
+
     @Test fun balancedLinesAvoidAnOverlongFirstRowAndTinyTailInEveryMode() {
         for (mode in listOf("centered", "staggered", "stairs")) {
             val widths = floatArrayOf(80f, 80f, 80f, 80f, 20f)

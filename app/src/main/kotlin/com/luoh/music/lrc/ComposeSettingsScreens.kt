@@ -841,8 +841,15 @@ private fun PopLyricSettings(context: Context, revision: Int) {
             value -> save { it.copy(layout = value) }
         } },
     ))
+    SettingsGroup(title = "歌词分段", items = listOf(
+        { SettingsSwitchItem("长句分页", "每页只展示一小段，跟随演唱切换", Icons.Default.Lyrics, style.paginate) {
+            value -> save { it.copy(paginate = value) }
+        } },
+        { SettingsSliderItem("每段长度", style.pageLength, 4..24, 1, "字", Icons.Default.TextFields,
+            style.paginate) { value -> save { it.copy(pageLength = value) } } },
+    ))
     SettingsGroup(title = "排版间距", items = listOf(
-        { SettingsSwitchItem("词组排版", "", Icons.Default.TextFields, style.semanticGrouping) {
+        { SettingsSwitchItem("词组排版", "优先在词组、标点和停顿处分段", Icons.Default.TextFields, style.semanticGrouping) {
             value -> save { it.copy(semanticGrouping = value) }
         } },
         { SettingsSwitchItem("动态防重叠", "", Icons.Default.FormatSize, style.dynamicSpacing) {

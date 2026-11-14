@@ -29,11 +29,38 @@ internal fun groupPopLyrics(tokens: List<PopLyricToken>, semantic: Boolean = tru
         // A real pause wins over an inferred lexical group; punctuation remains attached.
         val lexical = boundaries != null && offset !in boundaries && adjacent && next.startMs - previous.endMs < 120L
         val sameWord = previous.startMs == next.startMs && previous.endMs == next.endMs
-        tight[index] = lexical || penalties[index] >= 40f || sameWord
+        tight[index] = lexical || penalties[index] >= 40f || (sameWord && boundaries == null)
         if (lexical) penalties[index] = 40f
         offset += next.text.length
     }
     val starts = listOf(0) + (1 until tokens.size).filter { penalties[it] < 40f }
     return PopLyricGroups(starts.mapIndexed { index, start -> PopLyricGroup(start, starts.getOrNull(index + 1) ?: tokens.size) },
         penalties, tight)
+}
+
+internal data class PopLayoutTokens(val tokens: List<PopLyricToken>, val sourceIndices: List<Int>)
+
+/** Source providers sometimes call an entire CJK phrase one word. Split its layout,
+ * keeping the exact source clock on every piece; ICU keeps graphemes and Latin words intact. */
+internal fun popLayoutTokens(timeline: PopLyricTimeline): PopLayoutTokens {
+    // Untimed and RTL sentences retain native shaping and the sentence fallback.
+    if (!timeline.wordTimed) return PopLayoutTokens(timeline.tokens, timeline.tokens.indices.toList())
+    val tokens = ArrayList<PopLyricToken>()
+    val sources = ArrayList<Int>()
+    val iterator = BreakIterator.getWordInstance(Locale.ROOT)
+    for ((index, token) in timeline.tokens.withIndex()) {
+        iterator.setText(token.text)
+        var start = iterator.first()
+        var end = iterator.next()
+        while (end != BreakIterator.DONE) {
+            tokens += token.copy(text = token.text.substring(start, end))
+            sources += index
+            if (tokens.size > PopLyricTimeline.MAX_TOKENS) {
+                return PopLayoutTokens(timeline.tokens, timeline.tokens.indices.toList())
+            }
+            start = end
+            end = iterator.next()
+        }
+    }
+    return PopLayoutTokens(tokens, sources)
 }

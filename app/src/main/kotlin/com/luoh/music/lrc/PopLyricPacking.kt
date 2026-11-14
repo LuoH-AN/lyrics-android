@@ -37,6 +37,14 @@ internal fun popLyricBreakPenalties(tokens: List<PopLyricToken>): FloatArray {
 
 internal data class PopGlyphExtent(val width: Float, val height: Float)
 
+internal fun popLyricRowLimit(width: Float, typicalHeight: Float, layoutStyle: String, lineWidthPercent: Int): Float {
+    val composed = layoutStyle != "centered"
+    // Apply the preference AFTER the viewport cap, so it also works on phones.
+    return (min(width * (if (composed) .88f else 1f),
+        typicalHeight * (if (composed) 5.8f else 7.5f)) * lineWidthPercent / 100f)
+        .coerceIn(1f, width.coerceAtLeast(1f))
+}
+
 /** The maximum rectangle reached by this glyph's actual angle sweep, computed only during layout. */
 internal fun popGlyphExtent(width: Float, height: Float, scale: Float, angleDegrees: Float): PopGlyphExtent {
     val angle = Math.toRadians(kotlin.math.abs(angleDegrees).toDouble()).coerceAtMost(Math.PI / 2)
@@ -69,8 +77,7 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
     val typicalHeight = reservedHeights.sorted()[count / 2]
     // Wide landscape stages still read as a phrase, rather than a screen-long ribbon.
     val composed = layoutStyle != "centered"
-    val rowLimit = min(width * (if (composed) .88f else 1f),
-        typicalHeight * (if (composed) 5.8f else 7.5f) * lineWidthPercent / 100f).coerceAtLeast(1f)
+    val rowLimit = popLyricRowLimit(width, typicalHeight, layoutStyle, lineWidthPercent)
     val budget = rowLimit / .88f
     val sums = FloatArray(count + 1)
     for (index in widths.indices) sums[index + 1] = sums[index] + reservedWidths[index] + gaps[index]

@@ -9,6 +9,18 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [26, 35])
 class PopLyricGroupingTest {
+    @Test fun providerPhrasesCanWrapAtLexicalBoundariesWithoutInventingWordClocks() {
+        val source = PopLyricToken("让音乐陪你走过每一个夜晚", 1000, 8000)
+        val timeline = PopLyricTimeline(listOf(source), true)
+        val expanded = popLayoutTokens(timeline)
+        assertTrue(expanded.tokens.size > 1)
+        assertEquals(source.text, expanded.tokens.joinToString("") { it.text })
+        assertTrue(expanded.tokens.all { it.startMs == 1000L && it.endMs == 8000L })
+        assertTrue(expanded.sourceIndices.all { it == 0 })
+        val untimed = popLayoutTokens(PopLyricTimeline(listOf(source), false))
+        assertEquals(listOf(source), untimed.tokens)
+    }
+
     private fun tokens(parts: List<String>) = parts.mapIndexed { index, text -> PopLyricToken(text, 1000 + index * 200L, 1200 + index * 200L) }
     private fun texts(tokens: List<PopLyricToken>, groups: PopLyricGroups) = groups.units.map {
         tokens.subList(it.from, it.until).joinToString("") { token -> token.text }

@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -107,6 +108,27 @@ class ComposePopLyricsTest {
             assertEquals(0, requireNotNull(state.shareDraft).initialIndex)
             assertEquals("Song", state.shareDraft?.title)
         }
+    }
+
+    @Test fun pausedSeekingSelectsOneSmallPageWhileSharingRetainsTheSourceSentence() {
+        val text = "牵着你的手一阵莫名感动让我一直陪你到天亮"
+        val line = LyricLine(1000, text, endMs = 11000, words = text.mapIndexed { index, character ->
+            LyricWord(1000 + index * 250L, 250, character.toString())
+        })
+        PopLyricsPrefs.save(context, PopLyricsStyle(pageLength = 4))
+        state.setLyrics(LyricDocument(listOf(line)), true)
+        state.setProgress(2000, false)
+        show()
+        fun displayed() = compose.onNodeWithTag("home_pop_canvas", useUnmergedTree = true)
+            .fetchSemanticsNode().config[SemanticsProperties.Text].joinToString("") { it.text }
+        val first = displayed()
+        assertTrue(first.isNotEmpty() && first.length < text.length)
+        compose.runOnIdle { state.setProgress(6000, false) }
+        assertNotEquals(first, displayed())
+        compose.runOnIdle { state.setProgress(2000, false) }
+        assertEquals(first, displayed())
+        compose.onNodeWithTag("home_pop_canvas", useUnmergedTree = true).performTouchInput { longClick() }
+        compose.runOnIdle { assertEquals(line, requireNotNull(state.shareDraft).lines.single()) }
     }
 
     @Test fun upcomingTimelineAndVisualTimingAreReusedAfterPreheatAndSeeking() {
