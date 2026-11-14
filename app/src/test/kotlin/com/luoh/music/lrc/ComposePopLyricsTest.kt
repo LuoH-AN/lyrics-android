@@ -117,12 +117,10 @@ class ComposePopLyricsTest {
             val frame = rememberPopPlayback(state, PopLyricsStyle())
             SideEffect { observed = frame }
         }
-        compose.mainClock.advanceTimeUntil(timeoutMillis = 1000) { observed.upcoming != null }
-        compose.waitForIdle()
+        settlePlaybackUntil { observed.upcoming != null }
         val warmed = compose.runOnIdle { requireNotNull(observed.upcoming) }
         compose.runOnIdle { state.setProgress(11200, false) }
-        compose.mainClock.advanceTimeUntil(timeoutMillis = 1000) { observed.index == 1 && observed.upcoming == null }
-        compose.waitForIdle()
+        settlePlaybackUntil { observed.index == 1 && observed.upcoming == null }
         compose.runOnIdle {
             assertSame(warmed.timeline, observed.timeline)
             assertSame(warmed.timing, observed.timing)
@@ -131,8 +129,7 @@ class ComposePopLyricsTest {
         compose.runOnIdle { state.setProgress(9900, true) }
         // Seeking changes the clock, active line and preheat status in successive
         // compositions. Wait for the requested state instead of guessing frame count.
-        compose.mainClock.advanceTimeUntil(timeoutMillis = 1000) { observed.index == 0 && observed.upcoming != null }
-        compose.waitForIdle()
+        settlePlaybackUntil { observed.index == 0 && observed.upcoming != null }
         compose.runOnIdle {
             assertSame(warmed.timeline, requireNotNull(observed.upcoming).timeline)
             assertSame(warmed.timing, requireNotNull(observed.upcoming).timing)
@@ -174,6 +171,17 @@ class ComposePopLyricsTest {
 
     private fun settlePlayback() {
         repeat(3) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
+    }
+
+    private fun settlePlaybackUntil(condition: () -> Boolean) {
+        // SideEffect delivery also needs the Android main queue to drain between
+        // frames; advancing only the virtual frame clock cannot wait for it.
+        repeat(12) {
+            compose.mainClock.advanceTimeByFrame()
+            compose.waitForIdle()
+            if (compose.runOnIdle(condition)) return
+        }
+        fail("Playback state did not settle at ${state.clock.positionMs()} ms")
     }
 
     @Test fun plainLyricsAndMissingLyricsKeepTheirExistingReadablePages() {
