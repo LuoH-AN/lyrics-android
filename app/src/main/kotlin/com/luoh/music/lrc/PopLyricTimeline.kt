@@ -11,7 +11,9 @@ import kotlin.math.min
 /** A bounded, immutable plan for ONE sentence. No generated singing timestamps. */
 internal data class PopLyricToken(val text: String, val startMs: Long, val endMs: Long, val visualDelayMs: Long = 0L)
 
-internal class PopLyricTimeline(val tokens: List<PopLyricToken>, val wordTimed: Boolean) {
+internal class PopLyricTimeline(val tokens: List<PopLyricToken>, val wordTimed: Boolean,
+    val startMs: Long = tokens.firstOrNull()?.startMs ?: 0L,
+    val endMs: Long = tokens.maxOfOrNull { it.endMs } ?: startMs) {
     /** Wake only while an entrance/exit is moving, or at the next real word/line boundary. */
     fun nextChangeDelayMs(positionMs: Long, nextLineMs: Long?, style: PopLyricsStyle = PopLyricsStyle()): Long {
         var delay = nextLineMs?.minus(positionMs)?.coerceAtLeast(1L) ?: 1000L
@@ -32,7 +34,7 @@ internal class PopLyricTimeline(val tokens: List<PopLyricToken>, val wordTimed: 
         const val MAX_PREVIEW_CHARACTERS = 512
 
         fun prepare(line: LyricLine, displayText: String = line.text, reveal: String = "word"): PopLyricTimeline {
-            fun sentence() = PopLyricTimeline(listOf(PopLyricToken(displayText, line.startMs, LyricTiming.lineEnd(line))), false)
+            fun sentence() = PopLyricTimeline(listOf(PopLyricToken(displayText, line.startMs, LyricTiming.lineEnd(line))), false, line.startMs, LyricTiming.lineEnd(line))
             // Preserve shaping for RTL scripts and show translated/untimed/very long text as a sentence.
             if (displayText != line.text || line.words.isEmpty() || line.words.size > MAX_TOKENS ||
                 displayText.length > MAX_ANIMATED_CHARACTERS ||
@@ -56,7 +58,7 @@ internal class PopLyricTimeline(val tokens: List<PopLyricToken>, val wordTimed: 
                 tokens += PopLyricToken(source.substring(from, until), word.startMs, word.startMs + duration)
             }
             if (tokens.isEmpty()) return sentence()
-            if (reveal != "character") return PopLyricTimeline(tokens, true)
+            if (reveal != "character") return PopLyricTimeline(tokens, true, line.startMs, LyricTiming.lineEnd(line))
             val characters = ArrayList<PopLyricToken>()
             for (token in tokens) {
                 // Keep emoji/ZWJ sequences intact; BreakIterator preserves ordinary combining marks.
@@ -64,10 +66,10 @@ internal class PopLyricTimeline(val tokens: List<PopLyricToken>, val wordTimed: 
                     else popCharacterPieces(token.text)
                 for ((index, piece) in pieces.withIndex()) {
                     characters += token.copy(text = piece, visualDelayMs = (index * 25L).coerceAtMost(100L))
-                    if (characters.size > MAX_TOKENS) return PopLyricTimeline(tokens, true)
+                    if (characters.size > MAX_TOKENS) return PopLyricTimeline(tokens, true, line.startMs, LyricTiming.lineEnd(line))
                 }
             }
-            return PopLyricTimeline(characters, true)
+            return PopLyricTimeline(characters, true, line.startMs, LyricTiming.lineEnd(line))
         }
     }
 }
@@ -117,8 +119,8 @@ internal object PopLyricMotion {
         return entrance[index] + (entrance[index + 1] - entrance[index]) * (sample - index)
     }
 
-    fun pass(elapsedMs: Long): Float {
-        val progress = (elapsedMs.toFloat() / PASS_DURATION_MS).coerceIn(0f, 1f)
+    fun pass(elapsedMs: Long, durationMs: Long = PASS_DURATION_MS): Float {
+        val progress = (elapsedMs.toFloat() / durationMs.coerceAtLeast(1L)).coerceIn(0f, 1f)
         return progress * progress * (3f - 2f * progress)
     }
 }

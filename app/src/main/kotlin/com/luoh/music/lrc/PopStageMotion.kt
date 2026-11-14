@@ -40,8 +40,13 @@ internal object PopStageMotion {
     fun path(timeline: PopLyricTimeline, centers: List<PopCameraPoint>, style: PopLyricsStyle,
         bounds: PopCameraBounds = PopCameraBounds()): PopCameraPath {
         require(centers.size == timeline.tokens.size)
+        val available = (timeline.endMs - timeline.startMs).coerceAtLeast(1L)
+        if (!timeline.wordTimed || (style.adaptiveTiming && available <= 100L) ||
+            centers.all { kotlin.math.abs(it.x) < .0001f && kotlin.math.abs(it.y) < .0001f })
+            return PopCameraPath(emptyList(), bounds)
         val points = ArrayList<PopCameraWaypoint>(centers.size)
-        val duration = (style.entranceMs * 1.2f).toLong().coerceIn(400L, 900L)
+        val baseDuration = ((style.entranceMs * 1.2f).coerceIn(400f, 900f) * 100f / style.cameraSpeedPercent).toLong().coerceAtLeast(100L)
+        val duration = if (style.adaptiveTiming && available < 800L) minOf(baseDuration, (available / 2).coerceAtLeast(80L)) else baseDuration
         val amount = style.cameraPercent / 100f
         var index = 0
         while (index < centers.size) {

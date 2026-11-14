@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
@@ -102,6 +103,24 @@ class ComposePopLyricsTest {
         compose.runOnIdle {
             assertEquals(0, requireNotNull(state.shareDraft).initialIndex)
             assertEquals("Song", state.shareDraft?.title)
+        }
+    }
+
+    @Test fun upcomingTimelineAndVisualTimingAreReusedAfterPreheatAndSeeking() {
+        state.setProgress(9900, true)
+        lateinit var observed: PopPlaybackFrame
+        compose.setContent {
+            val frame = rememberPopPlayback(state, PopLyricsStyle())
+            SideEffect { observed = frame }
+        }
+        compose.waitForIdle()
+        val warmed = compose.runOnIdle { requireNotNull(observed.upcoming) }
+        compose.runOnIdle { state.setProgress(11200, false) }
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertSame(warmed.timeline, observed.timeline)
+            assertSame(warmed.timing, observed.timing)
+            assertNull(observed.upcoming)
         }
     }
 

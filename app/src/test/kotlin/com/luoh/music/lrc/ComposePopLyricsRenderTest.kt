@@ -168,6 +168,7 @@ class ComposePopLyricsRenderTest {
             "long" to listOf("如果", "有一天", "我们", "走散了", "，", "就", "让", "这首歌", "带你", "找到", "回家的", "方向"),
             "english" to listOf("Let ", "the ", "music ", "carry ", "us ", "through ", "the ", "longest ", "night"),
             "characters" to listOf("让", "音乐", "陪你", "走过", "每一个", "夜晚"),
+            "syllables" to listOf("音", "乐", "陪", "伴", "我", "们", "走", "过", "世", "界", "。"),
         )
         for (layout in listOf("centered", "staggered", "stairs")) {
             for ((name, words) in samples) {
@@ -185,6 +186,13 @@ class ComposePopLyricsRenderTest {
             }
             assertTrue(capture(8500, "pop-layout-$layout-sentence$suffix") > 0)
         }
+        compose.runOnIdle {
+            PopLyricsPrefs.save(compose.activity, PopLyricsStyle())
+            state.setLyrics(LyricDocument(listOf(LyricLine(1000, "啊", endMs = 1080,
+                words = listOf(LyricWord(1000, 80, "啊")))), true))
+        }
+        assertTrue("A micro sentence must be visible on its first frame", capture(1000, "pop-micro-first$suffix") > 0)
+        assertTrue(capture(1040, "pop-micro-middle$suffix") > 0)
         val detailedCover = Bitmap.createBitmap(240, 240, Bitmap.Config.ARGB_8888).apply {
             for (y in 0 until height) for (x in 0 until width)
                 setPixel(x, y, android.graphics.Color.rgb(x, (x * 3 + y * 5) % 256, y))

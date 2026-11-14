@@ -841,6 +841,28 @@ private fun PopLyricSettings(context: Context, revision: Int) {
             value -> save { it.copy(layout = value) }
         } },
     ))
+    SettingsGroup(title = "排版间距", items = listOf(
+        { SettingsSwitchItem("词组排版", "", Icons.Default.TextFields, style.semanticGrouping) {
+            value -> save { it.copy(semanticGrouping = value) }
+        } },
+        { SettingsSwitchItem("动态防重叠", "", Icons.Default.FormatSize, style.dynamicSpacing) {
+            value -> save { it.copy(dynamicSpacing = value) }
+        } },
+        { SettingsSliderItem("词组内间距", style.innerGapDp, 0..12, 1, "dp", Icons.Default.TextFields) {
+            value -> save { it.copy(innerGapDp = value) }
+        } },
+        { SettingsSliderItem("词组间距", style.groupGapDp, 0..24, 1, "dp", Icons.Default.TextFields) {
+            value -> save { it.copy(groupGapDp = value) }
+        } },
+        { SettingsSliderItem("行距倍率", style.rowGapPercent, 0..250, 10, "%", Icons.Default.FormatAlignLeft) {
+            value -> save { it.copy(rowGapPercent = value) }
+        } },
+        { SettingsSliderItem("单行长度", style.lineWidthPercent, 60..140, 5, "%", Icons.Default.FormatAlignLeft) {
+            value -> save { it.copy(lineWidthPercent = value) }
+        } },
+        { SettingsSliderItem("错落幅度", style.staggerPercent, 0..200, 10, "%", Icons.Default.Layers,
+            style.layout != "centered") { value -> save { it.copy(staggerPercent = value) } } },
+    ))
     SettingsGroup(title = "文字入场", items = listOf(
         { SettingsChoiceItem("入场方向", style.entrance,
             listOf("scatter" to "四周飞入", "rise" to "向上跳出", "zoom" to "原地弹出"), Icons.Default.Layers) {
@@ -871,6 +893,20 @@ private fun PopLyricSettings(context: Context, revision: Int) {
             style.camera != "off") { value -> save { it.copy(cameraPercent = value) } } },
         { SettingsSwitchItem("舞台呼吸", "", Icons.Default.Sync, style.breathing) {
             value -> save { it.copy(breathing = value) }
+        } },
+        { SettingsSliderItem("跟随速度", style.cameraSpeedPercent, 50..180, 5, "%", Icons.Default.Speed,
+            style.camera == "follow") { value -> save { it.copy(cameraSpeedPercent = value) } } },
+        { SettingsSliderItem("整行动效", style.rowMotionPercent, 0..100, 5, "%", Icons.Default.Layers) {
+            value -> save { it.copy(rowMotionPercent = value) }
+        } },
+        { SettingsSliderItem("唱后停留", style.textHoldMs, 0..800, 50, "ms", Icons.Default.Timeline) {
+            value -> save { it.copy(textHoldMs = value) }
+        } },
+        { SettingsSliderItem("唱后亮度", style.passedOpacityPercent, 0..100, 5, "%", Icons.Default.Contrast) {
+            value -> save { it.copy(passedOpacityPercent = value) }
+        } },
+        { SettingsSwitchItem("短句自适应", "", Icons.Default.Speed, style.adaptiveTiming) {
+            value -> save { it.copy(adaptiveTiming = value) }
         } },
         { SettingsChoiceItem("整句切换", style.transition,
             listOf("fade" to "淡入淡出", "slide" to "滑动切换", "zoom" to "缩放切换"), Icons.Default.Layers) {

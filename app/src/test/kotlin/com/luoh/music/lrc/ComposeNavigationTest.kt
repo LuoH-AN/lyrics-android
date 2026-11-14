@@ -91,6 +91,10 @@ class ComposeNavigationTest {
         show(navigator)
         compose.onNodeWithText("主页歌词").performScrollTo().performTouchInput { click() }
         compose.onNodeWithText("动效预设").assertDoesNotExist()
+        compose.onNodeWithText("词组排版").performScrollTo().performTouchInput { click() }
+        compose.runOnIdle { assertFalse(PopLyricsPrefs.style(context).semanticGrouping) }
+        compose.onNodeWithText("短句自适应").performScrollTo().performTouchInput { click() }
+        compose.runOnIdle { assertFalse(PopLyricsPrefs.style(context).adaptiveTiming) }
         compose.onNodeWithText("跳出单位", useUnmergedTree = true).performScrollTo().performTouchInput { click() }
         compose.onNodeWithText("逐字").performTouchInput { click() }
         compose.runOnIdle { assertEquals("character", PopLyricsPrefs.style(context).reveal) }

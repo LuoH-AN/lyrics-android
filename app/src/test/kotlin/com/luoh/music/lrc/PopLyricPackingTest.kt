@@ -64,6 +64,30 @@ class PopLyricPackingTest {
         }
     }
 
+    @Test fun actualRotationBoundsTightGroupsAndRowMotionFitWithoutExtraUniformPadding() {
+        val widths = floatArrayOf(100f, 40f, 100f, 40f)
+        val heights = FloatArray(4) { 40f }
+        val extents = widths.mapIndexed { index, w -> popGlyphExtent(w, heights[index], 1.4f, if (index % 2 == 0) 10f else 25f) }
+        val gaps = floatArrayOf(0f, 0f, 12f, 0f, 0f)
+        val packed = packPopLyrics(widths, heights, 500f, 200f, 8f, "centered", 1.4f, 25,
+            extents = extents, boundaryGaps = gaps, rowGap = 8f, rowMotionReach = 12f)
+        assertEquals(4, packed.slots.size)
+        for (index in widths.indices) {
+            val extent = extents[index]
+            assertTrue(packed.slots[index].x - extent.width * packed.scale / 2 >= -.01f)
+            assertTrue(packed.slots[index].x + extent.width * packed.scale / 2 <= 500.01f)
+            assertTrue(packed.slots[index].y - (extent.height / 2 + 12f) * packed.scale >= -.01f)
+            assertTrue(packed.slots[index].y + (extent.height / 2 + 12f) * packed.scale <= 200.01f)
+            for (degrees in -10..10) {
+                val radians = degrees * Math.PI / 180
+                val hw = (widths[index] * kotlin.math.cos(radians) + heights[index] * kotlin.math.abs(kotlin.math.sin(radians))) * 1.4f / 2
+                val hh = (heights[index] * kotlin.math.cos(radians) + widths[index] * kotlin.math.abs(kotlin.math.sin(radians))) * 1.4f / 2
+                assertTrue(hw <= extent.width / 2 + .01f && hh <= extent.height / 2 + .01f)
+            }
+        }
+        assertTrue(extents[0].width < widths[0] * 1.4f + heights[0] * kotlin.math.sin(25 * 1.15 * Math.PI / 180).toFloat() * 1.4f)
+    }
+
     @Test fun allLayoutsFitDenseSentencesAtFontAndRotationExtremesWithoutOverlapping() {
         for (mode in listOf("centered", "staggered", "stairs")) {
             val widths = FloatArray(64) { if (it % 5 == 0) 140f else 38f }

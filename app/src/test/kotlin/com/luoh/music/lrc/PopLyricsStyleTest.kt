@@ -16,7 +16,10 @@ class PopLyricsStyleTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
         val style = PopLyricsStyle(reveal = "character").copy( entranceMs = 100000,
-            cameraPercent = -10, rotationDegrees = 90)
+            cameraPercent = -10, rotationDegrees = 90, groupGapDp = 999, innerGapDp = -5,
+            rowGapPercent = 999, lineWidthPercent = 999, staggerPercent = -5, rowMotionPercent = 999,
+            cameraSpeedPercent = 999, textHoldMs = 9999, passedOpacityPercent = -5, semanticGrouping = false,
+            dynamicSpacing = false, adaptiveTiming = false)
         PopLyricsPrefs.save(context, style)
         val saved = PopLyricsPrefs.style(context)
         assertEquals("character", saved.reveal)
@@ -24,6 +27,11 @@ class PopLyricsStyleTest {
         assertEquals(1000, saved.entranceMs)
         assertEquals(0, saved.cameraPercent)
         assertEquals(30, saved.rotationDegrees)
+        assertEquals(style.normalized(), saved)
+        assertEquals(24, saved.groupGapDp)
+        assertEquals(0, saved.innerGapDp)
+        assertEquals(180, saved.cameraSpeedPercent)
+        assertEquals(800, saved.textHoldMs)
         assertEquals(HomeLyricsPrefs.SCROLL, HomeLyricsPrefs.displayMode(context))
         PopLyricsPrefs.save(context, PopLyricsStyle())
         assertEquals(PopLyricsStyle(), PopLyricsPrefs.style(context))
@@ -90,6 +98,15 @@ class PopLyricsStyleTest {
             .putInt("pop_rotation", 12).commit()
         assertEquals("stairs", PopLyricsPrefs.style(context).layout)
         assertEquals(12, PopLyricsPrefs.style(context).rotationDegrees)
+    }
+
+    @Test fun cameraSpeedChangesDurationAndKeepsTheTrajectoryContinuousAndBounded() {
+        val timeline = PopLyricTimeline(listOf(PopLyricToken("音", 1000, 2000), PopLyricToken("乐", 2000, 3000)), true)
+        val centers = listOf(PopCameraPoint(-.2f, 0f), PopCameraPoint(.2f, 0f))
+        val slow = PopStageMotion.path(timeline, centers, PopLyricsStyle(cameraSpeedPercent = 50))
+        val fast = PopStageMotion.path(timeline, centers, PopLyricsStyle(cameraSpeedPercent = 180))
+        assertTrue(slow.waypoints.first().durationMs > fast.waypoints.first().durationMs)
+        assertEquals(PopStagePose(), PopStageMotion.sample(6000, slow, PopLyricsStyle(cameraSpeedPercent = 50)))
     }
 
     @Test fun denseWordsAndReturnToCenterPreserveCameraVelocity() {
