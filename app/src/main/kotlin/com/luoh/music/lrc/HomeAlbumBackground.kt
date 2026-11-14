@@ -107,7 +107,7 @@ private fun blurAlbumAxis(source: IntArray, target: IntArray, width: Int, height
 }
 
 @Composable
-internal fun HomeAlbumBackground(state: HomePresentationState, modifier: Modifier = Modifier) {
+internal fun HomeAlbumBackground(state: HomePresentationState, modifier: Modifier = Modifier, continuousMotion: Boolean = true) {
     val cover = state.snapshot.cover
     val hasCover = cover != null && !cover.isRecycled
     val background by produceState<Bitmap?>(null, cover) {
@@ -115,7 +115,7 @@ internal fun HomeAlbumBackground(state: HomePresentationState, modifier: Modifie
         value = withContext(Dispatchers.Default) { prepareHomeAlbumBackground(cover, previous) }
     }
     val motion = remember { Animatable(0f) }
-    val animate = hasCover && state.presentationActive && state.playing &&
+    val animate = continuousMotion && hasCover && state.presentationActive && state.playing &&
         LocalAgoraMotionPolicy.current.allowContinuousMotion
     LaunchedEffect(animate) {
         if (!animate) return@LaunchedEffect

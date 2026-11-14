@@ -1,0 +1,119 @@
+package com.luoh.music.lrc
+
+import android.app.Application
+import android.content.Context
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
+import androidx.test.core.app.ApplicationProvider
+import com.luoh.music.lrc.ui.agora.AgoraMotionPolicy
+import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
+import org.junit.Assert.*
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35], application = Application::class, qualifiers = "w400dp-h800dp-mdpi")
+class ComposePopLyricsTest {
+    @get:Rule val compose = createComposeRule()
+    private val context get() = ApplicationProvider.getApplicationContext<Context>()
+    private val actions = RecordingHomeActions()
+    private val state = HomePresentationState().apply {
+        this.actions = this@ComposePopLyricsTest.actions
+        setSnapshot(HomePresentationState.Snapshot(track = "Song", positionMs = 2000, durationMs = 15000))
+        setLyrics(LyricDocument(listOf(
+            LyricLine(1000, "让音乐陪你", "Let the music stay", 4000,
+                listOf(LyricWord(1000, 1000, "让"), LyricWord(2000, 1000, "音乐"), LyricWord(3000, 1000, "陪你"))),
+            LyricLine(11000, "直到天亮", endMs = 14000)), true))
+        setActive(true)
+    }
+
+    @Before fun reset() {
+        context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+    }
+
+    private fun show() {
+        compose.setContent {
+            CompositionLocalProvider(LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduceMotion = true)) {
+                MaterialTheme { Box(Modifier.size(400.dp, 700.dp)) { ComposeHomeScreen(state, {}, {}, {}) } }
+            }
+        }
+    }
+
+    @Test fun modePersistsUpdatesTheExistingPageAndRetainsFullLyricBrowsing() {
+        assertEquals(HomeLyricsPrefs.SCROLL, HomeLyricsPrefs.displayMode(context))
+        show()
+        compose.onNodeWithTag("home_pop_stage").assertDoesNotExist()
+        compose.runOnIdle { HomeLyricsPrefs.saveDisplayMode(context, HomeLyricsPrefs.POP) }
+        compose.onNodeWithTag("home_pop_stage").assertIsDisplayed()
+        compose.onNodeWithText("让音乐陪你").assertIsDisplayed()
+        compose.onNodeWithText("Let the music stay").assertIsDisplayed()
+        compose.onNodeWithText("浏览歌词").performTouchInput { click() }
+        compose.onNodeWithTag("home_pop_stage").assertDoesNotExist()
+        compose.onNodeWithText("返回跃动").performTouchInput { click() }
+        compose.onNodeWithTag("home_pop_stage").assertIsDisplayed()
+        compose.runOnIdle {
+            assertEquals(HomeLyricsPrefs.POP, HomeLyricsPrefs.displayMode(context))
+            HomeLyricsPrefs.saveDisplayMode(context, "unknown")
+            assertEquals(HomeLyricsPrefs.SCROLL, HomeLyricsPrefs.displayMode(context))
+        }
+        compose.onNodeWithTag("home_pop_stage").assertDoesNotExist()
+    }
+
+    @Test fun pausedProgressChangesSeekAndTranslationUseTheCurrentSentenceImmediately() {
+        HomeLyricsPrefs.saveDisplayMode(context, HomeLyricsPrefs.POP)
+        show()
+        compose.onNodeWithText("让音乐陪你").performTouchInput { click() }
+        compose.runOnIdle { assertEquals(listOf(1000L), actions.seeks) }
+        compose.runOnIdle {
+            state.setProgress(12000, false)
+            assertFalse(state.playing)
+        }
+        compose.onNodeWithText("直到天亮").assertIsDisplayed()
+        compose.onNodeWithText("让音乐陪你").assertDoesNotExist()
+        compose.runOnIdle {
+            state.setProgress(2000, false)
+            state.setTranslationMode(LyricsOverlayService.TRANSLATION_TRANSLATED)
+        }
+        compose.onNodeWithText("Let the music stay").assertIsDisplayed()
+        compose.onNodeWithText("让音乐陪你").assertDoesNotExist()
+    }
+
+    @Test fun interludeAndSharingRemainAvailable() {
+        HomeLyricsPrefs.saveDisplayMode(context, HomeLyricsPrefs.POP)
+        state.setProgress(7000, false)
+        show()
+        compose.onNodeWithTag("home_pop_interlude").assertIsDisplayed()
+        compose.runOnIdle { state.setProgress(2000, false) }
+        compose.onNodeWithTag("home_pop_interlude").assertDoesNotExist()
+        compose.onNodeWithText("让音乐陪你").performTouchInput { longClick() }
+        compose.runOnIdle {
+            assertEquals(0, requireNotNull(state.shareDraft).initialIndex)
+            assertEquals("Song", state.shareDraft?.title)
+        }
+    }
+
+    @Test fun plainLyricsAndMissingLyricsKeepTheirExistingReadablePages() {
+        HomeLyricsPrefs.saveDisplayMode(context, HomeLyricsPrefs.POP)
+        state.setLyrics(LyricDocument(listOf(LyricLine(0, "没有时间轴的歌词")), false))
+        show()
+        compose.onNodeWithText("没有时间轴的歌词").assertIsDisplayed()
+        compose.onNodeWithTag("home_pop_stage").assertDoesNotExist()
+        compose.runOnIdle { state.setLyrics(LyricDocument(emptyList(), true)) }
+        compose.onNodeWithText("未找到歌词").assertIsDisplayed()
+    }
+}

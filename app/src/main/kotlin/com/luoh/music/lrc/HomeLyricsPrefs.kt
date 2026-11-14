@@ -23,9 +23,20 @@ object HomeLyricsPrefs {
     const val KEY_TRANSLATION_SIZE = "translation_size"
     const val KEY_FONT_WEIGHT = "font_weight"
     const val KEY_LINE_SPACING = "line_spacing"
+    const val KEY_DISPLAY_MODE = "display_mode"
+    const val SCROLL = "scroll"
+    const val POP = "pop"
     const val LEFT = "left"
     const val CENTER = "center"
     const val RIGHT = "right"
+
+    fun displayMode(context: Context): String =
+        if (context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_DISPLAY_MODE, SCROLL) == POP) POP else SCROLL
+
+    fun saveDisplayMode(context: Context, mode: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(KEY_DISPLAY_MODE, if (mode == POP) POP else SCROLL).apply()
+    }
 
     fun appearance(context: Context): HomeLyricAppearance {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

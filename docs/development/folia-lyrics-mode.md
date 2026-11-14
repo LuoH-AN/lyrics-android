@@ -1,0 +1,39 @@
+# Folia 逐词动效与手机端实现
+
+调研参考 [chthollyphile/folia-major](https://github.com/chthollyphile/folia-major)，读取版本为 `77d52a3168ab2608174d2e5ad6d51b7bc8befd11`。当前实现是本项目的原生 Compose 显示模式「逐词跃动」。
+
+## 上游如何让词逐个跳出
+
+- [`GlowWord.tsx`](https://github.com/chthollyphile/folia-major/blob/77d52a3168ab2608174d2e5ad6d51b7bc8befd11/src/components/visualizer/GlowWord.tsx) 根据播放器时间，把每个词切换为 `waiting / active / passed`。只在状态变化时更新 React 状态。
+- [`glowWordVariants.ts`](https://github.com/chthollyphile/folia-major/blob/77d52a3168ab2608174d2e5ad6d51b7bc8befd11/src/components/visualizer/glowWordVariants.ts) 让未唱词透明且缩小，当前词用弹簧移动、放大和旋转，唱完后回落；正文和发光层分别处理。
+- [`partitaLayout.ts`](https://github.com/chthollyphile/folia-major/blob/77d52a3168ab2608174d2e5ad6d51b7bc8befd11/src/components/visualizer/partita/partitaLayout.ts) 是「云阶」的错落分栏排版，按歌词、参数和窗口尺寸缓存布局，并预热下一句。偏移用固定种子生成，播放期间不会重新随机排版。
+- [`cjkSemanticLayout.ts`](https://github.com/chthollyphile/folia-major/blob/77d52a3168ab2608174d2e5ad6d51b7bc8befd11/src/utils/lyrics/cjkSemanticLayout.ts) 将语义分组对齐到原始逐字数据，并附着标点；不能精确对齐时保留原始词单元。
+- [`graphemeTiming.ts`](https://github.com/chthollyphile/folia-major/blob/77d52a3168ab2608174d2e5ad6d51b7bc8befd11/src/utils/lyrics/graphemeTiming.ts) 把词与音节时间映射到完整字符簇，避免把组合字符当作多个独立文字。
+
+这些动画依靠歌词时间轴触发。音频分析、背景和粒子是额外的视觉层，并非逐词入场的前提。
+
+## 当前实现的资源边界
+
+本模式直接复用 `LyricDocument / LyricWord / LyricClock`，新增 `PopLyricTimeline`、`PopLyricPacking` 与 `ComposePopLyrics`。未引入 Folia 的运行时、依赖或素材；上游采用 AGPL-3.0，直接搬运代码时需保留并遵守其许可。
+
+| 项目 | 实现 |
+| --- | --- |
+| 排版范围 | 仅当前句；每句最多 64 个独立词，超过后整句显示 |
+| 字体测量 | 当前句、尺寸、字号、字重变化时测量；缓存 `TextLayoutResult` 与坐标 |
+| 帧内工作 | 读取时钟、查预计算动画表、变换与绘制可见词 |
+| 重组范围 | 逐帧位置只在 Canvas 绘制与间奏进度中读取；当前句或间奏变化时才更新页面 |
+| 刷新 | 逐词绘制至多约 30 Hz；入场或回落结束后等下一真实时间点再刷新 |
+| 停止条件 | 暂停、主页不活动、切到完整歌词列表、播放结束 |
+| 背景 | 复用已有的小尺寸预模糊封面，停止持续背景运动 |
+| 图形效果 | 使用原生 Canvas 变换；无逐字模糊、发光、粒子、全屏歌词淡出离屏层 |
+| 内存 | 不栅格化整首歌词，不缓存整首歌的文字纹理，不为每个词创建动画状态对象 |
+
+30 Hz 上限针对本模式的歌词绘制；控制栏与应用其他动画仍遵循现有逻辑。绘制 API 可能产生内部对象，本实现没有声称整条渲染路径零分配。
+
+排版先为放大和轻微旋转预留空间，再按舞台宽高整体适配。旋转由文字和序号确定；进度变化不会改变坐标。没有独立时间轴时只显示整句，不按字数编造演唱时间。中文模式的译文、RTL 文字、损坏或不匹配的逐字数据同样走整句绘制。完整歌词、点击重听、长按分享与双语保持可用。
+
+## 验证与后续实机测量
+
+`PopLyricTimelineTest` 覆盖时序、跳转后的状态、空白与组合字符、错误数据、动画数量上限、动效边界及横竖屏空间预留；`ComposePopLyricsTest` 覆盖模式热切换、浏览返回、暂停更新、双语、间奏和摘句。
+
+按仓库规范，Node 回归在开发环境运行；Android 编译、JUnit 与 Robolectric 在 GitHub Actions 运行。实机验证应包含 Android 8、常用中端机与高刷新率设备，分别播放密集逐字、长音和长句，并测量帧耗时、主线程工作、分配、内存与功耗。重点确认长音期间不持续重绘、暂停和进入后台后没有歌词帧回调，以及反复切歌不累积布局对象。上述资源边界是实现约束，不能代替设备上的性能与功耗测量。

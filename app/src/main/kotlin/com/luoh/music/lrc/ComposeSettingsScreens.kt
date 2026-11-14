@@ -782,9 +782,20 @@ private fun HomeAlignmentSettings(context: Context, revision: Int) {
     val alignment = remember(revision) { HomeLyricsPrefs.alignment(context) }
     val albumBackground = remember(revision) { HomeLyricsPrefs.albumBackground(context) }
     val appearance = remember(revision) { HomeLyricsPrefs.appearance(context) }
+    val displayMode = remember(revision) { HomeLyricsPrefs.displayMode(context) }
     fun saveStyle(change: (HomeLyricAppearance) -> HomeLyricAppearance) {
         HomeLyricsPrefs.saveAppearance(context, change(HomeLyricsPrefs.appearance(context)))
     }
+    SettingsGroup(title = "显示模式", items = listOf({
+        SettingsChoiceItem("歌词显示模式", displayMode,
+            listOf(HomeLyricsPrefs.SCROLL to "滚动", HomeLyricsPrefs.POP to "逐词跃动"), Icons.Default.Lyrics) {
+            HomeLyricsPrefs.saveDisplayMode(context, it)
+        }
+    }, {
+        Text("逐词跃动：歌词随演唱逐个跳出，错落排版；没有逐字时间轴时显示整句，可随时浏览完整歌词。",
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }))
     SettingsGroup(title = "背景", items = listOf({
         SettingsSwitchItem("封面模糊背景", "将专辑封面模糊处理后作为主页背景", Icons.Default.BlurOn, albumBackground) {
             HomeLyricsPrefs.saveAlbumBackground(context, it)

@@ -277,18 +277,21 @@ internal fun ComposeHomeScreen(
     val prefs = remember(context) { context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE) }
     var backgroundEnabled by remember(context) { mutableStateOf(HomeLyricsPrefs.albumBackground(context)) }
     var appearance by remember(context) { mutableStateOf(HomeLyricsPrefs.appearance(context)) }
+    var displayMode by remember(context) { mutableStateOf(HomeLyricsPrefs.displayMode(context)) }
     DisposableEffect(prefs) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == HomeLyricsPrefs.KEY_ALBUM_BACKGROUND || key == null)
                 backgroundEnabled = HomeLyricsPrefs.albumBackground(context)
             appearance = HomeLyricsPrefs.appearance(context)
+            displayMode = HomeLyricsPrefs.displayMode(context)
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
     val darkAlbumBackground = backgroundEnabled && state.snapshot.cover?.let { !it.isRecycled } == true
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        if (!state.gateVisible && backgroundEnabled) HomeAlbumBackground(state, Modifier.fillMaxSize().testTag("home_album_background"))
+        if (!state.gateVisible && backgroundEnabled) HomeAlbumBackground(state,
+            Modifier.fillMaxSize().testTag("home_album_background"), continuousMotion = displayMode != HomeLyricsPrefs.POP)
         BoxWithConstraints(
             Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
         ) {
@@ -296,12 +299,12 @@ internal fun ComposeHomeScreen(
                 HomePermissionGate(state.gateStatus, onListenerPermission, onOverlayPermission, onStartOverlay) { state.actions?.openSettings() }
             } else if (maxWidth >= 840.dp) {
                 Row(Modifier.fillMaxSize().padding(24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    HomeLyricsStage(state, Modifier.weight(1f).fillMaxHeight().homeLyricsFade(), darkAlbumBackground, appearance)
+                    HomeLyricsStage(state, Modifier.weight(1f).fillMaxHeight(), darkAlbumBackground, appearance, displayMode)
                     HomePlayer(state, Modifier.width(360.dp).align(Alignment.CenterVertically), darkAlbumBackground)
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
-                    HomeLyricsStage(state, Modifier.weight(1f).fillMaxWidth().homeLyricsFade(), darkAlbumBackground, appearance)
+                    HomeLyricsStage(state, Modifier.weight(1f).fillMaxWidth(), darkAlbumBackground, appearance, displayMode)
                     HomePlayer(state, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), darkAlbumBackground)
                 }
             }
@@ -562,6 +565,23 @@ private fun HomeProgress(state: HomePresentationState) {
 
 @Composable
 private fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = Modifier, albumBackground: Boolean = false,
+    appearance: HomeLyricAppearance = HomeLyricAppearance(), displayMode: String = HomeLyricsPrefs.SCROLL) {
+    var browsing by rememberSaveable(displayMode) { mutableStateOf(false) }
+    val pop = displayMode == HomeLyricsPrefs.POP && state.document.timed && state.document.lines.isNotEmpty()
+    if (pop && !browsing) {
+        PopLyricsStage(state, modifier, albumBackground, appearance, onBrowse = { browsing = true })
+    } else {
+        Box(modifier) {
+            HomeScrollingLyricsStage(state, Modifier.fillMaxSize().homeLyricsFade(), albumBackground, appearance)
+            if (pop) TextButton(onClick = { browsing = false }, modifier = Modifier.align(Alignment.TopEnd)) {
+                Text("返回跃动", color = if (albumBackground) Color.White else MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeScrollingLyricsStage(state: HomePresentationState, modifier: Modifier = Modifier, albumBackground: Boolean = false,
     appearance: HomeLyricAppearance = HomeLyricAppearance()) {
     val document = state.document
     val foreground = if (albumBackground) Color.White else MaterialTheme.colorScheme.onSurface
