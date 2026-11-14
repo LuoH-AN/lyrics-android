@@ -54,7 +54,8 @@ class ComposePopLyricsRenderTest {
         fun capture(time: Long, name: String): Int {
             compose.runOnIdle { state.setProgress(time, false) }
             compose.waitForIdle()
-            val bounds = compose.onNodeWithTag("home_pop_canvas").fetchSemanticsNode().boundsInRoot
+            // The clickable sentence merges its children's semantics for accessibility.
+            val bounds = compose.onNodeWithTag("home_pop_canvas", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
             var painted = 0
             compose.runOnIdle {
                 val bitmap = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
