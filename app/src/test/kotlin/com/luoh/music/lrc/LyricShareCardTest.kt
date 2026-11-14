@@ -52,12 +52,9 @@ class LyricShareCardTest {
         assertTrue(wrapped.height > bitmap.height)
         assertEquals(900, bitmap.width)
         assertEquals(1200, bitmap.height)
-        val report = File("build/reports/material-ui").apply { mkdirs() }
-        File(report, "lyric-share-card.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        File(report, "lyric-share-long.png").outputStream().use { wrapped.compress(Bitmap.CompressFormat.PNG, 100, it) }
         val translated = short.map { it.copy(translation = "Keep this moment in the evening breeze") }
         val bilingual = LyricShareCard.render(context, draft, translated, true)
-        File(report, "lyric-share-translated.png").outputStream().use { bilingual.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        assertTrue(bilingual.height >= bitmap.height)
         val savedFile = File(context.cacheDir, "saved-card.png")
         LyricShareCard.save(context, bitmap, Uri.fromFile(savedFile))
         assertEquals(bitmap.height, requireNotNull(BitmapFactory.decodeFile(savedFile.path)).height)

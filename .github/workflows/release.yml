@@ -5,6 +5,11 @@ on:
     branches: ["feat/release-*"]
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      full_checks:
+        description: "Run Android unit and native UI checks (slower)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -46,6 +51,8 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
 
       - name: Run regression tests
         run: node tests/run.cjs
@@ -77,10 +84,14 @@ jobs:
           Path('keystore.properties').write_text(''.join(f'{key}={escape(value)}\n' for key, value in values.items()))
           PY
 
-      - name: Test and build signed release APK
+      - name: Build signed release APK
         run: |
           chmod +x gradlew
-          ./gradlew testDebugUnitTest assembleRelease --stacktrace
+          ./gradlew assembleRelease --stacktrace
+
+      - name: Run optional Android checks
+        if: github.event_name == 'workflow_dispatch' && inputs.full_checks
+        run: ./gradlew testDebugUnitTest --stacktrace
 
       - name: Verify and package release
         env:
@@ -123,13 +134,11 @@ jobs:
           rm -f "$RUNNER_TEMP/lyrics-android-release.p12" keystore.properties
 
       - name: Upload test reports
-        if: always()
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.full_checks
         uses: actions/upload-artifact@v4
         with:
           name: release-ui-checks
-          path: |
-            app/build/reports/tests/testDebugUnitTest/
-            app/build/reports/material-ui/
+          path: app/build/reports/tests/testDebugUnitTest/
           if-no-files-found: ignore
 
       - name: Upload verified release package

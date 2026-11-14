@@ -13,7 +13,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w400dp-h800dp-mdpi")
@@ -61,7 +60,7 @@ class LyricGradientTest {
         solid.recycle()
     }
 
-    @Test fun plainAndTranslatedLinesAlsoRenderGradientAndScreenshotsCoverAllBackgrounds() {
+    @Test fun plainAndTranslatedLinesAlsoRenderGradientOnAllBackgrounds() {
         val view = CompactLyricsView(context())
         view.setPlayback("preview", 1500, 5000, false, 1f)
         view.setDocument(LyricDocument(listOf(LyricLine(0, "让歌词陪着你", "Stay with me",
@@ -71,9 +70,6 @@ class LyricGradientTest {
                 style = OverlayTextStyle(listOf("left", "center", "right")[index], Color.rgb(255, 182, 213), index == 1))
             view.background = OverlayAppearance.background(context(), background)
             val output = bitmap(view, 360, 132)
-            val file = File("build/reports/material-ui/overlay-$background.png")
-            file.parentFile?.mkdirs()
-            file.outputStream().use { output.compress(Bitmap.CompressFormat.PNG, 100, it) }
             output.recycle()
         }
         val plain = LyricLineView(context()).apply {

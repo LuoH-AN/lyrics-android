@@ -35,7 +35,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowDialog
-import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class, qualifiers = "w400dp-h800dp-mdpi")
@@ -105,9 +104,6 @@ class ComposeOverlayAppearanceTest {
             val root = requireNotNull(ShadowDialog.getLatestDialog().window).decorView
             val bitmap = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
             root.draw(Canvas(bitmap))
-            val file = File("build/reports/material-ui/overlay-color-wheel.png")
-            file.parentFile?.mkdirs()
-            file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
             bitmap.recycle()
         }
     }

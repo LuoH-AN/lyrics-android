@@ -81,6 +81,8 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
         unitTests.all {
+            // Documentation screenshot generation is not part of app verification.
+            it.exclude("**/ReadmeScreenshotsTest.class")
             it.timeout.set(Duration.ofMinutes(5))
             it.testLogging {
                 events("started", "passed", "skipped", "failed")
@@ -106,7 +108,7 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-extended:1.7.8")
+    implementation("androidx.compose.material:material-icons-core:1.7.8")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.activity:activity-compose:1.12.4")

@@ -13,8 +13,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Extension
+import com.luoh.music.lrc.ui.icons.filled.*
+import com.luoh.music.lrc.ui.icons.filled.Description
+import com.luoh.music.lrc.ui.icons.filled.Extension
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable

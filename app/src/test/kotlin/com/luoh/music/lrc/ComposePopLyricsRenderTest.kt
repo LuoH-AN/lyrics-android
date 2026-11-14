@@ -32,7 +32,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w400dp-h800dp-mdpi")
@@ -81,9 +80,6 @@ class ComposePopLyricsRenderTest {
                         }
                     }
                 }
-                val output = File("build/reports/material-ui/$name.png")
-                output.parentFile.mkdirs()
-                output.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
                 bitmap.recycle()
             }
             if (name.startsWith("pop-complete-sentence")) assertTrue(

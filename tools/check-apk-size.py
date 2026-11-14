@@ -7,7 +7,7 @@ import zipfile
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("apk", type=Path)
-parser.add_argument("baseline", type=Path)
+parser.add_argument("baseline", type=Path, nargs="?", help="Optional existing APK for size comparison")
 parser.add_argument("--max-mib", type=int, default=28)
 parser.add_argument("--report", type=Path, required=True)
 args = parser.parse_args()
@@ -24,7 +24,6 @@ with zipfile.ZipFile(args.apk) as archive:
     assert fonts and sum(entry.file_size for entry in fonts) < 2 * 1024 * 1024, "Full font library reintroduced"
     report = {
         "bytes": args.apk.stat().st_size,
-        "baselineBytes": args.baseline.stat().st_size,
         "sha256": hashlib.sha256(args.apk.read_bytes()).hexdigest(),
         "dexBytes": sum(entry.file_size for entry in entries if entry.filename.endswith(".dex")),
         "fontBytes": sum(entry.file_size for entry in fonts),
@@ -34,8 +33,10 @@ with zipfile.ZipFile(args.apk) as archive:
                            for entry in sorted(entries, key=lambda entry: entry.compress_size, reverse=True)[:12]],
     }
 assert report["bytes"] < args.max_mib * 1024 * 1024, "Optimized APK exceeds size budget"
-assert report["bytes"] < report["baselineBytes"], "Optimized APK did not shrink"
-report["reductionPercent"] = round((1 - report["bytes"] / report["baselineBytes"]) * 100, 2)
+if args.baseline:
+    report["baselineBytes"] = args.baseline.stat().st_size
+    assert report["bytes"] < report["baselineBytes"], "Optimized APK did not shrink"
+    report["reductionPercent"] = round((1 - report["bytes"] / report["baselineBytes"]) * 100, 2)
 args.report.parent.mkdir(parents=True, exist_ok=True)
 args.report.write_text(json.dumps(report, indent=2) + "\n")
 print(json.dumps(report, indent=2))

@@ -2,7 +2,6 @@ package com.luoh.music.lrc
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
@@ -32,7 +31,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w400dp-h800dp-mdpi")
@@ -68,30 +66,23 @@ class HomeAppearanceRenderTest {
         compose.waitForIdle()
         compose.mainClock.advanceTimeBy(1_200)
         compose.waitForIdle()
-        val suffix = if (dark) "dark" else "light"
-        fun save(name: String) {
+        fun checkRoot() {
             compose.runOnIdle {
                 assertTrue(root.width > 0 && root.height > 0)
-                val bitmap = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
-                root.draw(Canvas(bitmap))
-                val output = File("build/reports/material-ui/$name.png")
-                output.parentFile.mkdirs()
-                output.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-                bitmap.recycle()
             }
         }
-        save("home-cover-expanded-$suffix")
+        checkRoot()
         compose.onNodeWithContentDescription("收起播放控制栏").performTouchInput { click() }
         compose.onNodeWithTag("home_cover_progress").assertExists()
-        save("home-cover-compact-$suffix")
+        checkRoot()
         compose.onNodeWithTag("home_player").performTouchInput {
             swipe(Offset(width * .8f, centerY), Offset(width * .2f, centerY), durationMillis = 500)
         }
         assertTrue(compose.onNodeWithTag("home_player").fetchSemanticsNode().size.width <= 56)
-        save("home-cover-only-$suffix")
+        checkRoot()
         compose.runOnIdle { HomeLyricsPrefs.saveAlbumBackground(compose.activity, false) }
         compose.onNodeWithTag("home_album_background").assertDoesNotExist()
-        save("home-background-off-$suffix")
+        checkRoot()
         compose.runOnIdle {
             state.setLyrics(LyricDocument(listOf(
                 LyricLine(0, "沿着晚风的方向", endMs = 5000),
@@ -99,7 +90,7 @@ class HomeAppearanceRenderTest {
             state.setProgress(15000, false)
         }
         compose.onNodeWithTag("home_interlude_progress").assertExists()
-        save("home-interlude-$suffix")
+        checkRoot()
     }
 
     @Test fun lightHomeRendersExpandedCompactAndDisabledBackground() = render(false)
