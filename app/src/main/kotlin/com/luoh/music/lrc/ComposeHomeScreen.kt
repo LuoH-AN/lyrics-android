@@ -74,6 +74,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -322,13 +323,16 @@ internal fun ComposeHomeScreen(
                 draggedDock = null
                 lastLandscape = landscape
             }
-            val playerMode = if (landscape) landscapeMode else portraitMode
-            val playerDockRight = if (landscape) landscapeDockRight else portraitDockRight
-            val dockFraction by animateFloatAsState(
-                targetValue = draggedDock ?: if (playerDockRight) 1f else 0f,
-                animationSpec = tween(if (draggedDock != null || !policy.allowSpatialTransitions) 0 else 360, easing = FastOutSlowInEasing),
-                label = "homePlayerDock",
-            )
+            val enteringLandscape = landscape && lastLandscape != true
+            val playerMode = if (enteringLandscape) HOME_PLAYER_COVER else if (landscape) landscapeMode else portraitMode
+            val playerDockRight = enteringLandscape || (if (landscape) landscapeDockRight else portraitDockRight)
+            val dockFraction by key(landscape) {
+                animateFloatAsState(
+                    targetValue = draggedDock?.takeIf { lastLandscape == landscape } ?: if (playerDockRight) 1f else 0f,
+                    animationSpec = tween(if (draggedDock != null || !policy.allowSpatialTransitions) 0 else 360, easing = FastOutSlowInEasing),
+                    label = "homePlayerDock",
+                )
+            }
             if (state.gateVisible) {
                 HomePermissionGate(state.gateStatus, onListenerPermission, onOverlayPermission, onStartOverlay) { state.actions?.openSettings() }
             } else {
@@ -350,16 +354,18 @@ internal fun ComposeHomeScreen(
                     darkAlbumBackground, appearance, displayMode, popStyle, popPlayback)
                 val screenWidthPx = with(density) { maxWidth.roundToPx() }
                 val insetPx = with(density) { 16.dp.roundToPx() }
-                HomePlayer(state, playerMode,
-                    onModeChange = { if (landscape) landscapeMode = it else portraitMode = it }, dockRight = playerDockRight,
-                    onDockChange = { if (landscape) landscapeDockRight = it else portraitDockRight = it },
-                    onDockDrag = { draggedDock = it }, tall = tallLandscapePlayer,
-                    modifier = Modifier.align(Alignment.BottomStart).widthIn(max = playerLimit)
-                        .then(if (tallLandscapePlayer) Modifier.height((maxHeight - 32.dp).coerceAtLeast(56.dp)) else Modifier)
-                        .onSizeChanged { playerSize = it }
-                        .offset {
-                            IntOffset(insetPx + ((screenWidthPx - playerSize.width - insetPx * 2).coerceAtLeast(0) * dockFraction).roundToInt(), -insetPx)
-                        }, albumBackground = darkAlbumBackground)
+                key(landscape) {
+                    HomePlayer(state, playerMode,
+                        onModeChange = { if (landscape) landscapeMode = it else portraitMode = it }, dockRight = playerDockRight,
+                        onDockChange = { if (landscape) landscapeDockRight = it else portraitDockRight = it },
+                        onDockDrag = { draggedDock = it }, tall = tallLandscapePlayer,
+                        modifier = Modifier.align(Alignment.BottomStart).widthIn(max = playerLimit)
+                            .then(if (tallLandscapePlayer) Modifier.height((maxHeight - 32.dp).coerceAtLeast(56.dp)) else Modifier)
+                            .onSizeChanged { playerSize = it }
+                            .offset {
+                                IntOffset(insetPx + ((screenWidthPx - playerSize.width - insetPx * 2).coerceAtLeast(0) * dockFraction).roundToInt(), -insetPx)
+                            }, albumBackground = darkAlbumBackground)
+                }
             }
         }
     }
