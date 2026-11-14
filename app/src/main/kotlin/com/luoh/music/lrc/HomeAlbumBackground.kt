@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -166,32 +167,42 @@ internal fun blendHomeAlbumArtwork(previous: Bitmap, current: Bitmap, fraction: 
     return result
 }
 
+private data class AlbumArtworkLayers(
+    val current: Bitmap?,
+    val previous: Bitmap? = null,
+    val reveal: Animatable<Float, AnimationVector1D> = Animatable(1f),
+)
+
 @Composable
 internal fun HomeAlbumArtwork(bitmap: Bitmap?, allowFade: Boolean, phase: () -> Float,
     modifier: Modifier = Modifier) {
-    var current by remember { mutableStateOf(bitmap) }
-    var previous by remember { mutableStateOf<Bitmap?>(null) }
-    val reveal = remember { Animatable(1f) }
+    var layers by remember { mutableStateOf(AlbumArtworkLayers(bitmap)) }
     LaunchedEffect(bitmap, allowFade) {
-        if (bitmap !== current) {
-            val outgoing = current
-            val underlay = previous
-            val fraction = reveal.value
+        val displayed = layers
+        val next = if (bitmap !== displayed.current) {
+            val outgoing = displayed.current
+            val underlay = displayed.previous
+            val fraction = displayed.reveal.value
             // Continue from the visible blend when another cover arrives during a fade.
             val visible = if (allowFade && outgoing != null && underlay != null &&
                 !outgoing.isRecycled && !underlay.isRecycled && fraction < 1f)
                 withContext(Dispatchers.Default) { blendHomeAlbumArtwork(underlay, outgoing, fraction) } else outgoing
-            reveal.snapTo(if (allowFade && visible != null && bitmap != null) 0f else 1f)
-            previous = visible
-            current = bitmap
-        }
-        if (allowFade && reveal.value < 1f) reveal.animateTo(1f, tween(1200, easing = FastOutSlowInEasing))
-        else reveal.snapTo(1f)
-        previous = null
+            // Commit both images and their opacity together. Resetting a shared
+            // Animatable can hide the outgoing layer before recomposition draws
+            // the replacement underlay, exposing a dark frame.
+            AlbumArtworkLayers(bitmap, visible,
+                Animatable(if (allowFade && visible != null && bitmap != null) 0f else 1f))
+                .also { layers = it }
+        } else displayed
+        if (allowFade && next.reveal.value < 1f)
+            next.reveal.animateTo(1f, tween(1200, easing = FastOutSlowInEasing))
+        else next.reveal.snapTo(1f)
+        layers = next.copy(previous = null)
     }
+    val displayed = layers
     Box(modifier) {
-        previous?.takeUnless { it.isRecycled }?.let { AlbumArtworkImage(it, phase) { 1f } }
-        current?.takeUnless { it.isRecycled }?.let { AlbumArtworkImage(it, phase) { reveal.value } }
+        displayed.previous?.takeUnless { it.isRecycled }?.let { AlbumArtworkImage(it, phase) { 1f } }
+        displayed.current?.takeUnless { it.isRecycled }?.let { AlbumArtworkImage(it, phase) { displayed.reveal.value } }
     }
 }
 
