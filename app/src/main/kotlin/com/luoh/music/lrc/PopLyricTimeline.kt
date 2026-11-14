@@ -1,6 +1,8 @@
 package com.luoh.music.lrc
 
 import java.text.Bidi
+import java.text.BreakIterator
+import java.util.Locale
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.min
@@ -25,11 +27,14 @@ internal class PopLyricTimeline(val tokens: List<PopLyricToken>, val wordTimed: 
 
     companion object {
         const val MAX_TOKENS = 64
+        const val MAX_ANIMATED_CHARACTERS = 256
+        const val MAX_PREVIEW_CHARACTERS = 512
 
         fun prepare(line: LyricLine, displayText: String = line.text): PopLyricTimeline {
             fun sentence() = PopLyricTimeline(listOf(PopLyricToken(displayText, line.startMs, LyricTiming.lineEnd(line))), false)
             // Preserve shaping for RTL scripts and show translated/untimed/very long text as a sentence.
             if (displayText != line.text || line.words.isEmpty() || line.words.size > MAX_TOKENS ||
+                displayText.length > MAX_ANIMATED_CHARACTERS ||
                 Bidi.requiresBidi(displayText.toCharArray(), 0, displayText.length)) return sentence()
             val source = line.words.joinToString("") { it.text }
             if (source.trim() != displayText) return sentence()
@@ -52,6 +57,15 @@ internal class PopLyricTimeline(val tokens: List<PopLyricToken>, val wordTimed: 
             return if (tokens.isEmpty()) sentence() else PopLyricTimeline(tokens, true)
         }
     }
+}
+
+/** Bound text shaping work even for an imported sentence with thousands of characters. */
+internal fun popLyricPreview(text: String): String {
+    if (text.length <= PopLyricTimeline.MAX_PREVIEW_CHARACTERS) return text
+    val boundaries = BreakIterator.getCharacterInstance(Locale.ROOT)
+    boundaries.setText(text)
+    val end = boundaries.preceding(PopLyricTimeline.MAX_PREVIEW_CHARACTERS).coerceAtLeast(0)
+    return text.substring(0, end) + "…"
 }
 
 /** Lookup once at startup; no springs, trigonometry or per-word animation objects in a frame. */

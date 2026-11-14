@@ -93,6 +93,18 @@ class PopLyricTimelineTest {
         }
     }
 
+    @Test fun longImportedTextHasBoundedShapingButRetainsItsFullSourceForBrowsing() {
+        val text = "a".repeat(510) + "😀" + "b".repeat(300)
+        val plan = PopLyricTimeline.prepare(LyricLine(1000, text, words = listOf(LyricWord(1000, 1000, text))))
+        assertFalse(plan.wordTimed)
+        assertEquals(text, plan.tokens.single().text)
+        val preview = popLyricPreview(text)
+        assertTrue(preview.length <= PopLyricTimeline.MAX_PREVIEW_CHARACTERS)
+        assertTrue(preview.endsWith("…"))
+        assertFalse(preview.dropLast(1).last().isHighSurrogate())
+        assertEquals("短句", popLyricPreview("短句"))
+    }
+
     @Test fun motionHasBoundedOvershootAndSettlesAtBothEnds() {
         assertEquals(0f, PopLyricMotion.enter(-1000), 0f)
         assertEquals(0f, PopLyricMotion.enter(0), 0f)

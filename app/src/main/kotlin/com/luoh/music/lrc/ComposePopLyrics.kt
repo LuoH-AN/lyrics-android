@@ -143,7 +143,7 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, position: State<Long>, ap
         val gap = with(density) { (appearance.lineSpacing / 2f + 6f).dp.toPx() }
         val scene = remember(timeline, width, height, gap, textStyle, density) {
             val layouts = timeline.tokens.map { token ->
-                measurer.measure(AnnotatedString(token.text), style = textStyle,
+                measurer.measure(AnnotatedString(popLyricPreview(token.text)), style = textStyle,
                     constraints = Constraints(maxWidth = (width * .85f).toInt().coerceAtLeast(1)),
                     maxLines = 8, overflow = TextOverflow.Ellipsis)
             }
