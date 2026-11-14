@@ -33,7 +33,8 @@ class ComposePopLyricsTest {
     @get:Rule val compose = createComposeRule()
     private val context get() = ApplicationProvider.getApplicationContext<Context>()
     private val actions = RecordingHomeActions()
-    private val state = HomePresentationState().apply {
+    // Keep playback time independent of Robolectric setup and Compose's frame clock.
+    private val state = HomePresentationState(LyricClock { 0L }).apply {
         this.actions = this@ComposePopLyricsTest.actions
         setSnapshot(HomePresentationState.Snapshot(track = "Song", positionMs = 2000, durationMs = 15000))
         setLyrics(LyricDocument(listOf(
@@ -122,6 +123,38 @@ class ComposePopLyricsTest {
             assertSame(warmed.timing, observed.timing)
             assertNull(observed.upcoming)
         }
+        compose.runOnIdle { state.setProgress(9900, true) }
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertSame(warmed.timeline, requireNotNull(observed.upcoming).timeline)
+            assertSame(warmed.timing, requireNotNull(observed.upcoming).timing)
+        }
+    }
+
+    @Test fun preheatOnlyRunsInTheUpcomingWindowWhilePlayingAndVisible() {
+        state.setProgress(9799, true)
+        lateinit var observed: PopPlaybackFrame
+        compose.setContent {
+            val frame = rememberPopPlayback(state, PopLyricsStyle())
+            SideEffect { observed = frame }
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { assertNull(observed.upcoming) }
+        compose.runOnIdle { state.setProgress(9800, false) }
+        compose.waitForIdle()
+        compose.runOnIdle { assertNull(observed.upcoming) }
+        compose.runOnIdle { state.setProgress(9800, true) }
+        compose.waitForIdle()
+        compose.runOnIdle { assertNotNull(observed.upcoming) }
+        compose.runOnIdle { state.setActive(false) }
+        compose.waitForIdle()
+        compose.runOnIdle { assertNull(observed.upcoming) }
+        compose.runOnIdle {
+            state.setActive(true)
+            state.setProgress(10821, true)
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { assertNull(observed.upcoming) }
     }
 
     @Test fun plainLyricsAndMissingLyricsKeepTheirExistingReadablePages() {

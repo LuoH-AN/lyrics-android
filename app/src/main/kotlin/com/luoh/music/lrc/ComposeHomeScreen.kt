@@ -143,7 +143,7 @@ import kotlin.math.roundToInt
 
 /** Playback state independent of Android Views, page hosts, and Activity animation rules. */
 @Stable
-internal class HomePresentationState {
+internal class HomePresentationState(internal val clock: LyricClock = LyricClock()) {
     data class Snapshot(
         val track: String = "",
         val artist: String = "",
@@ -174,7 +174,6 @@ internal class HomePresentationState {
     var onTranslationSettings: (() -> Unit)? = null
     var gateVisible by mutableStateOf(false)
     var gateStatus by mutableStateOf("")
-    internal val clock = LyricClock()
     internal var snapshot by mutableStateOf(Snapshot())
         private set
     internal var document by mutableStateOf(LyricDocument(emptyList(), true))
