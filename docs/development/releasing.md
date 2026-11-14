@@ -14,7 +14,7 @@
 
 测试包使用 `com.luoh.music.lrc.dev` 和已有公开调试签名，与正式包分开安装。
 
-默认测试 artifact 提供 `compact` 精简包，启用 R8 代码裁剪、混淆和资源裁剪，跳过耗时的全程序优化；手动勾选 `full_optimization` 可以生成完整优化的测试包。正式版始终完整优化，普通 `debug` 构建用于原生测试和源码调试。CI 检查签名、包名及 28 MiB 的体积预算，并保存精简包崩溃映射。详见 [APK 体积优化](apk-size.md)。
+默认测试 artifact 提供 `compact` 精简包，启用 R8 代码裁剪、混淆和资源裁剪，跳过耗时的全程序优化；手动勾选 `full_optimization` 可以生成完整优化的测试包。正式版 CI 同样默认跳过全程序优化，普通 `debug` 构建用于原生测试和源码调试。CI 检查签名、包名及 28 MiB 的体积预算，并保存精简包崩溃映射。详见 [APK 体积优化](apk-size.md)。
 
 默认仅执行 `assembleCompact`，不构建重复的 debug APK、不运行 Node 或 Robolectric 测试。保留 APK 签名、安装信息和体积校验。APK 大小及 SHA-256 显示在 Actions 运行摘要中，组件尺寸可在校验步骤日志中查看。
 
@@ -36,9 +36,9 @@ Gradle 构建缓存启用，开发分支推送也写入缓存，PR 只读。日�
 
 版本维护在 `app/build.gradle.kts`，`versionCode` 必须递增。正式包名保持 `com.luoh.music.lrc`。
 
-正式构建启用 R8 代码优化和资源裁剪；`app/proguard-rules.pro` 保留小窗 JavaScript 桥接方法，ML Kit 使用依赖自带的规则。`workflow_dispatch` 可以在开发分支验证签名包和体积，只有版本标签触发的任务会创建 Release。
+正式 CI 默认运行 `assembleRelease -PfastRelease=true`，保留代码裁剪、混淆、资源裁剪和正式签名，跳过 R8 全程序优化；手动勾选 `full_optimization` 可恢复完整优化。`app/proguard-rules.pro` 保留小窗 JavaScript 桥接方法，ML Kit 使用依赖自带的规则。`workflow_dispatch` 可以在开发分支验证签名包和体积，只有版本标签触发的任务会创建 Release。
 
-正式构建同样默认只打一个 release APK；手动触发时可选 `full_checks`，额外运行 Node 和 Android 检查。签名和版本检查始终执行。
+正式构建默认只打一个 release APK，产物上传不额外压缩 APK；手动触发时可选 `full_checks`，额外运行 Node 和 Android 检查。签名和版本检查始终执行。
 
 1. 在新仓库的 Actions Secrets 配置原有正式签名；GitHub 不会随源码迁移 Secrets。
 2. `release.yml` 在 `feat/release-*` 分支或手动触发时构建、签名并验证，但不创建 Release。

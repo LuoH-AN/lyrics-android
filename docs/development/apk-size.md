@@ -10,7 +10,7 @@
 
 ## 测试包与正式包
 
-新增 `compact` 构建类型，继承正式构建的代码与资源裁剪，以 `.dev` 包名和原有公开调试证书签名，方便覆盖旧测试包。它不包含调试工具。为加速日常安装验证，默认追加 `proguard-compact.pro` 的 `-dontoptimize`：仍裁剪未用代码、混淆、裁剪资源，跳过 R8 全程序优化，因此会比完整优化包稍大。手动 `full_optimization`（Gradle 的 `-PfullOptimization=true`）可恢复完整优化。普通 `debug` 类型用于 Robolectric 与源码调试，正式 `release` 类型始终完整优化并使用正式证书。
+新增 `compact` 构建类型，继承正式构建的代码与资源裁剪，以 `.dev` 包名和原有公开调试证书签名，方便覆盖旧测试包。它不包含调试工具。为加速日常安装验证，默认追加 `proguard-compact.pro` 的 `-dontoptimize`：仍裁剪未用代码、混淆、裁剪资源，跳过 R8 全程序优化，因此会比完整优化包稍大。手动 `full_optimization`（Gradle 的 `-PfullOptimization=true`）可恢复完整优化。普通 `debug` 类型用于 Robolectric 与源码调试，正式 `release` CI 默认传入 `-PfastRelease=true` 跳过全程序优化，并始终使用正式证书；手动勾选 `full_optimization` 可恢复完整优化。
 
 CI 默认只构建精简包，再运行 `tools/check-apk-size.py`。基线 APK 参数可选，无需额外构建普通调试包来比大小。默认精简包预算为 28 MiB，记录代码、字体、原生库及最大文件的尺寸，验证包名、签名、映射文件和 APK 完整性。`lyrics-android-debug` artifact 提供精简包，崩溃映射保留 90 天。原生测试改为手动 `full_checks`，不上传截图。
 

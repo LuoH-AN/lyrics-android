@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       full_checks:
-        description: "Run Android unit and native UI checks (slower)"
+        description: "Run Node and Android checks (slower)"
         type: boolean
         default: false
       full_optimization:

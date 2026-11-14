@@ -22,8 +22,8 @@ android {
         applicationId = "com.luoh.music.lrc"
         minSdk = 26
         targetSdk = 34
-        versionCode = 35
-        versionName = "1.3.0"
+        versionCode = 36
+        versionName = "1.3.1"
 
         // Public APK targets modern Android phones. Keeping only 64-bit ARM
         // avoids packaging three unused copies of ML Kit's native translator.
@@ -63,6 +63,10 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Release CI prioritizes delivery speed while retaining shrinking and release signing.
+            if (providers.gradleProperty("fastRelease").orNull == "true") {
+                proguardFile("proguard-compact.pro")
+            }
         }
         create("compact") {
             initWith(getByName("release"))
@@ -71,7 +75,7 @@ android {
             signingConfig = getByName("debug").signingConfig
             matchingFallbacks += listOf("release")
             // Daily installation builds still shrink unused code/resources, but
-            // skip R8's expensive optimization passes. Formal releases retain them.
+            // skip R8's expensive optimization passes, like the fast release CI.
             if (providers.gradleProperty("fullOptimization").orNull != "true") {
                 proguardFile("proguard-compact.pro")
             }
