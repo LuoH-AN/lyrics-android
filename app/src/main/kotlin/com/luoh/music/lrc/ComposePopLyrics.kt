@@ -79,7 +79,7 @@ internal fun PopLyricsStage(state: HomePresentationState, modifier: Modifier, al
         var lastFrame = 0L
         while (state.presentationActive && state.playing) {
             val now = position.longValue
-            if (state.clock.durationMs > 0L && now >= state.clock.durationMs) break
+            if (state.clock.durationMs > 0L && state.clock.positionMs() >= state.clock.durationMs) break
             // Stable words need no frames until a word boundary. Gaps keep a determinate progress bar.
             val waitMs = when {
                 interlude != null -> 0L

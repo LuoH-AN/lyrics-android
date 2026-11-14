@@ -12,7 +12,8 @@ internal class PopLyricTimeline(val tokens: List<PopLyricToken>, val wordTimed: 
     /** Wake only while an entrance/exit is moving, or at the next real word/line boundary. */
     fun nextChangeDelayMs(positionMs: Long, nextLineMs: Long?): Long {
         var delay = nextLineMs?.minus(positionMs)?.coerceAtLeast(1L) ?: 1000L
-        if (wordTimed) for (token in tokens) {
+        if (wordTimed) for (index in tokens.indices) {
+            val token = tokens[index]
             val entering = positionMs - token.startMs
             val passing = positionMs - token.endMs
             if (entering in 0 until PopLyricMotion.DURATION_MS || passing in 0 until PopLyricMotion.DURATION_MS) return 0L

@@ -31,7 +31,7 @@ class PopLyricTimelineTest {
         assertEquals(480L, plan.nextChangeDelayMs(1920, 9000))
     }
 
-    @Test funTranslationsMissingTimingMismatchesAndTooManyWordsKeepTheWholeSentence() {
+    @Test fun translationsMissingTimingMismatchesAndTooManyWordsKeepTheWholeSentence() {
         for (candidate in listOf(line.copy(words = emptyList()),
             line.copy(words = listOf(LyricWord(1000, 2000, "其他版本"))),
             line.copy(text = "啊".repeat(65), words = List(65) { LyricWord(it * 100L, 100, "啊") }))) {
@@ -45,7 +45,7 @@ class PopLyricTimelineTest {
         assertEquals(1000L, translation.nextChangeDelayMs(1100, 9000))
     }
 
-    @Test funWhitespaceAndComplexCharactersAreNotLostOrSplit() {
+    @Test fun whitespaceAndComplexCharactersAreNotLostOrSplit() {
         val words = listOf(LyricWord(1000, 500, " 你好"), LyricWord(1500, 500, " 👩‍👩‍👧‍👦 "),
             LyricWord(2000, 500, "é! "))
         val text = words.joinToString("") { it.text }.trim()
@@ -58,7 +58,7 @@ class PopLyricTimelineTest {
         assertEquals(rtl.text, PopLyricTimeline.prepare(rtl).tokens.single().text)
     }
 
-    @Test funMalformedClocksFallBackInsteadOfSchedulingNegativeOrOverflowedEvents() {
+    @Test fun malformedClocksFallBackInsteadOfSchedulingNegativeOrOverflowedEvents() {
         val backwards = line.copy(words = listOf(LyricWord(2000, 1000, "让"),
             LyricWord(1000, 1000, "音乐"), LyricWord(3000, 1000, "陪你")))
         assertFalse(PopLyricTimeline.prepare(backwards).wordTimed)
@@ -69,7 +69,7 @@ class PopLyricTimelineTest {
         assertEquals(1501L, PopLyricTimeline.prepare(noDuration).tokens[1].endMs)
     }
 
-    @Test funSceneFitsBothPortraitAndLandscapeWithRoomForAnimatedGlyphs() {
+    @Test fun sceneFitsBothPortraitAndLandscapeWithRoomForAnimatedGlyphs() {
         val widths = FloatArray(64) { if (it % 5 == 0) 100f else 40f }
         val heights = FloatArray(64) { 50f }
         for ((width, height) in listOf(320f to 480f, 700f to 240f, 160f to 100f)) {
@@ -93,7 +93,7 @@ class PopLyricTimelineTest {
         }
     }
 
-    @Test funMotionHasBoundedOvershootAndSettlesAtBothEnds() {
+    @Test fun motionHasBoundedOvershootAndSettlesAtBothEnds() {
         assertEquals(0f, PopLyricMotion.enter(-1000), 0f)
         assertEquals(0f, PopLyricMotion.enter(0), 0f)
         assertEquals(1f, PopLyricMotion.enter(320), 0f)
