@@ -1019,7 +1019,7 @@ private fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) {
     var message by remember { mutableStateOf("") }
     var importJob by remember { mutableStateOf<Job?>(null) }
     var importedWordLyrics by rememberSaveable(route) { mutableStateOf("") }
-    var importedDurationMs by rememberSaveable(route) { mutableLongStateOf(0L) }
+    var importedDurationMs by rememberSaveable(route) { mutableStateOf(0L) }
     var confirmation by remember { mutableStateOf<LibraryConfirmation?>(null) }
     // A digest avoids duplicating up to 200K characters in Android's saved-state transaction.
     fun snapshot() = MessageDigest.getInstance("SHA-256")
