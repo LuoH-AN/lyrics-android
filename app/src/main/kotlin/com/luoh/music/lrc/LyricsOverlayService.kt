@@ -417,7 +417,7 @@ class LyricsOverlayService : Service() {
                 if (nativeTrack.isBlank() || result.track != nativeTrack || result.artist != nativeArtist ||
                     result.requestId < nativeDocumentRequestId) return@post
                 nativeDocumentRequestId = result.requestId
-                latestLyricsRequestId = result.requestId
+                latestLyricsRequestId = maxOf(latestLyricsRequestId, result.requestId)
                 nativeLyrics?.setDocument(result.document, result.message, result.durationMs)
                 if (nativeLyrics != null && result.document.lines.isNotEmpty()) {
                     UsageAnalytics.lyricsDisplayed(UsageAnalytics.Surface.OVERLAY)
