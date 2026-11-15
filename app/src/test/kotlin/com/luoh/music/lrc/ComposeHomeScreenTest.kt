@@ -52,6 +52,7 @@ internal class RecordingHomeActions : HomePresentationState.Actions {
     override fun skipPrev() { calls += "previous" }
     override fun skipNext() { calls += "next" }
     override fun retryLyrics() { calls += "retry" }
+    override fun correctSongSearch(track: String, artist: String, title: String?, searchArtist: String) { calls += "correction" }
     override fun editCustomLyrics() { calls += "custom" }
     override fun manageCustomLyrics() { calls += "library" }
     override fun manageLyricSources() { calls += "sources" }

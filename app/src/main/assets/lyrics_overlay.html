@@ -690,7 +690,7 @@
       if(window.LobstaNativeLyrics&&window.LobstaNativeLyrics.lyricSourceOffset){
         try{
           const remembered=Number(window.LobstaNativeLyrics.lyricSourceOffset(
-            playback.key,data.source||'歌词源',playback.track||'',playback.artist||''));
+            normalizedKey(playback.track,playback.artist),data.source||'歌词源',playback.track||'',playback.artist||''));
           if(Number.isFinite(remembered))playback.lyricOffsetMs=Math.max(-5000,Math.min(5000,remembered));
         }catch(_){}
       }
@@ -833,7 +833,9 @@
         return;
       }
 
-      const key = normalizedKey(data.track || '', data.artist || '');
+      const identity = normalizedKey(data.track || '', data.artist || '');
+      const revision = Number(data.searchRevision) || 0;
+      const key = identity + (revision > 0 ? '\u0000search:' + revision : '');
       const changed = key !== playback.key;
       // 在覆盖 playback 之前，算出"此刻本地外推到的位置"，用于平滑对齐。
       // MediaSession 报告的位置常有抖动/滞后，直接硬覆盖会让逐字进度一卡一卡。

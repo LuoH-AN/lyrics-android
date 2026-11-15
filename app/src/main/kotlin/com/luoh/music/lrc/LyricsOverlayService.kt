@@ -417,6 +417,7 @@ class LyricsOverlayService : Service() {
                 if (nativeTrack.isBlank() || result.track != nativeTrack || result.artist != nativeArtist ||
                     result.requestId < nativeDocumentRequestId) return@post
                 nativeDocumentRequestId = result.requestId
+                latestLyricsRequestId = result.requestId
                 nativeLyrics?.setDocument(result.document, result.message, result.durationMs)
                 if (nativeLyrics != null && result.document.lines.isNotEmpty()) {
                     UsageAnalytics.lyricsDisplayed(UsageAnalytics.Surface.OVERLAY)
@@ -605,7 +606,8 @@ class LyricsOverlayService : Service() {
                 val payload = try {
                     val array = org.json.JSONArray(excludedJson)
                     val excluded = (0 until array.length()).map { array.optString(it) }.toSet()
-                    val result = lyricsRepository.rematch(source, track, artist, album,
+                    val search = SongSearchCorrections.resolve(this@LyricsOverlayService, track, artist)
+                    val result = lyricsRepository.rematch(source, search.title, search.artist, album,
                         durationMs.takeIf { it.isFinite() && it > 0 }?.toLong() ?: 0L, excluded)
                     result?.toJson() ?: JSONObject().put("error", "没有找到更合适的版本，已保留当前歌词")
                 } catch (error: Exception) {
@@ -638,7 +640,8 @@ class LyricsOverlayService : Service() {
         fun cachedLyrics(track: String, artist: String, album: String, durationMs: Double): String {
             if (track.isBlank()) return ""
             val duration = durationMs.takeIf { it.isFinite() && it > 0 }?.toLong() ?: 0L
-            return sharedLyricsCache.read(track, artist, album, duration)?.toJson()?.toString().orEmpty()
+            val search = SongSearchCorrections.resolve(this@LyricsOverlayService, track, artist)
+            return sharedLyricsCache.read(search.title, search.artist, album, duration)?.toJson()?.toString().orEmpty()
         }
 
         /** 从悬浮窗菜单进入自定义歌词编辑页（当前这首歌）。 */
@@ -670,14 +673,15 @@ class LyricsOverlayService : Service() {
         ) {
             if (track.isBlank() || requestId <= 0) return
             latestLyricsRequestId = requestId
+            val search = SongSearchCorrections.resolve(this@LyricsOverlayService, track, artist)
             lyricsScope.launch {
                 val startedAt = SystemClock.elapsedRealtime()
                 val coverLookup = if (needsRemoteCover) {
-                    async { lyricsRepository.resolveCover(track, artist) }
+                    async { lyricsRepository.resolveCover(search.title, search.artist) }
                 } else null
                 val duration = durationMs.takeIf { it.isFinite() && it > 0 }?.toLong() ?: 0L
-                val result = sharedLyricsCache.resolve(track, artist, album, duration) {
-                    lyricsRepository.resolveLyrics(track, artist, album, duration, onPartial = { partial ->
+                val result = sharedLyricsCache.resolve(search.title, search.artist, album, duration) {
+                    lyricsRepository.resolveLyrics(search.title, search.artist, album, duration, onPartial = { partial ->
                         if (requestId == latestLyricsRequestId) deliverLyricsResult(requestId, partial)
                     })
                 }
@@ -1317,6 +1321,13 @@ class LyricsOverlayService : Service() {
         }
     }
 
+    /** Change the search revision without touching the original playback identity. */
+    fun refreshSongSearch() {
+        mainHandler.post {
+            dispatchSnapshot()
+        }
+    }
+
     private fun lyricOffsetPreferenceKey(identity: String, source: String): String {
         val digest = MessageDigest.getInstance("SHA-256")
             .digest("$identity\u0000$source".toByteArray(Charsets.UTF_8))
@@ -1568,6 +1579,7 @@ class LyricsOverlayService : Service() {
             .put("hasSession", title.isNotBlank() || playback != null)
             .put("permissionRequired", false)
             .put("track", title)
+            .put("searchRevision", SongSearchCorrections.resolve(this, title, artist).revision)
             .put("artist", artist)
             .put("album", album)
             .put("packageName", controller.packageName)

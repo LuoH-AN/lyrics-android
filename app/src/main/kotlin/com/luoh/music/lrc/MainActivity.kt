@@ -468,7 +468,8 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
-        val cached = sharedLyricsCache.read(track, artist, album, durationMs) ?: return null
+        val search = SongSearchCorrections.resolve(this, track, artist)
+        val cached = sharedLyricsCache.read(search.title, search.artist, album, durationMs) ?: return null
         return LyricPayload(cached.lyrics, cached.translatedLyrics, cached.wordLyrics, cached.source, cached.recordId)
     }
 
@@ -506,8 +507,9 @@ class MainActivity : ComponentActivity() {
         home.setLyricOffset(offset)
     }
 
-    private fun fetchLyrics(track: String, artist: String, album: String, durationMs: Long, forceNetwork: Boolean = false) {
+    private fun fetchLyrics(track: String, artist: String, album: String, durationMs: Long, forceNetwork: Boolean = false, refreshOverlay: Boolean = false) {
         val reqId = ++lyricRequestId
+        val search = SongSearchCorrections.resolve(this, track, artist)
 
         lyricFetchJob?.cancel()
         settingsRefreshJob?.cancel()
@@ -518,7 +520,10 @@ class MainActivity : ComponentActivity() {
                 if (local != null) {
                     val document = parsePayload(local)
                     withContext(Dispatchers.Main) {
-                        if (reqId == lyricRequestId) applyLyricPayload(local, document)
+                        if (reqId == lyricRequestId) {
+                            applyLyricPayload(local, document)
+                            if (refreshOverlay) LyricsOverlayService.instance?.reloadCustomLyrics()
+                        }
                     }
                     if (reqId == lyricRequestId && local.source != CustomLyricsStore.SOURCE) {
                         mirrorToMatchMemory(track, artist, album, durationMs,
@@ -529,8 +534,8 @@ class MainActivity : ComponentActivity() {
             }
             withContext(Dispatchers.Main) { if (reqId == lyricRequestId) home.showLoading() }
             val result = runCatching {
-                sharedLyricsCache.resolve(track, artist, album, durationMs, forceNetwork) {
-                    repository.resolveLyrics(track, artist, album, durationMs)
+                sharedLyricsCache.resolve(search.title, search.artist, album, durationMs, forceNetwork) {
+                    repository.resolveLyrics(search.title, search.artist, album, durationMs)
                 }
             }.getOrNull()
             if (reqId != lyricRequestId) return@launch
@@ -548,6 +553,7 @@ class MainActivity : ComponentActivity() {
             withContext(Dispatchers.Main) {
                 if (reqId != lyricRequestId) return@withContext
                 applyLyricPayload(payload, document)
+                if (refreshOverlay) LyricsOverlayService.instance?.reloadCustomLyrics()
             }
         }
     }
@@ -622,7 +628,9 @@ class MainActivity : ComponentActivity() {
         runCatching {
             val normKey = ("$track\u0000$artist").trim().lowercase(java.util.Locale.ROOT)
             val durSec = Math.round(durationMs / 1000.0)
-            val key = "$normKey|$durSec|$source"
+            val revision = SongSearchCorrections.resolve(this, track, artist).revision
+            val searchKey = normKey + if (revision > 0L) "\u0000search:$revision" else ""
+            val key = "$searchKey|$durSec|$source"
 
             val arr = org.json.JSONArray(
                 overlayPrefs.getString("match_memory_v2", "[]").orEmpty().ifBlank { "[]" }
@@ -721,6 +729,17 @@ class MainActivity : ComponentActivity() {
             if (currentTrack.isBlank()) return
             UsageAnalytics.feature(UsageAnalytics.Feature.RETRY_LYRICS)
             fetchLyrics(currentTrack, currentArtist, currentAlbum, currentDurationMs, forceNetwork = true)
+        }
+
+        override fun correctSongSearch(track: String, artist: String, title: String?, searchArtist: String) {
+            if (track.isBlank()) return
+            SongSearchCorrections.save(this@MainActivity, track, artist, title, searchArtist)
+            if (track == currentTrack && artist == currentArtist) {
+                val hasCustom = CustomLyricsStore.find(this@MainActivity, track, artist) != null
+                fetchLyrics(currentTrack, currentArtist, currentAlbum, currentDurationMs, forceNetwork = !hasCustom, refreshOverlay = true)
+            }
+            LyricsOverlayService.instance?.refreshSongSearch()
+            Toast.makeText(this@MainActivity, if (title == null) "已恢复原名" else "已保存", Toast.LENGTH_SHORT).show()
         }
 
         override fun manageCustomLyrics() {

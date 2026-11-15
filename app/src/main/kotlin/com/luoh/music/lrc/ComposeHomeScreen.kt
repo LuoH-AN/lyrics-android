@@ -61,6 +61,8 @@ import com.luoh.music.lrc.ui.icons.filled.SkipNext
 import com.luoh.music.lrc.ui.icons.filled.SkipPrevious
 import com.luoh.music.lrc.ui.icons.filled.Translate
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -168,6 +170,7 @@ internal class HomePresentationState(internal val clock: LyricClock = LyricClock
         fun skipPrev()
         fun skipNext()
         fun retryLyrics()
+        fun correctSongSearch(track: String, artist: String, title: String?, searchArtist: String)
         fun editCustomLyrics()
         fun manageCustomLyrics()
         fun manageLyricSources()
@@ -454,7 +457,8 @@ private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (I
     onEnterImmersive: () -> Unit = {}, onBusyChange: (Boolean) -> Unit = {}) {
     val snapshot = state.snapshot
     var showMore by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(showMore) { onBusyChange(showMore) }
+    var correctionSong by remember { mutableStateOf<Pair<String, String>?>(null) }
+    LaunchedEffect(showMore, correctionSong) { onBusyChange(showMore || correctionSong != null) }
     DisposableEffect(Unit) { onDispose { onBusyChange(false) } }
     val expanded = mode == HOME_PLAYER_EXPANDED
     fun setExpanded(value: Boolean) = onModeChange(if (value) HOME_PLAYER_EXPANDED else HOME_PLAYER_COMPACT)
@@ -685,7 +689,15 @@ private fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (I
             }
         }
     }
-    if (showMore) HomeMoreSheet(state, onEnterImmersive) { showMore = false }
+    if (showMore) HomeMoreSheet(state, onEnterImmersive, onCorrectSong = {
+        correctionSong = state.snapshot.track to state.snapshot.artist
+    }) { showMore = false }
+    correctionSong?.let { song ->
+        SongCorrectionDialog(song.first, song.second, onDismiss = { correctionSong = null }) { title, artist ->
+            state.actions?.correctSongSearch(song.first, song.second, title, artist)
+            correctionSong = null
+        }
+    }
 }
 
 @Composable
@@ -1072,7 +1084,7 @@ private fun KaraokeLyricText(
 }
 
 @Composable
-private fun HomeMoreSheet(state: HomePresentationState, onEnterImmersive: () -> Unit, onDismiss: () -> Unit) {
+private fun HomeMoreSheet(state: HomePresentationState, onEnterImmersive: () -> Unit, onCorrectSong: () -> Unit, onDismiss: () -> Unit) {
     val sheet = rememberSmoothBottomSheetState()
     val scroll = rememberLazyListState()
     var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -1110,6 +1122,9 @@ private fun HomeMoreSheet(state: HomePresentationState, onEnterImmersive: () -> 
                 state.document.lines.isNotEmpty() -> "修改当前歌词"
                 else -> "添加自定义歌词"
             }, Icons.Default.Edit) { select { state.actions?.editCustomLyrics() } } }
+            if (state.snapshot.track.isNotBlank()) item {
+                HomeSheetOption("纠正歌名", Icons.Default.MusicNote) { select(onCorrectSong) }
+            }
             item { HomeSheetOption("管理自定义歌词", Icons.Default.LibraryMusic) { select { state.actions?.manageCustomLyrics() } } }
             item { HomeSheetOption("歌词源管理", Icons.Default.Layers) { select { state.actions?.manageLyricSources() } } }
             item { HomeSheetOption("补充翻译", Icons.Default.Translate) { select { state.onTranslationSettings?.invoke() } } }
@@ -1117,6 +1132,34 @@ private fun HomeMoreSheet(state: HomePresentationState, onEnterImmersive: () -> 
             item { HomeSheetOption("设置", Icons.Default.Settings) { select { state.actions?.openSettings() } } }
         }
     }
+}
+
+@Composable
+private fun SongCorrectionDialog(track: String, artist: String, onDismiss: () -> Unit,
+    onSave: (String?, String) -> Unit) {
+    val context = LocalContext.current
+    val initial = remember(track, artist) { SongSearchCorrections.resolve(context, track, artist) }
+    var title by rememberSaveable(track, artist) { mutableStateOf(initial.title.take(SongSearchCorrections.MAX_LENGTH)) }
+    var searchArtist by rememberSaveable(track, artist) { mutableStateOf(initial.artist.take(SongSearchCorrections.MAX_LENGTH)) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("纠正歌名") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(value = title, onValueChange = { title = it.take(SongSearchCorrections.MAX_LENGTH) },
+                    label = { Text("歌名") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = searchArtist, onValueChange = { searchArtist = it.take(SongSearchCorrections.MAX_LENGTH) },
+                    label = { Text("歌手") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(title.trim(), searchArtist.trim()) }, enabled = title.isNotBlank()) { Text("保存") } },
+        dismissButton = {
+            Row {
+                TextButton(onClick = { onSave(null, artist) }) { Text("恢复") }
+                TextButton(onClick = onDismiss) { Text("取消") }
+            }
+        },
+    )
 }
 
 @Composable
