@@ -8,7 +8,7 @@ const settings = fs.readFileSync(base + 'ComposeSettingsScreens.kt', 'utf8');
 const picker = fs.readFileSync(base + 'SettingsColorDialog.kt', 'utf8');
 for (const text of [
   '添加自定义歌词', '编辑自定义歌词', '歌名（必填）', '歌手（留空匹配所有同名歌曲）',
-  'LRC 时间轴歌词', '[00:12.30]第一句歌词', '导入 .lrc 文件', '粘贴歌词',
+  'LRC 时间轴歌词', '[00:12.30]第一句歌词', '导入 .lrc / .yrc', '粘贴歌词',
   '已识别 ${parsed.lineCount} 行歌词', '未识别到带时间轴的歌词行',
   '未保存的输入与导入内容将丢失。', '会恢复自动匹配歌词。', '新建自定义歌词',
   '暂无自定义歌词', '${parsed.lineCount} 行歌词', '删除后该歌曲将恢复自动匹配。',

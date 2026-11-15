@@ -1018,10 +1018,13 @@ private fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) {
     var status by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
     var importJob by remember { mutableStateOf<Job?>(null) }
+    var importedWordLyrics by rememberSaveable(route) { mutableStateOf("") }
+    var importedDurationMs by rememberSaveable(route) { mutableLongStateOf(0L) }
     var confirmation by remember { mutableStateOf<LibraryConfirmation?>(null) }
     // A digest avoids duplicating up to 200K characters in Android's saved-state transaction.
     fun snapshot() = MessageDigest.getInstance("SHA-256")
-        .digest(listOf(title, artist, lyrics.text, if (structured) translated.text else "").joinToString("\u0000").toByteArray(Charsets.UTF_8))
+        .digest(listOf(title, artist, lyrics.text, if (structured) translated.text else "", importedWordLyrics)
+            .joinToString("\u0000").toByteArray(Charsets.UTF_8))
         .joinToString("") { "%02x".format(it) }
     fun fillTags(raw: String) {
         val tags = CustomLyricsStore.metadata(raw)
@@ -1042,14 +1045,26 @@ private fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) {
                 val text = withContext(Dispatchers.IO) { readCustomLyricsFile(context, uri) }
                 if (snapshot() != before || saving) return@launch
                 if (text.isBlank()) { message = "文件读取失败，请使用文本格式的 LRC 文件"; return@launch }
-                val separated = if (structured) withContext(Dispatchers.IO) { CustomLyricsStore.parse(text) } else null
+                val imported = withContext(Dispatchers.IO) { CustomLyricsStore.parseImport(text) }
                 if (snapshot() != before || saving) return@launch
-                lyrics = TextFieldValue(if (separated != null && separated.lineCount > 0) separated.lyrics else text.trim())
-                if (structured) translated = TextFieldValue(separated?.translatedLyrics.orEmpty())
+                if (imported.wordLyrics.isNotBlank()) {
+                    structured = true
+                    lyrics = TextFieldValue(imported.parsed.lyrics)
+                    translated = TextFieldValue(imported.parsed.translatedLyrics)
+                    importedWordLyrics = imported.wordLyrics
+                    importedDurationMs = imported.durationMs
+                    message = "已导入 ${imported.parsed.lineCount} 行歌词 · ${imported.wordLineCount} 行逐字时间轴"
+                } else {
+                    importedWordLyrics = ""
+                    importedDurationMs = 0L
+                    val separated = if (structured) imported.parsed else null
+                    lyrics = TextFieldValue(if (separated != null && separated.lineCount > 0) separated.lyrics else text.trim())
+                    if (structured) translated = TextFieldValue(separated?.translatedLyrics.orEmpty())
+                    val raw = lyrics.text; val translation = translated.text; val separate = structured
+                    val parsed = withContext(Dispatchers.IO) { if (separate) CustomLyricsStore.parse(raw, translation) else CustomLyricsStore.parse(raw) }
+                    message = if (parsed.lineCount > 0) "已导入 ${parsed.lineCount} 行歌词" else "未识别到带时间轴的歌词行"
+                }
                 fillTags(text)
-                val raw = lyrics.text; val translation = translated.text; val separate = structured
-                val parsed = withContext(Dispatchers.IO) { if (separate) CustomLyricsStore.parse(raw, translation) else CustomLyricsStore.parse(raw) }
-                message = if (parsed.lineCount > 0) "已导入 ${parsed.lineCount} 行歌词" else "未识别到带时间轴的歌词行"
             } catch (error: CancellationException) { throw error }
             catch (error: Exception) { message = "文件读取失败，请使用不超过 1 MB 的文本格式 LRC 文件" }
             finally { importing = false }
@@ -1061,16 +1076,24 @@ private fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) {
         val name = title.trim(); val performer = artist.trim(); val raw = lyrics.text.trim(); val oldId = editingId
         val translation = if (structured) translated.text.trim() else ""
         val separate = structured; val source = original
+        val importedWords = importedWordLyrics
+        val importedDuration = importedDurationMs
         if (name.isBlank()) { message = "请填写歌名"; return }
         if (raw.length + translation.length > CustomLyricsStore.MAX_LENGTH) { message = "歌词超出长度限制，请删减后保存"; return }
         saving = true; importJob?.cancel()
         scope.launch {
             try {
                 val parsed = withContext(Dispatchers.IO) {
+                    val timingSource = if (importedWords.isNotBlank()) DirectLyricsRepository.Result(
+                        lyrics = CustomLyricsStore.parseImport(importedWords).parsed.lyrics,
+                        wordLyrics = importedWords,
+                        durationMs = importedDuration
+                    ) else source
                     val parsed = if (separate) CustomLyricsStore.parse(raw, translation) else CustomLyricsStore.parse(raw)
                     if (parsed.lineCount > 0) CustomLyricsStore.save(context, name, performer, raw, oldId,
                         structured = separate, translatedLyrics = translation,
-                        wordLyrics = if (separate) correctedWordLyrics(source, raw) else "", durationMs = source?.durationMs ?: 0L)
+                        wordLyrics = if (separate) correctedWordLyrics(timingSource, raw) else "",
+                        durationMs = timingSource?.durationMs ?: 0L)
                     parsed
                 }
                 if (parsed.lineCount == 0) { message = if (separate) "未识别到歌词正文，请输入后保存" else "未识别到带时间轴的歌词行，格式示例：[01:23.45]歌词"; return@launch }
@@ -1110,7 +1133,7 @@ private fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) {
         } catch (error: CancellationException) { throw error }
         catch (error: Exception) { message = "无法读取已保存的歌词，请重试" }
     }
-    LaunchedEffect(lyrics.text, translated.text, structured, active) {
+    LaunchedEffect(lyrics.text, translated.text, structured, importedWordLyrics, active) {
         if (!active) return@LaunchedEffect
         val raw = lyrics.text
         val translation = if (structured) translated.text else ""; val separate = structured
@@ -1123,6 +1146,7 @@ private fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) {
             append("已识别 ${parsed.lineCount} 行歌词")
             if (parsed.translationCount > 0) append(" · ${parsed.translationCount} 行译文")
             if (parsed.ignoredCount > 0) append(" · 已忽略 ${parsed.ignoredCount} 行无时间轴内容")
+            if (importedWordLyrics.isNotBlank()) append(" · 已载入逐字时间轴")
             if (!parsed.timed) append(" · 纯文本歌词")
         }
     }
@@ -1137,7 +1161,7 @@ private fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) {
             }
         }))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(enabled = loaded && !saving && !importing, onClick = { importLauncher.launch(arrayOf("*/*")) }) { Text(if (importing) "正在导入…" else "导入 .lrc 文件") }
+            TextButton(enabled = loaded && !saving && !importing, onClick = { importLauncher.launch(arrayOf("*/*")) }) { Text(if (importing) "正在导入…" else "导入 .lrc / .yrc") }
             TextButton(enabled = loaded && !saving, onClick = {
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 val text = clipboard.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()

@@ -22,6 +22,9 @@ object CustomLyricsStore {
     private val OFFSET_TAG = Regex("^\\[offset:\\s*([+-]?\\d+)\\s*]$", RegexOption.IGNORE_CASE)
     private val META_TAG = Regex("^\\[([a-zA-Z]+):(.*)]$")
     private val WORD_TAG = Regex("<\\d{1,3}:\\d{1,2}(?:[.:]\\d{1,3})?>")
+    private val WORD_LINE = Regex("^\\[(\\d+),(\\d+)](.*)$")
+    private val ABSOLUTE_WORD_TAG = Regex("\\((\\d+),(\\d+)(?:,\\d+)?\\)")
+    private val RELATIVE_WORD_TAG = Regex("<(\\d+),(\\d+)(?:,\\d+)?>")
 
     data class Entry(
         val id: String,
@@ -46,6 +49,18 @@ object CustomLyricsStore {
         val translationCount: Int,
         val ignoredCount: Int,
         val timed: Boolean = true
+    )
+
+    /**
+     * 文件导入结果。逐字文件使用 YRC/本项目规范：
+     * [行开始毫秒,行持续毫秒](字的绝对开始毫秒,字持续毫秒,0)文字
+     * 同时兼容解码后的 KRC：<相对行开始,持续时间,0>文字。
+     */
+    data class Imported(
+        val parsed: Parsed,
+        val wordLyrics: String = "",
+        val wordLineCount: Int = 0,
+        val durationMs: Long = 0L
     )
 
     private fun prefs(context: Context) =
@@ -100,6 +115,65 @@ object CustomLyricsStore {
         val document = LyricParser.parse(main, translated)
         return Parsed(main, translated, document.lines.size,
             document.lines.count { it.translation.isNotBlank() }, 0, document.timed)
+    }
+
+    /** Parse line LRC, absolute YRC, or relative decoded KRC without inventing word timing. */
+    fun parseImport(raw: String): Imported {
+        require(raw.length <= MAX_LENGTH) { "Lyrics too large" }
+        val rows = raw.removePrefix(BOM).replace("\r\n", "\n").replace('\r', '\n').lines()
+        val offsetMs = rows.mapNotNull { OFFSET_TAG.matchEntire(it.trim()) }
+            .lastOrNull()?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+        val main = mutableListOf<String>()
+        val words = mutableListOf<String>()
+        var durationMs = 0L
+        var foundWordFormat = false
+        for (row in rows) {
+            val line = WORD_LINE.matchEntire(row.trim())
+            if (line == null) {
+                main += row
+                continue
+            }
+            foundWordFormat = true
+            val sourceStart = line.groupValues[1].toLongOrNull() ?: continue
+            val duration = line.groupValues[2].toLongOrNull() ?: continue
+            require(sourceStart <= Long.MAX_VALUE - duration) { "Invalid line timing" }
+            val start = (sourceStart - offsetMs).coerceAtLeast(0L)
+            val body = line.groupValues[3]
+            // Detect the syntax at the start, not numeric parentheses inside KRC lyric text.
+            val relative = RELATIVE_WORD_TAG.find(body)?.range?.first == 0
+            val pattern = if (relative) RELATIVE_WORD_TAG else ABSOLUTE_WORD_TAG
+            val markers = pattern.findAll(body).toList()
+            val plain = if (markers.isEmpty()) body else buildString {
+                append(body.substring(0, markers.first().range.first))
+                markers.forEachIndexed { index, marker ->
+                    append(body.substring(marker.range.last + 1,
+                        markers.getOrNull(index + 1)?.range?.first ?: body.length))
+                }
+            }
+            main += formatTime(sourceStart) + plain
+            durationMs = maxOf(durationMs, (sourceStart + duration - offsetMs).coerceAtLeast(0L))
+            // An untimed prefix cannot be attached as a real timed word. Keep the line only.
+            if (markers.isEmpty() || markers.first().range.first != 0) continue
+            val converted = buildString {
+                markers.forEachIndexed { index, marker ->
+                    val text = body.substring(marker.range.last + 1,
+                        markers.getOrNull(index + 1)?.range?.first ?: body.length)
+                    val markerStart = marker.groupValues[1].toLongOrNull() ?: error("Invalid word start")
+                    val wordDuration = marker.groupValues[2].toLongOrNull() ?: error("Invalid word duration")
+                    require(!relative || sourceStart <= Long.MAX_VALUE - markerStart) { "Invalid word timing" }
+                    val absoluteStart = if (relative) sourceStart + markerStart else markerStart
+                    val adjustedStart = (absoluteStart - offsetMs).coerceAtLeast(0L)
+                    if (text.isNotEmpty()) append('(').append(adjustedStart).append(',')
+                        .append(wordDuration).append(')').append(text)
+                }
+            }
+            if (converted.isNotEmpty()) words += "[$start,$duration]$converted"
+        }
+        if (!foundWordFormat) return Imported(parse(raw))
+        val parsed = parse(main.joinToString("\n"))
+        val wordLyrics = words.joinToString("\n")
+        require(wordLyrics.length <= MAX_LENGTH) { "Word lyrics too large" }
+        return Imported(parsed, wordLyrics, words.size, durationMs)
     }
 
     /** Materialize offsets for both renderers without merging separate tracks or dropping empty timestamps. */
