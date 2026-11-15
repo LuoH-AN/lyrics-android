@@ -384,7 +384,8 @@ class DirectLyricsRepository(private val fetchBytes: ((String, Map<String, Strin
                 val candidateTrack = item.optString("trackName")
                 val candidateArtist = item.optString("artistName")
                 val aliasMatch = normalize(candidateArtist) in aliases
-                if (versionTags(track) != versionTags(candidateTrack)) continue
+                val versionPenalty = versionMatchPenalty(track, artist, candidateTrack,
+                    if (aliasMatch) artist else candidateArtist, expectedDurationMs, durationMs) ?: continue
                 if (broad && (!aliasMatch || titleIdentityKey(track) != titleIdentityKey(candidateTrack) ||
                         expectedDurationMs <= 0 || kotlin.math.abs(expectedDurationMs - durationMs) > 8000L)) continue
                 val score = maxOf(
@@ -392,7 +393,7 @@ class DirectLyricsRepository(private val fetchBytes: ((String, Map<String, Strin
                         expectedDurationMs, durationMs),
                     platformMatchScore(plan.track, artist, candidateTrack, if (aliasMatch) artist else candidateArtist,
                         expectedDurationMs, durationMs)
-                ) + if (synced) 5 else 0
+                ) + versionPenalty + if (synced) 5 else 0
                 val result = Result(
                     lyrics = lyrics,
                     durationMs = durationMs,
@@ -419,10 +420,11 @@ class DirectLyricsRepository(private val fetchBytes: ((String, Map<String, Strin
         val triedDownloads = HashSet<String>()
         var attempts = 0
         fun matching(title: String, singer: String, duration: Long, hash: String = ""): KuGouRecording? {
-            if (title.isBlank() || versionTags(track) != versionTags(title)) return null
+            if (title.isBlank()) return null
+            val versionPenalty = versionMatchPenalty(track, artist, title, singer, expectedDurationMs, duration) ?: return null
             if (expectedDurationMs > 0L && (duration <= 0L ||
                     kotlin.math.abs(expectedDurationMs - duration) > 8000L)) return null
-            val score = platformMatchScore(track, artist, title, singer, expectedDurationMs, duration)
+            val score = platformMatchScore(track, artist, title, singer, expectedDurationMs, duration) + versionPenalty
             return KuGouRecording(title, singer, duration, score, hash).takeIf { score >= MIN_ACCEPTABLE_SCORE }
         }
         fun duration(raw: Long, reference: Long): Long {
@@ -893,7 +895,8 @@ class DirectLyricsRepository(private val fetchBytes: ((String, Map<String, Strin
             val item = array.optJSONObject(index) ?: continue
             if (!isUsable(item)) continue
             val (title, singer, value) = fields(item)
-            if (versionTags(title) != versionTags(track)) continue
+            val versionPenalty = versionMatchPenalty(track, artist, title, singer,
+                expectedDurationMs, candidateDurationMs(item)) ?: continue
             val originalScore = platformMatchScore(
                 track, artist, title, singer, expectedDurationMs, candidateDurationMs(item)
             )
@@ -917,7 +920,7 @@ class DirectLyricsRepository(private val fetchBytes: ((String, Map<String, Strin
                 originalScore,
                 variantScore,
                 rankScore
-            )
+            ) + versionPenalty
             if (score >= MIN_ACCEPTABLE_SCORE && score > bestScore) {
                 best = value
                 bestScore = score
@@ -997,7 +1000,10 @@ class DirectLyricsRepository(private val fetchBytes: ((String, Map<String, Strin
 
                 val inputVersions = versionTags(track)
                 val candidateVersions = versionTags(candidateTrack)
-                if (candidateVersions.any { it !in inputVersions }) continue
+                val versionPenalty = if (candidateVersions.any { it !in inputVersions }) {
+                    versionMatchPenalty(track, artist, candidateTrack, candidateArtist,
+                        expectedDurationMs, candidateDuration) ?: continue
+                } else 0
 
                 val durationPoints = when (durationDelta) {
                     in 0L..3_000L -> 40
@@ -1011,7 +1017,7 @@ class DirectLyricsRepository(private val fetchBytes: ((String, Map<String, Strin
                 add(
                     Pair(
                         ResolvedIdentity(candidateTrack, candidateArtist, candidateAlbum),
-                        durationPoints + titlePoints + artistPoints + albumPoints + rankPoints
+                        durationPoints + titlePoints + artistPoints + albumPoints + rankPoints + versionPenalty
                     )
                 )
             }
@@ -1059,6 +1065,28 @@ class DirectLyricsRepository(private val fetchBytes: ((String, Map<String, Strin
             if (Regex("acoustic|アコースティック").containsMatchIn(normalized)) add("acoustic")
             if (Regex("karaoke|カラオケ").containsMatchIn(normalized)) add("karaoke")
         }
+    }
+
+    /** Missing Live metadata is common. Treat it as a preference when the recording agrees. */
+    private fun versionMatchPenalty(
+        track: String, artist: String, candidateTrack: String, candidateArtist: String,
+        expectedDurationMs: Long, candidateDurationMs: Long
+    ): Int? {
+        val requested = versionTags(track)
+        val found = versionTags(candidateTrack)
+        if (requested == found) return 0
+        if (requested.isNotEmpty() || found != setOf("live")) return null
+        val title = titleIdentityKey(track)
+        if (title.isBlank() || title != titleIdentityKey(candidateTrack)) return null
+        val singer = normalize(artist)
+        val singers = candidateArtist.split(Regex("[/、,&;＆，；]"))
+        if (singer.isNotBlank() && singers.none { normalize(it) == singer }) return null
+        if (expectedDurationMs > 0L) {
+            if (candidateDurationMs <= 0L ||
+                kotlin.math.abs(expectedDurationMs - candidateDurationMs) > 8_000L) return null
+        } else if (singer.isBlank()) return null
+        // A small preference for matching labels must not outweigh an exact artist match.
+        return -2
     }
 
     private fun searchResultLimit(track: String): Int {
@@ -1208,7 +1236,7 @@ class DirectLyricsRepository(private val fetchBytes: ((String, Map<String, Strin
 
     private fun normalize(value: String): String = simplifiedChinese(Normalizer.normalize(value, Normalizer.Form.NFKC))
         .lowercase(Locale.ROOT)
-        .replace(Regex("[（(\\[].*?(live|remaster|版|伴奏|纯音乐|翻唱).*?[）)\\]]", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("[（(\\[].*?(live|现场|ライヴ|ライブ|remaster|版|伴奏|纯音乐|翻唱).*?[）)\\]]", RegexOption.IGNORE_CASE), "")
         .replace(Regex("[^\\p{L}\\p{N}]"), "")
 
     private fun titleIdentityKey(value: String): String {
