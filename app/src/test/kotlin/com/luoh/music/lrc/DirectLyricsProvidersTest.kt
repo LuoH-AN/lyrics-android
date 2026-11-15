@@ -32,7 +32,9 @@ class DirectLyricsProvidersTest {
     @Test fun kugouMatchesRecordingBeforeHashLookupAndPreservesTheOriginalLrc() {
         val calls = mutableListOf<Uri>()
         val repository = DirectLyricsRepository { url, _ ->
-            val uri = Uri.parse(url); calls.add(uri)
+            val uri = Uri.parse(url)
+            if (uri.host == "krcs.kugou.com") return@DirectLyricsRepository candidates().toByteArray()
+            calls.add(uri)
             val response = when (uri.path) {
                 "/api/v3/search/song" -> songs(song("wrong", artist = "Someone else"),
                     song("live", title = "Song (Live)"), song("long", seconds = 240), song("right"))
@@ -58,7 +60,9 @@ class DirectLyricsProvidersTest {
     @Test fun kugouFallsBackToKeywordAndAcceptsSwappedNamesAndSecondsDuration() {
         val calls = mutableListOf<Uri>()
         val repository = DirectLyricsRepository { url, _ ->
-            val uri = Uri.parse(url); calls.add(uri)
+            val uri = Uri.parse(url)
+            if (uri.host == "krcs.kugou.com") return@DirectLyricsRepository candidates().toByteArray()
+            calls.add(uri)
             when (uri.path) {
                 "/api/v3/search/song" -> songs()
                 "/search" -> {
@@ -83,6 +87,7 @@ class DirectLyricsProvidersTest {
         val downloaded = mutableListOf<String>()
         val repository = DirectLyricsRepository { url, _ ->
             val uri = Uri.parse(url)
+            if (uri.host == "krcs.kugou.com") return@DirectLyricsRepository candidates().toByteArray()
             when (uri.path) {
                 "/api/v3/search/song" -> songs(song("right"))
                 "/search" -> candidates(candidate("excluded"), candidate("base64"), candidate("utf8"),
@@ -112,6 +117,7 @@ class DirectLyricsProvidersTest {
         val nameless = JSONObject().put("id", "nameless").put("accesskey", "public-key").put("duration", 200_000)
         val repository = DirectLyricsRepository { url, _ ->
             val uri = Uri.parse(url)
+            if (uri.host == "krcs.kugou.com") return@DirectLyricsRepository candidates().toByteArray()
             when {
                 uri.host == "itunes.apple.com" -> "{\"results\":[]}"
                 uri.path == "/api/v3/search/song" -> if (hashMode) songs(song("right")) else songs()
@@ -130,6 +136,7 @@ class DirectLyricsProvidersTest {
     @Test fun kugouRejectsLyricsFromADifferentDurationEvenWithAValidHash() {
         val repository = DirectLyricsRepository { url, _ ->
             val uri = Uri.parse(url)
+            if (uri.host == "krcs.kugou.com") return@DirectLyricsRepository candidates().toByteArray()
             when {
                 uri.host == "itunes.apple.com" -> "{\"results\":[]}"
                 uri.path == "/api/v3/search/song" -> songs(song("right"))
@@ -145,7 +152,9 @@ class DirectLyricsProvidersTest {
         val calls = mutableListOf<Uri>()
         val repository = DirectLyricsRepository { url, headers ->
             assertTrue(headers.getValue("User-Agent").contains("lyrics-android"))
-            val uri = Uri.parse(url); calls.add(uri)
+            val uri = Uri.parse(url)
+            if (uri.host == "krcs.kugou.com") return@DirectLyricsRepository candidates().toByteArray()
+            calls.add(uri)
             if (uri.getQueryParameter("album_name") != null) "[]".toByteArray() else
                 JSONArray(listOf(lrcRecord(synced = "", plain = "Untimed text"), lrcRecord())).toString().toByteArray()
         }
@@ -161,7 +170,9 @@ class DirectLyricsProvidersTest {
     @Test fun lrcLibCombinedQueryFallbackStillChecksArtistVersionAndDuration() {
         val calls = mutableListOf<Uri>()
         val repository = DirectLyricsRepository { url, _ ->
-            val uri = Uri.parse(url); calls.add(uri)
+            val uri = Uri.parse(url)
+            if (uri.host == "krcs.kugou.com") return@DirectLyricsRepository candidates().toByteArray()
+            calls.add(uri)
             if (uri.getQueryParameter("q") == "Artist Song") JSONArray(listOf(
                 lrcRecord(artist = "Someone else"), lrcRecord(title = "Song (Live)"),
                 lrcRecord(seconds = 240), lrcRecord())).toString().toByteArray() else "[]".toByteArray()
@@ -187,6 +198,7 @@ class DirectLyricsProvidersTest {
     @Test fun normalMultiProviderResolutionIncludesKugouWhenOtherServicesHaveNoLyrics() {
         val repository = DirectLyricsRepository { url, _ ->
             val uri = Uri.parse(url)
+            if (uri.host == "krcs.kugou.com") return@DirectLyricsRepository candidates().toByteArray()
             when {
                 uri.host == "lrclib.net" -> "[]"
                 uri.path == "/api/v3/search/song" -> songs(song("right"))
@@ -207,6 +219,7 @@ class DirectLyricsProvidersTest {
         var hashes = 0
         val repository = DirectLyricsRepository { url, _ ->
             val uri = Uri.parse(url)
+            if (uri.host == "krcs.kugou.com") return@DirectLyricsRepository candidates().toByteArray()
             when {
                 uri.host == "itunes.apple.com" -> "{\"results\":[]}"
                 uri.path == "/api/v3/search/song" -> songs(song("right"))

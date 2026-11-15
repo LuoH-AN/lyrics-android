@@ -11,7 +11,7 @@
 | 来源 | 获取方式 | 本项目的适用情况 |
 | --- | --- | --- |
 | LRCLIB | 歌名、歌手、专辑和自由文本查询，按时长与元数据选候选，优先时间轴 | 补充专辑查询与自由文本回退，保留版本及歌手校验 |
-| KuGou | 搜索歌曲、检查时长，再按歌曲 hash 查询歌词 ID 和 accesskey；缺失时关键词查询；下载 Base64 LRC | 新增直连来源，加入现有候选、缓存和版本重选流程 |
+| KuGou | 搜索歌曲、检查时长，再按歌曲 hash 查询歌词 ID 和 accesskey；缺失时关键词查询；优先下载 Base64 KRC（KRC1 XOR + zlib），失败回退 LRC | 1.3.8 将真实逐字轨道接入现有候选、缓存和版本重选流程 |
 | BetterLyrics | 第三方 API 返回 TTML，由上游解析后转成 LRC | 可作为后续可选来源；接入逐词轨道需保留 TTML 的原始时间 |
 | Paxsenix / LyricsPlus | 由第三方聚合 API 获取元数据匹配的歌词 | 可作为后续可选来源，需明确第三方数据传递与服务稳定性 |
 | Zemer / YouTube / YouTube Subtitle | 根据 YouTube video ID 取得精确身份、歌词页或字幕 | 当前外部播放器通常只公开歌名、歌手和时长，不能将任意 MediaSession ID 当作 YouTube video ID |
