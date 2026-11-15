@@ -1,9 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="桌面歌词应用图标：圆角 L 与三条歌词线">
-  <rect width="512" height="512" rx="114" fill="#f4f4f4"/>
-  <path d="M185 145 H212 Q232 145 232 165 V285 Q232 307 254 307
-    H327 Q347 307 347 327 V348 Q347 368 327 368 H185
-    Q165 368 165 348 V165 Q165 145 185 145 Z" fill="#171717"/>
-  <path d="M277 170 H339" fill="none" stroke="#585858" stroke-width="18" stroke-linecap="round"/>
-  <path d="M277 215 H323" fill="none" stroke="#8b8b8b" stroke-width="18" stroke-linecap="round"/>
-  <path d="M277 260 H307" fill="none" stroke="#b4b4b4" stroke-width="18" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="桌面歌词应用图标：黑底白色尖角断笔 L">
+<rect width="512" height="512" rx="114" fill="#050505"/>
+<path d="M182,111 H242 L224,307 L162,339 Z M158,366 L231,334 H360 L376,390 L170,411 Z" fill="#f3f3f3" transform="translate(248 266) scale(1.1666666666666667) translate(-267 -261)"/>
 </svg>
