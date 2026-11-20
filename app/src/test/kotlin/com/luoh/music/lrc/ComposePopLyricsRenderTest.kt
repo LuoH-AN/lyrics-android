@@ -32,6 +32,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w400dp-h800dp-mdpi")
@@ -44,6 +45,7 @@ class ComposePopLyricsRenderTest {
             .putString(HomeLyricsPrefs.KEY_DISPLAY_MODE, HomeLyricsPrefs.POP)
             .putBoolean(HomeLyricsPrefs.KEY_ALBUM_BACKGROUND, false).commit()
         // Isolate retention from active-word magnification and phrase pagination.
+        // Visible-word fitting changes ink area, so frame identity is checked separately.
         PopLyricsPrefs.save(compose.activity, PopLyricsStyle(activeScalePercent = 100, paginate = false))
         val state = HomePresentationState().apply {
             setSnapshot(HomePresentationState.Snapshot(track = "晚风与回声", artist = "逐词跃动",
@@ -60,6 +62,7 @@ class ComposePopLyricsRenderTest {
                 MaterialTheme { Box(Modifier.size(if (landscape) 800.dp else 400.dp, if (landscape) 400.dp else 800.dp)) { ComposeHomeScreen(state, {}, {}, {}) } }
             }
         }
+        val fingerprints = HashMap<String, Long>()
         fun capture(time: Long, name: String): Int {
             compose.runOnIdle { state.setProgress(time, false) }
             compose.waitForIdle()
@@ -68,6 +71,7 @@ class ComposePopLyricsRenderTest {
             val captionTop = compose.onAllNodesWithTag("home_pop_translation", useUnmergedTree = true)
                 .fetchSemanticsNodes().firstOrNull()?.boundsInRoot?.top ?: bounds.bottom
             var painted = 0
+            var fingerprint = 17L
             var paintedBottom = Int.MIN_VALUE
             compose.runOnIdle {
                 val bitmap = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
@@ -84,8 +88,15 @@ class ComposePopLyricsRenderTest {
                         if (contrast > 300) {
                             painted++
                             paintedBottom = y
+                            fingerprint = fingerprint * 31 + x + y.toLong() * bitmap.width
                         }
                     }
+                }
+                fingerprints[name] = fingerprint
+                if (name.startsWith("pop-first-word") || name.startsWith("pop-second-word") || name.startsWith("pop-complete-sentence")) {
+                    val file = File("build/reports/tests/testDebugUnitTest/visuals/$name.png")
+                    file.parentFile?.mkdirs()
+                    file.outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
                 }
                 bitmap.recycle()
             }
@@ -124,8 +135,9 @@ class ComposePopLyricsRenderTest {
         assertTrue(capture(3400, "pop-follow-last-word$suffix") > 0)
         assertTrue(capture(4450, "pop-return-to-center$suffix") > 0)
         assertTrue("The native canvas must draw the first word", first > 0)
-        assertTrue("A later word must enter while the previous word stays visible", second > first)
-        assertTrue("The complete sentence must retain the sung words (first=$first, second=$second, complete=$complete)", complete > second)
+        assertTrue("Later words must produce native ink", second > 0 && complete > 0)
+        assertTrue("The next onset must change the painted lyric", fingerprints["pop-first-word$suffix"] != fingerprints["pop-second-word$suffix"])
+        assertTrue("The final onset must change the painted lyric", fingerprints["pop-second-word$suffix"] != fingerprints["pop-complete-sentence$suffix"])
         compose.onNodeWithContentDescription("收起播放控制栏").performTouchInput { click() }
         capture(2500, "pop-compact$suffix")
         val before = compose.onNodeWithTag("home_pop_canvas", useUnmergedTree = true).fetchSemanticsNode().size

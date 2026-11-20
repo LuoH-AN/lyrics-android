@@ -21,6 +21,36 @@ import kotlin.math.abs
 class ComposePopFrameRenderTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
+    @Test fun newlySungWordsEnterWithoutDroppingEarlierVisibleWordsWithinThePhrase() {
+        val timeline = PopLyricTimeline(listOf(PopLyricToken("让", 1000, 2000),
+            PopLyricToken("音乐", 2000, 3000), PopLyricToken("陪你", 3000, 4000)), true, 1000, 4500)
+        val style = PopLyricsStyle(activeScalePercent = 100, paginate = false)
+        lateinit var buffer: PopFrameBuffer
+        lateinit var scenes: PopScenes
+        compose.setContent {
+            MaterialTheme {
+                val builder = rememberPopSceneBuilder(PopRenderCache(), HomeLyricAppearance(),
+                    style, Color.Black, Color.Blue, 400f, 600f)
+                val measured = builder.build(timeline, popLyricRenderTiming(timeline, style))
+                val frame = PopFrameBuffer(measured, style, true, 400f, 600f, 1f, measured.cameraPath,
+                    PopTransitionPlan("fade", PopVector(0f, 0f)), 1000L, 0, true)
+                SideEffect { buffer = frame; scenes = measured }
+            }
+        }
+        compose.waitForIdle()
+        fun visibleAt(now: Long): String {
+            val prepared = buffer.prepare(now)
+            val page = scenes.pages.single()
+            assertTrue(prepared.alphas[0] > 0f)
+            return page.glyphs.indices.filter { prepared.glyphs[0][it][4] > .02f && !page.glyphs[it].ink.isEmpty }
+                .joinToString("") { page.timeline.tokens[it].text }
+        }
+        assertEquals("Future lyrics must not appear", "让", visibleAt(1100L))
+        assertEquals("The next source word enters while the first stays visible", "让音乐", visibleAt(2500L))
+        assertEquals("All sung words remain until this phrase is replaced", "让音乐陪你", visibleAt(4200L))
+        assertEquals("Seeking cannot retain future words", "让", visibleAt(1100L))
+    }
+
     @Test fun largeTypeDoesNotIncreaseSungPhraseCapacityAcrossOrientations() {
         val size = mutableStateOf(Triple(400f, 760f, 16))
         val source = "晚风轻拂山海星光照亮远方".mapIndexed { index, char ->
