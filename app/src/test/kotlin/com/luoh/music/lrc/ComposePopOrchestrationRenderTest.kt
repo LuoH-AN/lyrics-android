@@ -31,6 +31,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
+import kotlin.math.abs
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w400dp-h800dp-mdpi")
@@ -144,8 +145,25 @@ class ComposePopOrchestrationRenderTest {
             val phrase = compose.onNodeWithTag("home_pop_canvas", useUnmergedTree = true)
                 .fetchSemanticsNode().config[SemanticsProperties.Text].single().text
             assertTrue("$orientation at $time: screen shows a short phrase", phrase.length <= 6)
-            seen += phrase
             save(bitmap, "phrase-rhythm-$orientation-$time")
+            if (time == 1500L || time == 4500L) {
+                val stage = compose.onNodeWithTag("home_pop_stage", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+                val caption = compose.onNodeWithTag("home_pop_translation", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+                val background = bitmap.getPixel(0, 0)
+                var left = Int.MAX_VALUE; var right = -1; var top = Int.MAX_VALUE; var bottom = -1
+                for (y in stage.top.toInt() until caption.top.toInt()) for (x in stage.left.toInt() until stage.right.toInt()) {
+                    val pixel = bitmap.getPixel(x, y)
+                    val contrast = abs(android.graphics.Color.red(pixel) - android.graphics.Color.red(background)) +
+                        abs(android.graphics.Color.green(pixel) - android.graphics.Color.green(background)) +
+                        abs(android.graphics.Color.blue(pixel) - android.graphics.Color.blue(background))
+                    if (contrast > 300) { left = minOf(left, x); right = maxOf(right, x); top = minOf(top, y); bottom = maxOf(bottom, y) }
+                }
+                assertTrue("$orientation at $time: few visible words retain large type", right - left >= width *
+                    (if (orientation == "portrait") .55f else .25f))
+                assertTrue("$orientation at $time: glyph height remains substantial", bottom - top >= height *
+                    (if (orientation == "portrait") .10f else .25f))
+            }
+            seen += phrase
             bitmap.recycle()
         }
         assertEquals("Each phrase stays until its next real onset", seen[0], seen[1])
