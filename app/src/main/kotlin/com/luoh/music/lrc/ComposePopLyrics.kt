@@ -34,7 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.LineBreak
@@ -289,17 +288,12 @@ private fun PopSentenceContent(scenes: PopScenes, builder: PopSceneBuilder, posi
     Box(Modifier.fillMaxSize().graphicsLayer {
         val fraction = if (durationMs > 0) ((position.value - startMs).toFloat() / durationMs).coerceIn(0f, 1f) else 1f
         val pose = PopMotionOrchestration.pose(plan, fraction, entering, builder.width, builder.height)
-        // Directional handoffs pivot around the lyric center rather than moving its anchor.
-        rotationZ = pose.x / builder.width.coerceAtLeast(1f) * 5f - pose.y / builder.height.coerceAtLeast(1f) * 5f
-        scaleX = pose.scale
-        scaleY = pose.scale
         alpha = pose.alpha
-        transformOrigin = TransformOrigin.Center
     }.then(if (entering) Modifier else Modifier.clearAndSetSemantics {})) {
         PopLyricCanvas(scenes, builder, position, style, allowMotion, foreground, activeColor, cameraPath,
             Modifier.fillMaxWidth().height(with(density) { composition.bodyHeight.toDp() })
                 .offset(y = with(density) { composition.bodyTop.toDp() }), phraseMotionUntil,
-            startMs, if (entering) durationMs else 0, entering, connectCamera)
+            startMs, durationMs, entering, connectCamera, plan)
         if (caption != null) {
             Text(translation, style = translationStyle, maxLines = composition.captionLines, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.width(with(density) { composition.captionWidth.toDp() })
@@ -322,7 +316,8 @@ private fun PopLyricCanvas(scenes: PopScenes, builder: PopSceneBuilder, position
     style: PopLyricsStyle, allowMotion: Boolean, foreground: Color, activeColor: Color,
     cameraPath: MutableState<PopCameraPath?>?, modifier: Modifier,
     phraseMotionUntil: MutableState<Long?>? = null, sentenceStartMs: Long = 0L,
-    sentenceDurationMs: Int = 0, enteringSentence: Boolean = true, connectCamera: Boolean = false) {
+    sentenceDurationMs: Int = 0, enteringSentence: Boolean = true, connectCamera: Boolean = false,
+    sentencePlan: PopTransitionPlan? = null) {
     val density = LocalDensity.current
     val width = builder.width
     val height = builder.height
@@ -365,7 +360,11 @@ private fun PopLyricCanvas(scenes: PopScenes, builder: PopSceneBuilder, position
         val wordGain = PopMotionOrchestration.handoffGain(progress, style.coordinateMotion, false)
         val rowGain = PopMotionOrchestration.handoffGain(progress, style.coordinateMotion, true)
         val camera = PopStageMotion.sample(now, joinedCamera, PopMotionOrchestration.cameraStyle(style), allowMotion)
-        fun drawPhrase(pageIndex: Int, pose: PopVisualPose) {
+        val sentencePose = sentencePlan?.let { PopMotionOrchestration.pose(it, sentenceProgress,
+            enteringSentence, width, height) } ?: PopVisualPose()
+        fun drawPhrase(pageIndex: Int, phrasePose: PopVisualPose) {
+            val pose = phrasePose.copy(x = phrasePose.x + sentencePose.x, y = phrasePose.y + sentencePose.y,
+                scale = phrasePose.scale * sentencePose.scale)
             if (pose.alpha <= 0f) return
             val page = scenes.pages[pageIndex]
             val glyphFrames = drawFrames[pageIndex]

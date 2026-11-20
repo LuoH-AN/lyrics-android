@@ -196,6 +196,63 @@ class ComposePopOrchestrationRenderTest {
     @Config(qualifiers = "w800dp-h320dp-mdpi")
     fun shortPhrasesUseLargeTypeAndStayCenteredAtEveryFontSizeInLandscape() = reviewSparseTypography(800, 320, "landscape")
 
+    private fun reviewSentenceHandoffs(width: Int, height: Int, orientation: String) {
+        val selected = mutableStateOf(PopLyricSchemes.recommended)
+        val state = HomePresentationState(LyricClock { 0L }).apply {
+            setSnapshot(HomePresentationState.Snapshot(track = "居中转场示例", durationMs = 6000))
+            setLyrics(LyricDocument(listOf(
+                LyricLine(1000, "晚风", "Evening breeze", 2000,
+                    listOf(LyricWord(1000, 1000, "晚风"))),
+                LyricLine(2000, "轻拂山海", "Across the mountains and sea", 5000,
+                    "轻拂山海".map { LyricWord(2000, 3000, it.toString()) })), true))
+            setTranslationMode(LyricsOverlayService.TRANSLATION_BILINGUAL)
+            setProgress(2200, false)
+            setActive(true)
+        }
+        show(state, PopLyricsStyle(), width, height, scheme = { selected.value })
+        for ((index, transition) in listOf("fade", "slide", "zoom", "converge", "disperse", "random").withIndex()) {
+            compose.runOnIdle {
+                selected.value = PopLyricScheme("test", "转场示例", PopLyricsStyle(transition = transition,
+                    layout = "wave", camera = "orbit", entrance = "converge", pushDirection = "random",
+                    paginate = false, activeScalePercent = 180, rotationDegrees = 20,
+                    motionStrength = "strong", stageFillPercent = 100), HomeLyricAppearance(fontSize = 48))
+            }
+            for (time in listOf(2160L, 2350L, 2800L)) {
+                compose.runOnIdle { state.setProgress(time, false) }
+                val bitmap = capture()
+                val stage = compose.onNodeWithTag("home_pop_stage", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+                val caption = compose.onNodeWithTag("home_pop_translation", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+                val background = bitmap.getPixel(0, 0)
+                var left = Int.MAX_VALUE
+                var right = -1
+                var top = Int.MAX_VALUE
+                var bottom = -1
+                for (y in stage.top.toInt().coerceAtLeast(0) until caption.top.toInt().coerceAtMost(bitmap.height)) {
+                    for (x in stage.left.toInt().coerceAtLeast(0) until stage.right.toInt().coerceAtMost(bitmap.width)) {
+                        val pixel = bitmap.getPixel(x, y)
+                        val contrast = kotlin.math.abs(android.graphics.Color.red(pixel) - android.graphics.Color.red(background)) +
+                            kotlin.math.abs(android.graphics.Color.green(pixel) - android.graphics.Color.green(background)) +
+                            kotlin.math.abs(android.graphics.Color.blue(pixel) - android.graphics.Color.blue(background))
+                        if (contrast > 300) { left = minOf(left, x); right = maxOf(right, x); top = minOf(top, y); bottom = maxOf(bottom, y) }
+                    }
+                }
+                val label = "$orientation $transition at $time"
+                assertTrue("$label: lyric remains visible", right >= left)
+                assertEquals("$label: centered through sentence and phrase motion", stage.center.x, (left + right) / 2f, width * .05f)
+                assertTrue("$label: no glyph reaches a clipped stage edge", left > stage.left + 2f && right < stage.right - 2f)
+                assertTrue("$label: subtitle has clear space below animated type", caption.top - bottom >= 4f)
+                save(bitmap, "centered-handoff-$orientation-$index-$time")
+                bitmap.recycle()
+            }
+        }
+    }
+
+    @Test fun everySentenceTransitionKeepsLargeTypeCenteredAndInsidePortrait() = reviewSentenceHandoffs(400, 760, "portrait")
+
+    @Test
+    @Config(qualifiers = "w800dp-h320dp-mdpi")
+    fun everySentenceTransitionKeepsLargeTypeCenteredAndInsideLandscape() = reviewSentenceHandoffs(800, 320, "landscape")
+
     @Test fun sentenceAndBilingualCaptionFreezeTogetherAndSeekingReproducesTheSameFrame() {
         val state = HomePresentationState(LyricClock { 0L }).apply {
             setSnapshot(HomePresentationState.Snapshot(track = "动效示例", durationMs = 8000))
