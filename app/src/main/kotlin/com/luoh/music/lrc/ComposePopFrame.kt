@@ -26,6 +26,9 @@ internal class PopFrameBuffer(private val scenes: PopScenes, private val style: 
                 glyph.slot.y - halfHeight, glyph.slot.y + halfHeight)
         }
     }
+    private val settledAt = scenes.pages.map { page -> page.timing.passStartMs.indices.maxOf { index ->
+        page.timing.passStartMs[index] + page.timing.passMs[index]
+    } }
     private var preparedAt = Long.MIN_VALUE
     var window = popPhraseWindow(scenes.ranges, scenes.timeline, scenes.handoffs, scenes.timeline.startMs, allowMotion)
         private set
@@ -165,7 +168,10 @@ internal class PopFrameBuffer(private val scenes: PopScenes, private val style: 
         val centerY = (top + bottom) / 2f
         val hardFit = minOf(width * .98f / (right - left).coerceAtLeast(1f),
             height * .98f / (bottom - top).coerceAtLeast(1f))
-        val fill = style.stageFillPercent / 100f
+        // A resting block at 94% leaves no space for a 145% word spring. Keep modest headroom
+        // while singing, then settle to the requested fill after the complete phrase has passed.
+        val settled = if (animated) PopVisualMotion.travel((now - settledAt[pageIndex]).toFloat() / 320f) else 1f
+        val fill = style.stageFillPercent / 100f * (.88f + .12f * settled)
         val fillFit = minOf(width * fill / (restRight - restLeft).coerceAtLeast(1f),
             height * fill / (restBottom - restTop).coerceAtLeast(1f))
         // Fit the visible chunk, rather than reserving room for words which have not appeared.
