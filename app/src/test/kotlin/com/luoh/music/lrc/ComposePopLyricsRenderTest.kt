@@ -76,7 +76,12 @@ class ComposePopLyricsRenderTest {
                     bounds.top.toInt().coerceIn(0, bitmap.height - 1))
                 for (y in bounds.top.toInt().coerceAtLeast(0) until minOf(bounds.bottom, captionTop).toInt().coerceAtMost(bitmap.height)) {
                     for (x in bounds.left.toInt().coerceAtLeast(0) until bounds.right.toInt().coerceAtMost(bitmap.width)) {
-                        if (bitmap.getPixel(x, y) != background) {
+                        val pixel = bitmap.getPixel(x, y)
+                        // Compare actual ink, excluding low-opacity glow around the active word.
+                        val contrast = kotlin.math.abs(android.graphics.Color.red(pixel) - android.graphics.Color.red(background)) +
+                            kotlin.math.abs(android.graphics.Color.green(pixel) - android.graphics.Color.green(background)) +
+                            kotlin.math.abs(android.graphics.Color.blue(pixel) - android.graphics.Color.blue(background))
+                        if (contrast > 300) {
                             painted++
                             paintedBottom = y
                         }
@@ -120,7 +125,7 @@ class ComposePopLyricsRenderTest {
         assertTrue(capture(4450, "pop-return-to-center$suffix") > 0)
         assertTrue("The native canvas must draw the first word", first > 0)
         assertTrue("A later word must enter while the previous word stays visible", second > first)
-        assertTrue("The complete sentence must retain the sung words", complete > second)
+        assertTrue("The complete sentence must retain the sung words (first=$first, second=$second, complete=$complete)", complete > second)
         compose.onNodeWithContentDescription("收起播放控制栏").performTouchInput { click() }
         capture(2500, "pop-compact$suffix")
         val before = compose.onNodeWithTag("home_pop_canvas", useUnmergedTree = true).fetchSemanticsNode().size
