@@ -6,6 +6,21 @@ import org.junit.Test
 class PopStageMotionTest {
     private val style = PopLyricsStyle(breathing = false)
 
+    @Test fun denseWordsKeepVelocityAndAccelerationContinuousWhenChangingFocus() {
+        val timeline = PopLyricTimeline.prepare(LyricLine(1000, "音乐陪伴", words = listOf(
+            LyricWord(1000, 150, "音"), LyricWord(1150, 150, "乐"),
+            LyricWord(1300, 150, "陪"), LyricWord(1450, 150, "伴"))))
+        val path = PopStageMotion.path(timeline, listOf(PopCameraPoint(-.2f, -.1f),
+            PopCameraPoint(-.1f, -.05f), PopCameraPoint(.1f, .05f), PopCameraPoint(.2f, .1f)), style)
+        for (point in path.waypoints.drop(1)) {
+            val before = PopStageMotion.sample(point.startMs - 1, path, style)
+            val at = PopStageMotion.sample(point.startMs, path, style)
+            val after = PopStageMotion.sample(point.startMs + 1, path, style)
+            assertEquals(at.x - before.x, after.x - at.x, .00001f)
+            assertEquals(at.y - before.y, after.y - at.y, .00001f)
+        }
+    }
+
     @Test fun adjacentSentencesCarryTheirCameraPositionAndVelocity() {
         val old = PopCameraPath(listOf(PopCameraWaypoint(1000, 1000,
             PopCameraPoint(0f, 0f), PopCameraPoint(.2f, -.1f))))

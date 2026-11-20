@@ -442,7 +442,7 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
                     return PopScene(timeline, timing, glyphs, rows, packing.scale, bounds, bottom)
                 }
                 val pages = ranges.map(::buildPage)
-                // One C1 trajectory spans all phrases; switching text never resets the camera.
+                // One C2 trajectory spans all phrases; switching text never resets the camera.
                 val bounds = PopCameraBounds(pages.maxOf { it.bounds.minX }, pages.minOf { it.bounds.maxX },
                     pages.maxOf { it.bounds.minY }, pages.minOf { it.bounds.maxY })
                 val camera = PopStageMotion.path(renderTimeline, pages.flatMap { page -> page.glyphs.map {

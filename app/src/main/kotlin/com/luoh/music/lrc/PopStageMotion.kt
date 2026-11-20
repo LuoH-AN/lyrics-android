@@ -7,7 +7,8 @@ internal data class PopCameraPoint(val x: Float, val y: Float)
 internal data class PopCameraBounds(val minX: Float = -.30f, val maxX: Float = .30f,
     val minY: Float = -.34f, val maxY: Float = .34f)
 internal data class PopCameraWaypoint(val startMs: Long, val durationMs: Long,
-    val from: PopCameraPoint, val target: PopCameraPoint, val velocity: PopCameraPoint = PopCameraPoint(0f, 0f))
+    val from: PopCameraPoint, val target: PopCameraPoint, val velocity: PopCameraPoint = PopCameraPoint(0f, 0f),
+    val acceleration: PopCameraPoint = PopCameraPoint(0f, 0f))
 internal data class PopCameraPath(val waypoints: List<PopCameraWaypoint>, val bounds: PopCameraBounds = PopCameraBounds(),
     val initialBounds: PopCameraBounds? = null)
 
@@ -23,20 +24,32 @@ internal object PopStageMotion {
         return from + (to - from) * (sample - index)
     }
     private fun at(point: PopCameraWaypoint, time: Long): PopCameraPoint {
-        val progress = ((time - point.startMs).toFloat() / point.durationMs).coerceIn(0f, 1f)
-        val eased = progress * progress * (3f - 2f * progress)
-        val tangent = progress * (1f - progress) * (1f - progress) * point.durationMs
-        return PopCameraPoint(point.from.x + (point.target.x - point.from.x) * eased + point.velocity.x * tangent,
-            point.from.y + (point.target.y - point.from.y) * eased + point.velocity.y * tangent)
+        val p = ((time - point.startMs).toFloat() / point.durationMs).coerceIn(0f, 1f)
+        val eased = p * p * p * (10f + p * (-15f + 6f * p))
+        val tangent = p * (1f + p * p * (-6f + p * (8f - 3f * p))) * point.durationMs
+        val curve = .5f * p * p * (1f - p) * (1f - p) * (1f - p) * point.durationMs * point.durationMs
+        return PopCameraPoint(point.from.x + (point.target.x - point.from.x) * eased + point.velocity.x * tangent + point.acceleration.x * curve,
+            point.from.y + (point.target.y - point.from.y) * eased + point.velocity.y * tangent + point.acceleration.y * curve)
     }
 
     private fun velocity(point: PopCameraWaypoint, time: Long): PopCameraPoint {
         if (time < point.startMs || time >= point.startMs + point.durationMs) return PopCameraPoint(0f, 0f)
-        val progress = (time - point.startMs).toFloat() / point.durationMs
-        val eased = 6f * progress * (1f - progress) / point.durationMs
-        val tangent = 1f - 4f * progress + 3f * progress * progress
-        return PopCameraPoint((point.target.x - point.from.x) * eased + point.velocity.x * tangent,
-            (point.target.y - point.from.y) * eased + point.velocity.y * tangent)
+        val p = (time - point.startMs).toFloat() / point.durationMs
+        val eased = 30f * p * p * (1f - p) * (1f - p) / point.durationMs
+        val tangent = 1f + p * p * (-18f + p * (32f - 15f * p))
+        val curve = .5f * p * (2f + p * (-9f + p * (12f - 5f * p))) * point.durationMs
+        return PopCameraPoint((point.target.x - point.from.x) * eased + point.velocity.x * tangent + point.acceleration.x * curve,
+            (point.target.y - point.from.y) * eased + point.velocity.y * tangent + point.acceleration.y * curve)
+    }
+
+    private fun acceleration(point: PopCameraWaypoint, time: Long): PopCameraPoint {
+        if (time < point.startMs || time >= point.startMs + point.durationMs) return PopCameraPoint(0f, 0f)
+        val p = (time - point.startMs).toFloat() / point.durationMs
+        val eased = p * (60f + p * (-180f + 120f * p)) / point.durationMs / point.durationMs
+        val tangent = p * (-36f + p * (96f - 60f * p)) / point.durationMs
+        val curve = 1f + p * (-9f + p * (18f - 10f * p))
+        return PopCameraPoint((point.target.x - point.from.x) * eased + point.velocity.x * tangent + point.acceleration.x * curve,
+            (point.target.y - point.from.y) * eased + point.velocity.y * tangent + point.acceleration.y * curve)
     }
 
     fun path(timeline: PopLyricTimeline, centers: List<PopCameraPoint>, style: PopLyricsStyle,
@@ -74,14 +87,15 @@ internal object PopStageMotion {
             points += PopCameraWaypoint(start, focusDuration, from,
                 PopCameraPoint((-center.x * amount).coerceIn(maxOf(-.30f, bounds.minX), minOf(.30f, bounds.maxX)) * .85f,
                     (-center.y * amount).coerceIn(maxOf(-.34f, bounds.minY), minOf(.34f, bounds.maxY)) * .85f),
-                previous?.let { velocity(it, start) } ?: PopCameraPoint(0f, 0f))
+                previous?.let { velocity(it, start) } ?: PopCameraPoint(0f, 0f),
+                previous?.let { acceleration(it, start) } ?: PopCameraPoint(0f, 0f))
             index = until
         }
         if (timeline.wordTimed && points.isNotEmpty()) {
             val end = timeline.tokens.maxOf { it.endMs }
             val previous = points.last()
             points += PopCameraWaypoint(end, (duration * 1.5f).toLong(), at(previous, end),
-                PopCameraPoint(0f, 0f), velocity(previous, end))
+                PopCameraPoint(0f, 0f), velocity(previous, end), acceleration(previous, end))
         }
         return PopCameraPath(points, bounds)
     }
@@ -101,11 +115,13 @@ internal object PopStageMotion {
             now - old.startMs > old.durationMs + 1500L || now - first.startMs !in 0L..500L) return path
         val points = ArrayList<PopCameraWaypoint>(path.waypoints.size)
         for ((index, point) in path.waypoints.withIndex()) {
+            if (index > 0 && point.startMs <= now) continue
             val start = if (index == 0) now else point.startMs
             val predecessor = points.lastOrNull()
             val from = predecessor?.let { at(it, start) } ?: at(old, now)
             val speed = predecessor?.let { velocity(it, start) } ?: velocity(old, now)
-            points += point.copy(startMs = start, from = from, velocity = speed)
+            val bend = predecessor?.let { acceleration(it, start) } ?: acceleration(old, now)
+            points += point.copy(startMs = start, from = from, velocity = speed, acceleration = bend)
         }
         return path.copy(waypoints = points, initialBounds = previous.bounds)
     }

@@ -43,6 +43,8 @@ class ComposePopLyricsRenderTest {
         compose.activity.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE).edit().clear()
             .putString(HomeLyricsPrefs.KEY_DISPLAY_MODE, HomeLyricsPrefs.POP)
             .putBoolean(HomeLyricsPrefs.KEY_ALBUM_BACKGROUND, false).commit()
+        // Isolate retention from active-word magnification and phrase pagination.
+        PopLyricsPrefs.save(compose.activity, PopLyricsStyle(activeScalePercent = 100, paginate = false))
         val state = HomePresentationState().apply {
             setSnapshot(HomePresentationState.Snapshot(track = "晚风与回声", artist = "逐词跃动",
                 positionMs = 1000, durationMs = 10000))
