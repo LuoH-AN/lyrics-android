@@ -18,7 +18,7 @@ Nightly 的应用名称为「桌面歌词·Nightly」，使用 `com.luoh.music.l
 
 默认仅执行 `assembleNightly -PnightlyVersion=<短 commit>`，不构建重复的 debug APK、不运行 Node 或 Robolectric 测试。省略 `nightlyVersion` 时，Gradle 从当前 Git 提交读取短哈希。APK 大小、commit 版本号及 SHA-256 显示在 Actions 运行摘要中，组件尺寸可在校验步骤日志中查看。
 
-原生动效或设置回归可手动传入 `android_tests`，例如 `com.luoh.music.lrc.PopVisualMotionTest,com.luoh.music.lrc.ComposeStackLyricsTest`；多个类用逗号分隔，支持 Gradle 测试过滤器。默认值为空，不影响每次提交的快速构建。
+原生动效或设置回归可手动传入 `android_tests`，例如 `com.luoh.music.lrc.PopVisualMotionTest,com.luoh.music.lrc.ComposePopLyricsTest`；多个类用逗号分隔，支持 Gradle 测试过滤器。默认值为空，不影响每次提交的快速构建。
 
 需要提交代码但暂不构建时，在该次 commit 信息中加入 `[skip ci]`；GitHub 会跳过自动 push／PR 工作流。后续普通提交仍自动构建，也可手动触发 Nightly。
 

@@ -863,10 +863,6 @@ private fun PopLyricSettings(context: Context, revision: Int, previewPinned: Boo
     if (!previewPinned) SettingsGroup(title = "实时预览", items = listOf({ PopLyricPreview(style, appearance, onPin = onPinPreview) }))
     PopSchemeSettings(context, revision, style, appearance)
     SettingsGroup(title = "跃动参数", items = listOf(
-        { SettingsChoiceItem("歌词展示", style.presentation,
-            listOf("phrase" to "短语切换", "stack" to "持续堆叠"), Icons.Default.Lyrics) {
-            value -> save { it.copy(presentation = value) }
-        } },
         { SettingsChoiceItem("跳出单位", style.reveal, listOf("word" to "逐词", "character" to "逐字"), Icons.Default.TextFields) {
             value -> save { it.copy(reveal = value) }
         } },
@@ -875,37 +871,7 @@ private fun PopLyricSettings(context: Context, revision: Int, previewPinned: Boo
             value -> save { it.copy(layout = value) }
         } },
     ))
-    if (style.presentation == "stack") SettingsGroup(title = "持续堆叠", items = listOf(
-        { SettingsChoiceItem("推移方向", style.stackDirection,
-            listOf("up" to "向上", "down" to "向下", "left" to "向左", "right" to "向右",
-                "horizontal" to "左右随机", "vertical" to "上下随机", "random" to "四向随机"), Icons.Default.Layers) {
-            value -> save { it.copy(stackDirection = value) }
-        } },
-        { SettingsSliderItem("新歌词落点", style.stackAnchorPercent, 10..90, 5, "%", Icons.Default.FormatAlignLeft) {
-            value -> save { it.copy(stackAnchorPercent = value) }
-        } },
-        { SettingsSliderItem("推移时长", style.stackScrollMs, 0..1200, 50, "ms", Icons.Default.Speed) {
-            value -> save { it.copy(stackScrollMs = value) }
-        } },
-        { SettingsSliderItem("段落间距", style.stackGapDp, 0..64, 2, "dp", Icons.Default.FormatAlignLeft) {
-            value -> save { it.copy(stackGapDp = value) }
-        } },
-        { SettingsSliderItem("历史歌词亮度", style.stackHistoryOpacityPercent, 0..100, 5, "%", Icons.Default.Contrast) {
-            value -> save { it.copy(stackHistoryOpacityPercent = value) }
-        } },
-        { SettingsSliderItem("边缘渐隐范围", style.stackEdgeFadeDp, 0..80, 2, "dp", Icons.Default.BlurOn) {
-            value -> save { it.copy(stackEdgeFadeDp = value) }
-        } },
-        { SettingsSliderItem("每段长度", style.pageLength, 4..24, 1, "字", Icons.Default.TextFields) {
-            value -> save { it.copy(pageLength = value) }
-        } },
-        { SettingsSliderItem("每段目标行数", style.stackRows, 1..4, 1, "行", Icons.Default.FormatAlignLeft) {
-            value -> save { it.copy(stackRows = value) }
-        } },
-        { SettingsSwitchItem("译文随歌词堆叠", "双语显示时，译文跟随原句保留并一起移出画面", Icons.Default.Translate, style.stackTranslations) {
-            value -> save { it.copy(stackTranslations = value) }
-        } },
-    )) else SettingsGroup(title = "歌词分段", items = listOf(
+    SettingsGroup(title = "歌词分段", items = listOf(
         { SettingsSwitchItem("短语退场", "下一段进入时，唱完的短语淡出并腾出空间", Icons.Default.Lyrics, style.paginate) {
             value -> save { it.copy(paginate = value) }
         } },
@@ -959,7 +925,7 @@ private fun PopLyricSettings(context: Context, revision: Int, previewPinned: Boo
             value -> save { it.copy(sustainShakePercent = value) }
         } },
     ))
-    if (style.presentation != "stack") SettingsGroup(title = "舞台与镜头", items = listOf(
+    SettingsGroup(title = "舞台与镜头", items = listOf(
         { SettingsChoiceItem("镜头运动", style.camera,
             listOf("off" to "固定", "drift" to "漂移", "follow" to "跟随文字", "orbit" to "环绕跟随"), Icons.Default.MotionPhotosOff) {
             value -> save { it.copy(camera = value) }
@@ -985,12 +951,12 @@ private fun PopLyricSettings(context: Context, revision: Int, previewPinned: Boo
         { SettingsSwitchItem("短句自适应", "", Icons.Default.Speed, style.adaptiveTiming) {
             value -> save { it.copy(adaptiveTiming = value) }
         } },
-        { if (style.presentation != "stack") SettingsChoiceItem("整句切换", style.transition,
+        { SettingsChoiceItem("整句切换", style.transition,
             listOf("fade" to "淡入淡出", "slide" to "滑动切换", "zoom" to "缩放切换",
                 "converge" to "四周聚拢", "disperse" to "四周散开", "random" to "随机"), Icons.Default.Layers) {
             value -> save { it.copy(transition = value) }
         } },
-        { if (style.presentation != "stack" && style.transition in listOf("slide", "random"))
+        { if (style.transition in listOf("slide", "random"))
             SettingsChoiceItem("推移方向", style.pushDirection,
                 listOf("left" to "向左", "right" to "向右", "up" to "向上", "down" to "向下",
                     "horizontal" to "左右随机", "vertical" to "上下随机", "random" to "四向随机"), Icons.Default.Layers) {

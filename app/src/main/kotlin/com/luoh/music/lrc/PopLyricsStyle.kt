@@ -30,15 +30,6 @@ internal data class PopLyricsStyle(
     val paginate: Boolean = true,
     val pageLength: Int = 10,
     val sustainShakePercent: Int = 100,
-    val presentation: String = "phrase",
-    val stackGapDp: Int = 16,
-    val stackAnchorPercent: Int = 65,
-    val stackScrollMs: Int = 420,
-    val stackDirection: String = "up",
-    val stackEdgeFadeDp: Int = 24,
-    val stackHistoryOpacityPercent: Int = 80,
-    val stackRows: Int = 2,
-    val stackTranslations: Boolean = true,
     val pushDirection: String = "left",
 ) {
     fun normalized() = copy(
@@ -58,14 +49,7 @@ internal data class PopLyricsStyle(
         passedOpacityPercent = passedOpacityPercent.coerceIn(0, 100),
         pageLength = pageLength.coerceIn(4, 24),
         sustainShakePercent = sustainShakePercent.coerceIn(0, 200),
-        presentation = if (presentation == "stack") "stack" else "phrase",
-        stackGapDp = stackGapDp.coerceIn(0, 64), stackAnchorPercent = stackAnchorPercent.coerceIn(10, 90),
-        stackScrollMs = stackScrollMs.coerceIn(0, 1200),
-        stackDirection = stackDirection.takeIf { it in listOf("up", "down", "left", "right", "horizontal", "vertical", "random") } ?: "up",
         pushDirection = pushDirection.takeIf { it in listOf("left", "right", "up", "down", "horizontal", "vertical", "random") } ?: "left",
-        stackEdgeFadeDp = stackEdgeFadeDp.coerceIn(0, 80),
-        stackHistoryOpacityPercent = stackHistoryOpacityPercent.coerceIn(0, 100),
-        stackRows = stackRows.coerceIn(1, 4),
         transition = transition.takeIf { it in listOf("fade", "slide", "zoom", "converge", "disperse", "random") } ?: "fade",
     )
     val maxWordScale get() = activeScalePercent / 100f + (activeScalePercent / 100f - .5f) * .10f

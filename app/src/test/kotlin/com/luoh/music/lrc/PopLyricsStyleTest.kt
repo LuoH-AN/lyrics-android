@@ -3,6 +3,7 @@ package com.luoh.music.lrc
 import android.app.Application
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import org.json.JSONArray
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -19,10 +20,7 @@ class PopLyricsStyleTest {
             cameraPercent = -10, rotationDegrees = 90, groupGapDp = 999, innerGapDp = -5,
             rowGapPercent = 999, lineWidthPercent = 999, staggerPercent = -5, rowMotionPercent = 999,
             cameraSpeedPercent = 999, textHoldMs = 9999, passedOpacityPercent = -5, semanticGrouping = false,
-            dynamicSpacing = false, adaptiveTiming = false, paginate = false, pageLength = 999, sustainShakePercent = 999,
-            presentation = "stack", stackGapDp = 999, stackAnchorPercent = -1, stackScrollMs = 9999,
-            stackDirection = "down", stackEdgeFadeDp = 999, stackHistoryOpacityPercent = 999, stackRows = 999,
-            stackTranslations = false)
+            dynamicSpacing = false, adaptiveTiming = false, paginate = false, pageLength = 999, sustainShakePercent = 999)
         PopLyricsPrefs.save(context, style)
         val saved = PopLyricsPrefs.style(context)
         assertEquals("character", saved.reveal)
@@ -38,54 +36,84 @@ class PopLyricsStyleTest {
         assertFalse(saved.paginate)
         assertEquals(24, saved.pageLength)
         assertEquals(200, saved.sustainShakePercent)
-        assertEquals("stack", saved.presentation)
-        assertEquals(64, saved.stackGapDp)
-        assertEquals(10, saved.stackAnchorPercent)
-        assertEquals(1200, saved.stackScrollMs)
-        assertEquals(80, saved.stackEdgeFadeDp)
-        assertEquals(100, saved.stackHistoryOpacityPercent)
-        assertEquals(4, saved.stackRows)
-        assertFalse(saved.stackTranslations)
         assertEquals(HomeLyricsPrefs.POP, HomeLyricsPrefs.displayMode(context))
         PopLyricsPrefs.save(context, PopLyricsStyle())
         assertEquals(PopLyricsStyle(), PopLyricsPrefs.style(context))
     }
 
-    @Test fun savedSchemesKeepTheStackModeAndAllItsSettingsWithoutChangingTheSnapshot() {
+    @Test fun savedSchemesKeepMotionAndTypographyWithoutChangingTheSnapshot() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
-        val style = PopLyricsStyle(presentation = "stack", stackGapDp = 22, stackAnchorPercent = 35,
-            stackScrollMs = 650, stackDirection = "random", stackEdgeFadeDp = 18,
-            stackHistoryOpacityPercent = 55, stackRows = 3, stackTranslations = false,
-            layout = "random", entrance = "random", transition = "random", pushDirection = "horizontal", camera = "orbit")
+        val style = PopLyricsStyle(layout = "random", entrance = "random", transition = "random",
+            pushDirection = "horizontal", camera = "orbit", entranceMs = 650)
+        val text = HomeLyricAppearance(fontSize = 36, translationSize = 20, fontWeight = 700, lineSpacing = 16)
         PopLyricsPrefs.save(context, style)
-        assertTrue(PopLyricSchemes.save(context, "我的堆叠"))
+        HomeLyricsPrefs.saveAppearance(context, text)
+        assertTrue(PopLyricSchemes.save(context, "我的动效"))
         val saved = PopLyricSchemes.saved(context).single()
         assertEquals(style, saved.motion)
-        PopLyricsPrefs.save(context, style.copy(stackGapDp = 0))
+        assertEquals(text, saved.text)
+        PopLyricsPrefs.save(context, style.copy(entranceMs = 200))
         assertEquals(style, PopLyricSchemes.saved(context).single().motion)
         PopLyricSchemes.apply(context, saved)
         assertEquals(style, PopLyricsPrefs.style(context))
+        assertEquals(text, HomeLyricsPrefs.appearance(context))
     }
 
     @Test fun allNewMotionChoicesSurviveSavingAndOldCustomPreferencesArePreserved() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE)
         prefs.edit().clear().putString("pop_preset", "custom").putInt("pop_entrance_ms", 750)
-            .putString("pop_layout", "stairs").putString("pop_stack_direction", "down").commit()
+            .putString("pop_layout", "stairs").commit()
         val old = PopLyricsPrefs.style(context)
         assertEquals(750, old.entranceMs)
         assertEquals("stairs", old.layout)
-        assertEquals("down", old.stackDirection)
         assertEquals("left", old.pushDirection)
         for (direction in listOf("left", "right", "up", "down", "horizontal", "vertical", "random")) {
             for (effect in listOf("converge", "disperse", "random")) {
                 val configured = old.copy(entrance = effect, transition = effect,
-                    pushDirection = direction, stackDirection = direction)
+                    pushDirection = direction)
                 PopLyricsPrefs.save(context, configured)
                 assertEquals(configured, PopLyricsPrefs.style(context))
             }
         }
+    }
+
+    @Test fun legacyPresentationIsRemovedWithoutResettingCustomMotionOrSavedSchemes() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE)
+        prefs.edit().clear().commit()
+        val style = PopLyricsStyle(layout = "wave", entrance = "converge", transition = "random",
+            pushDirection = "vertical", camera = "orbit", entranceMs = 750, paginate = false)
+        val text = HomeLyricAppearance(fontSize = 36, fontWeight = 700)
+        PopLyricsPrefs.save(context, style)
+        HomeLyricsPrefs.saveAppearance(context, text)
+        assertTrue(PopLyricSchemes.save(context, "旧方案"))
+        val snapshots = JSONArray(prefs.getString("pop_saved_schemes", "[]"))
+        snapshots.getJSONObject(0).getJSONObject("motion").put("presentation", "stack")
+            .put("stackGapDp", 28).put("stackDirection", "down").put("stackTranslations", false)
+        prefs.edit().putString("pop_presentation", "stack").putInt("pop_stack_gap", 28)
+            .putString("pop_stack_direction", "down").putBoolean("pop_stack_translations", false)
+            .putInt("pop_defaults_revision", 0).putString("pop_saved_schemes", snapshots.toString()).commit()
+
+        assertEquals(style, PopLyricsPrefs.style(context))
+        assertFalse(prefs.contains("pop_presentation"))
+        assertFalse(prefs.all.keys.any { it.startsWith("pop_stack_") })
+        assertEquals(text, HomeLyricsPrefs.appearance(context))
+        val saved = PopLyricSchemes.saved(context).single()
+        assertEquals("旧方案", saved.name)
+        assertEquals(style, saved.motion)
+        assertEquals(text, saved.text)
+        PopLyricsPrefs.save(context, PopLyricsStyle())
+        PopLyricSchemes.apply(context, saved)
+        assertEquals(style, PopLyricsPrefs.style(context))
+        assertEquals(text, HomeLyricsPrefs.appearance(context))
+        assertTrue(PopLyricSchemes.save(context, "旧方案"))
+        val motion = JSONArray(prefs.getString("pop_saved_schemes", "[]"))
+            .getJSONObject(0).getJSONObject("motion")
+        assertFalse(motion.has("presentation"))
+        assertFalse(motion.keys().asSequence().any { it.startsWith("stack") })
+        assertEquals(saved.id, PopLyricSchemes.saved(context).single().id)
     }
 
     @Test fun characterChoreographyKeepsRealWordTimestampsAndComplexTextIntact() {

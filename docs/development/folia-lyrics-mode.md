@@ -2,7 +2,7 @@
 
 调研参考 [chthollyphile/folia-major](https://github.com/chthollyphile/folia-major)，读取版本为 `77d52a3168ab2608174d2e5ad6d51b7bc8befd11`。当前实现是本项目的原生 Compose 显示模式「逐词跃动」。
 
-2026-11-20 增加「持续堆叠」，并基于上游 `4a0c9f5a29a395f70f0962a895b52c271091e9cc` 重新核对歌词保留方式。新的实现、参数、模式清单及后续顺序见 [Folia 歌词显示差异与模式规划](folia-lyrics-comparison.md)。以下记录保留原短语切换模式的实现背景。
+2026-11-20 基于上游 `4a0c9f5a29a395f70f0962a895b52c271091e9cc` 重新核对歌词保留方式。当前实现与上游模式的差异见 [Folia 歌词显示差异与模式规划](folia-lyrics-comparison.md)。以下记录逐词跃动的实现背景。
 
 ## 上游如何让词逐个跳出
 

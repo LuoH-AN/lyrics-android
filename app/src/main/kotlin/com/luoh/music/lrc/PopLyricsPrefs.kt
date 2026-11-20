@@ -1,11 +1,13 @@
 package com.luoh.music.lrc
 
 import android.content.Context
+import android.content.SharedPreferences
 
 internal object PopLyricsPrefs {
     private const val KEY = "pop_"
     fun style(context: Context): PopLyricsStyle {
         val prefs = context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE)
+        removeLegacyPresentation(prefs)
         val defaults = PopLyricsStyle()
         if (prefs.getInt(KEY + "defaults_revision", 0) < 3 && prefs.getString(KEY + "preset", null) != "custom") {
             // Apply this motion overhaul once on upgrade; subsequent edits remain user-owned.
@@ -30,20 +32,13 @@ internal object PopLyricsPrefs {
             prefs.getInt(KEY + "text_hold", defaults.textHoldMs), prefs.getInt(KEY + "passed_opacity", defaults.passedOpacityPercent),
             prefs.getBoolean(KEY + "paginate", defaults.paginate), prefs.getInt(KEY + "page_length", defaults.pageLength),
             prefs.getInt(KEY + "sustain_shake", defaults.sustainShakePercent),
-            presentation = string("presentation", defaults.presentation),
-            stackGapDp = prefs.getInt(KEY + "stack_gap", defaults.stackGapDp),
-            stackAnchorPercent = prefs.getInt(KEY + "stack_anchor", defaults.stackAnchorPercent),
-            stackScrollMs = prefs.getInt(KEY + "stack_scroll_ms", defaults.stackScrollMs),
-            stackDirection = string("stack_direction", defaults.stackDirection),
-            stackEdgeFadeDp = prefs.getInt(KEY + "stack_edge_fade", defaults.stackEdgeFadeDp),
-            stackHistoryOpacityPercent = prefs.getInt(KEY + "stack_history_opacity", defaults.stackHistoryOpacityPercent),
-            stackRows = prefs.getInt(KEY + "stack_rows", defaults.stackRows),
-            stackTranslations = prefs.getBoolean(KEY + "stack_translations", defaults.stackTranslations),
             pushDirection = string("push_direction", defaults.pushDirection)).normalized()
     }
     fun save(context: Context, value: PopLyricsStyle) {
         val style = value.normalized()
-        context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE).edit()
+        val prefs = context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE)
+        removeLegacyPresentation(prefs)
+        prefs.edit()
             .putInt(KEY + "defaults_revision", 3)
             .putString(KEY + "preset", style.preset).putString(KEY + "reveal", style.reveal)
             .putString(KEY + "layout", style.layout).putString(KEY + "entrance", style.entrance)
@@ -60,11 +55,11 @@ internal object PopLyricsPrefs {
             .putInt(KEY + "text_hold", style.textHoldMs).putInt(KEY + "passed_opacity", style.passedOpacityPercent)
             .putBoolean(KEY + "paginate", style.paginate).putInt(KEY + "page_length", style.pageLength)
             .putInt(KEY + "sustain_shake", style.sustainShakePercent)
-            .putString(KEY + "presentation", style.presentation).putInt(KEY + "stack_gap", style.stackGapDp)
-            .putInt(KEY + "stack_anchor", style.stackAnchorPercent).putInt(KEY + "stack_scroll_ms", style.stackScrollMs)
-            .putString(KEY + "stack_direction", style.stackDirection).putInt(KEY + "stack_edge_fade", style.stackEdgeFadeDp)
-            .putInt(KEY + "stack_history_opacity", style.stackHistoryOpacityPercent).putInt(KEY + "stack_rows", style.stackRows)
-            .putBoolean(KEY + "stack_translations", style.stackTranslations)
             .putString(KEY + "push_direction", style.pushDirection).apply()
+    }
+
+    private fun removeLegacyPresentation(prefs: SharedPreferences) {
+        val keys = prefs.all.keys.filter { it == KEY + "presentation" || it.startsWith(KEY + "stack_") }
+        if (keys.isNotEmpty()) prefs.edit().apply { keys.forEach { remove(it) } }.apply()
     }
 }
