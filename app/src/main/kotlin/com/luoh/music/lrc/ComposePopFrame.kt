@@ -96,6 +96,8 @@ internal class PopFrameBuffer(private val scenes: PopScenes, private val style: 
                 revealed += visibility
                 frame[4] = visibility * (if (animated) 1f - passed * (1f - style.passedOpacityPercent / 100f) else 1f)
                 frame[5] = passed
+                // Whitespace participates in the source clock, never in visible bounds or centering.
+                if (glyph.ink.isEmpty) { frame[4] = 0f; continue }
                 if (visibility <= 0f || frame[4] <= 0f) continue
                 val targetScale = 1f + (glyph.dynamics.activeScale - 1f) * wordGain
                 val entranceScale = .78f + entered * (targetScale - .78f)

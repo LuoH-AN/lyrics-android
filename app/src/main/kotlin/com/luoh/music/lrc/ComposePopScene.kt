@@ -87,6 +87,8 @@ internal class PopSceneBuilder(private val cache: PopRenderCache, private val me
     /** Font line boxes contain leading and whitespace; fit and center the actual shaped ink. */
     private fun inkBounds(layout: TextLayoutResult): Rect {
         val source = layout.layoutInput.text.text
+        // ICU keeps source spaces as timed tokens. They have advance, but no painted ink.
+        if (source.isBlank()) return Rect.Zero
         val native = NativeRect()
         var result: Rect? = null
         for (line in 0 until layout.lineCount) {

@@ -133,13 +133,17 @@ class ComposePopOrchestrationRenderTest {
             setActive(true)
         }
         show(state, PopLyricsStyle(), width, height, scheme = { selected.value }, fontFamily = { family.value })
-        val samples = listOf("晚风轻拂", "山海", "让音乐陪你到天亮", "Stay with me")
+        val samples = listOf("晚风轻拂", "山海", "让音乐陪你到天亮", "Stay with me", " Stay  with me ")
         for (font in listOf(16, 28, 48)) for ((sample, text) in samples.withIndex()) {
-            val words = if (text.first().code < 128) listOf("Stay ", "with ", "me") else text.map { it.toString() }
+            val words = when (sample) {
+                3 -> listOf("Stay ", "with ", "me")
+                4 -> listOf(" Stay  ", "with ", "me ")
+                else -> text.map { it.toString() }
+            }
             compose.runOnIdle {
                 family.value = when (font) { 16 -> FontFamily.SansSerif; 28 -> FontFamily.Serif; else -> FontFamily.Monospace }
                 selected.value = PopLyricScheme("test", "字号示例", PopLyricsStyle(
-                    layout = listOf("staggered", "wave", "random", "stairs")[sample],
+                    layout = listOf("staggered", "wave", "random", "stairs")[sample % 4],
                     entrance = "random", transition = "random", camera = "orbit", pushDirection = "random",
                     paginate = false, stageAnchorPercent = 30, shortPhraseScalePercent = 110),
                     HomeLyricAppearance(fontSize = font, fontWeight = if (font == 16) 300 else 800))
@@ -175,6 +179,7 @@ class ComposePopOrchestrationRenderTest {
                     longestBand = maxOf(longestBand, band)
                 }
                 val label = "$orientation font=$font sample=$sample time=$time"
+                save(bitmap, "centered-fill-$orientation-$font-$sample-$time")
                 assertTrue("$label: visible lyric ink", right >= left)
                 assertEquals("$label: horizontal ink center", stage.center.x, (left + right) / 2f, width * .04f)
                 assertEquals("$label: vertical ink center", stage.center.y, (top + bottom) / 2f, height * .06f)
@@ -184,7 +189,6 @@ class ComposePopOrchestrationRenderTest {
                     assertTrue("$label: small font preferences still yield large native glyphs (band=$longestBand)",
                         longestBand >= if (orientation == "portrait") 70 else 35)
                 }
-                save(bitmap, "centered-fill-$orientation-$font-$sample-$time")
                 bitmap.recycle()
             }
         }
