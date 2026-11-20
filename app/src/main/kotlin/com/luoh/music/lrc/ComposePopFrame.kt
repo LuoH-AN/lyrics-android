@@ -170,7 +170,7 @@ internal class PopFrameBuffer(private val scenes: PopScenes, private val style: 
             height * .98f / (bottom - top).coerceAtLeast(1f))
         // A resting block at 94% leaves no space for a 145% word spring. Keep modest headroom
         // while singing, then settle to the requested fill after the complete phrase has passed.
-        val settled = if (animated) PopVisualMotion.travel((now - settledAt[pageIndex]).toFloat() / 320f) else 1f
+        val settled = if (animated) PopVisualMotion.travel((now - settledAt[pageIndex]).toFloat() / POP_LYRIC_SETTLE_MS) else 1f
         val fill = style.stageFillPercent / 100f * (.88f + .12f * settled)
         val fillFit = minOf(width * fill / (restRight - restLeft).coerceAtLeast(1f),
             height * fill / (restBottom - restTop).coerceAtLeast(1f))

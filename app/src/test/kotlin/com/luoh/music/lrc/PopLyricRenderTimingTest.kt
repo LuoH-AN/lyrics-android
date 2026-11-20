@@ -4,6 +4,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PopLyricRenderTimingTest {
+    @Test fun restingFillContinuesUpdatingAfterTheWordPassesWithCameraDisabled() {
+        val timeline = PopLyricTimeline(listOf(PopLyricToken("晚风", 1000, 2000)), true, 1000, 4000)
+        val timing = popLyricRenderTiming(timeline, PopLyricsStyle(camera = "off", breathing = false))
+        val passed = timing.passStartMs[0] + timing.passMs[0]
+        assertEquals(0L, timing.nextChangeDelayMs(timeline.tokens, passed + 100L, 4000))
+        assertEquals(1000L, timing.nextChangeDelayMs(timeline.tokens, passed + POP_LYRIC_SETTLE_MS, 4000))
+    }
     @Test fun tinyAndFastSentencesFitTheirRealWindowsWithoutChangingTokens() {
         for (duration in listOf(80L, 400L, 6000L)) {
             val tokens = listOf(PopLyricToken("音乐", 1000, 1000 + duration))

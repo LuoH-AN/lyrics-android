@@ -2,6 +2,8 @@ package com.luoh.music.lrc
 
 import kotlin.math.min
 
+internal const val POP_LYRIC_SETTLE_MS = 320L
+
 /** Only visual windows change. Parser start/end times remain untouched. */
 internal data class PopLyricRenderTiming(val transitionMs: Int, val entranceMs: LongArray,
     val lookaheadMs: LongArray, val passStartMs: LongArray, val passMs: LongArray,
@@ -11,7 +13,8 @@ internal data class PopLyricRenderTiming(val transitionMs: Int, val entranceMs: 
         for (index in tokens.indices) {
             val entering = now - (tokens[index].startMs - lookaheadMs[index] + tokens[index].visualDelayMs)
             val passing = now - passStartMs[index]
-            if (entering in 0 until entranceMs[index] || passing in 0 until passMs[index]) return 0L
+            if (entering in 0 until entranceMs[index] ||
+                passing in 0 until (passMs[index] + POP_LYRIC_SETTLE_MS)) return 0L
             sustain.getOrNull(index)?.let {
                 if (now in it.startMs until it.endMs) return 0L
                 if (now < it.startMs) delay = min(delay, it.startMs - now)
