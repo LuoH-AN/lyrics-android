@@ -62,7 +62,7 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
     breakPenalties: FloatArray? = null, extents: List<PopGlyphExtent>? = null,
     boundaryGaps: FloatArray? = null, rowGap: Float = gap, indentPercent: Int = 100,
     lineWidthPercent: Int = 100, rowMotionReach: Float = 0f, maxFitScale: Float = 1f,
-    horizontalMotionReach: Float = 0f, layoutSeed: Long = 0L): PopLyricPacking {
+    horizontalMotionReach: Float = 0f, layoutSeed: Long = 0L, anchorY: Float = .5f): PopLyricPacking {
     val layout = PopVisualMotion.layout(layoutStyle, layoutSeed)
     require(widths.size == heights.size && widths.size <= PopLyricTimeline.MAX_TOKENS)
     require(breakPenalties == null || breakPenalties.size == widths.size + 1)
@@ -115,7 +115,8 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
                 val rowTarget = target * weights[row - 1] / averageWeight
                 val deviation = (rowWidth - rowTarget) / rowTarget.coerceAtLeast(1f)
                 val overflow = ((rowWidth - rowLimit) / rowLimit).coerceAtLeast(0f)
-                val orphan = if (rows > 1 && rowWidth < target * .5f) .9f else 0f
+                val orphan = if (rows > 1 && rowWidth < target * .5f)
+                    (1f - rowWidth / (target * .5f).coerceAtLeast(1f)) * 1.6f else 0f
                 val cost = costs[row - 1][start] + deviation * deviation + overflow * overflow * 2f + orphan +
                     (breakPenalties?.get(start) ?: 0f) * .08f
                 if (cost < costs[row][end]) { costs[row][end] = cost; previous[row][end] = start }
@@ -138,7 +139,7 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
     val fit = min(maxFitScale, min(rowLimit / (totalWidth + horizontalMotionReach * 2f).coerceAtLeast(1f),
         height / totalHeight.coerceAtLeast(1f)))
     val slots = ArrayList<PopLyricSlot>(count)
-    var top = (height - totalHeight * fit) / 2f
+    var top = ((height - totalHeight * fit) * anchorY.coerceIn(0f, 1f)).coerceAtLeast(0f)
     val indent = min(width * .16f, typicalHeight * .9f) * fit * indentPercent / 100f
     for (row in rowStarts.indices) {
         val slack = (width - rowWidths[row] * fit).coerceAtLeast(0f)

@@ -31,6 +31,15 @@ internal data class PopLyricsStyle(
     val pageLength: Int = 10,
     val sustainShakePercent: Int = 100,
     val pushDirection: String = "left",
+    val flowTransitions: Boolean = true,
+    val motionStrength: String = "balanced",
+    val adaptiveEmphasis: Boolean = true,
+    val coordinateMotion: Boolean = true,
+    val stageAnchorPercent: Int = 46,
+    val stagePaddingDp: Int = 20,
+    val shortPhraseScalePercent: Int = 160,
+    val translationGapDp: Int = 10,
+    val translationMaxLines: Int = 3,
 ) {
     fun normalized() = copy(
         preset = preset.takeIf { it in listOf("calm", "flow", "dynamic", "custom") } ?: "custom",
@@ -50,9 +59,15 @@ internal data class PopLyricsStyle(
         pageLength = pageLength.coerceIn(4, 24),
         sustainShakePercent = sustainShakePercent.coerceIn(0, 200),
         pushDirection = pushDirection.takeIf { it in listOf("left", "right", "up", "down", "horizontal", "vertical", "random") } ?: "left",
+        motionStrength = motionStrength.takeIf { it in listOf("gentle", "balanced", "strong") } ?: "balanced",
+        stageAnchorPercent = stageAnchorPercent.coerceIn(30, 60),
+        stagePaddingDp = stagePaddingDp.coerceIn(8, 40),
+        shortPhraseScalePercent = shortPhraseScalePercent.coerceIn(110, 180),
+        translationGapDp = translationGapDp.coerceIn(4, 28),
+        translationMaxLines = translationMaxLines.coerceIn(1, 4),
         transition = transition.takeIf { it in listOf("fade", "slide", "zoom", "converge", "disperse", "random") } ?: "fade",
     )
-    val maxWordScale get() = activeScalePercent / 100f + (activeScalePercent / 100f - .5f) * .10f
+    val maxWordScale get() = (1f + (activeScalePercent / 100f - 1f) * PopMotionOrchestration.strength(this) * 1.10f).coerceAtMost(1.94f) * 1.05f
     val continuousCameraMotion get() = camera != "off" && cameraPercent > 0 && (breathing || camera in listOf("drift", "orbit"))
     val frameIntervalNs get() = PopLyricMotion.FRAME_INTERVAL_NS
 }

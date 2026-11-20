@@ -900,6 +900,38 @@ private fun PopLyricSettings(context: Context, revision: Int, previewPinned: Boo
         { SettingsSliderItem("错落幅度", style.staggerPercent, 0..200, 10, "%", Icons.Default.Layers,
             style.layout != "centered") { value -> save { it.copy(staggerPercent = value) } } },
     ))
+    SettingsGroup(title = "动效协调", items = listOf(
+        { SettingsChoiceItem("强调力度", style.motionStrength,
+            listOf("gentle" to "轻柔", "balanced" to "均衡", "strong" to "强烈"), Icons.Default.Speed) {
+            value -> save { it.copy(motionStrength = value) }
+        } },
+        { SettingsSwitchItem("按节奏强调", "快词轻一点，长音舒展一点", Icons.Default.Timeline, style.adaptiveEmphasis) {
+            value -> save { it.copy(adaptiveEmphasis = value) }
+        } },
+        { SettingsSwitchItem("协调叠加动效", "优先看清文字，整行与镜头自动收敛幅度", Icons.Default.Layers, style.coordinateMotion) {
+            value -> save { it.copy(coordinateMotion = value) }
+        } },
+        { SettingsSwitchItem("顺势转场", "缩放与聚散顺着镜头走势，随机推移也保持连贯", Icons.Default.Sync, style.flowTransitions) {
+            value -> save { it.copy(flowTransitions = value) }
+        } },
+    ))
+    SettingsGroup(title = "舞台留白", items = listOf(
+        { SettingsSliderItem("歌词垂直位置", style.stageAnchorPercent, 30..60, 2, "%", Icons.Default.FormatAlignLeft) {
+            value -> save { it.copy(stageAnchorPercent = value) }
+        } },
+        { SettingsSliderItem("两侧留白", style.stagePaddingDp, 8..40, 2, "dp", Icons.Default.FormatAlignLeft) {
+            value -> save { it.copy(stagePaddingDp = value) }
+        } },
+        { SettingsSliderItem("短段放大上限", style.shortPhraseScalePercent, 110..180, 5, "%", Icons.Default.FormatSize) {
+            value -> save { it.copy(shortPhraseScalePercent = value) }
+        } },
+        { SettingsSliderItem("译文间距", style.translationGapDp, 4..28, 2, "dp", Icons.Default.Translate) {
+            value -> save { it.copy(translationGapDp = value) }
+        } },
+        { SettingsSliderItem("译文最多行数", style.translationMaxLines, 1..4, 1, "行", Icons.Default.Translate) {
+            value -> save { it.copy(translationMaxLines = value) }
+        } },
+    ))
     SettingsGroup(title = "文字入场", items = listOf(
         { SettingsChoiceItem("入场方式", style.entrance,
             listOf("scatter" to "四周飞入", "rise" to "向上跳出", "zoom" to "原地弹出",

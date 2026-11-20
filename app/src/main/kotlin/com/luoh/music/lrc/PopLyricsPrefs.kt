@@ -32,7 +32,17 @@ internal object PopLyricsPrefs {
             prefs.getInt(KEY + "text_hold", defaults.textHoldMs), prefs.getInt(KEY + "passed_opacity", defaults.passedOpacityPercent),
             prefs.getBoolean(KEY + "paginate", defaults.paginate), prefs.getInt(KEY + "page_length", defaults.pageLength),
             prefs.getInt(KEY + "sustain_shake", defaults.sustainShakePercent),
-            pushDirection = string("push_direction", defaults.pushDirection)).normalized()
+            pushDirection = string("push_direction", defaults.pushDirection),
+            flowTransitions = prefs.getBoolean(KEY + "flow_transitions", defaults.flowTransitions),
+            motionStrength = string("motion_strength", defaults.motionStrength),
+            adaptiveEmphasis = prefs.getBoolean(KEY + "adaptive_emphasis", defaults.adaptiveEmphasis),
+            coordinateMotion = prefs.getBoolean(KEY + "coordinate_motion", defaults.coordinateMotion),
+            stageAnchorPercent = prefs.getInt(KEY + "stage_anchor", defaults.stageAnchorPercent),
+            stagePaddingDp = prefs.getInt(KEY + "stage_padding", defaults.stagePaddingDp),
+            shortPhraseScalePercent = prefs.getInt(KEY + "short_phrase_scale", defaults.shortPhraseScalePercent),
+            translationGapDp = prefs.getInt(KEY + "translation_gap", defaults.translationGapDp),
+            translationMaxLines = prefs.getInt(KEY + "translation_max_lines", defaults.translationMaxLines),
+        ).normalized()
     }
     fun save(context: Context, value: PopLyricsStyle) {
         val style = value.normalized()
@@ -55,7 +65,16 @@ internal object PopLyricsPrefs {
             .putInt(KEY + "text_hold", style.textHoldMs).putInt(KEY + "passed_opacity", style.passedOpacityPercent)
             .putBoolean(KEY + "paginate", style.paginate).putInt(KEY + "page_length", style.pageLength)
             .putInt(KEY + "sustain_shake", style.sustainShakePercent)
-            .putString(KEY + "push_direction", style.pushDirection).apply()
+            .putString(KEY + "push_direction", style.pushDirection)
+            .putBoolean(KEY + "flow_transitions", style.flowTransitions)
+            .putString(KEY + "motion_strength", style.motionStrength)
+            .putBoolean(KEY + "adaptive_emphasis", style.adaptiveEmphasis)
+            .putBoolean(KEY + "coordinate_motion", style.coordinateMotion)
+            .putInt(KEY + "stage_anchor", style.stageAnchorPercent)
+            .putInt(KEY + "stage_padding", style.stagePaddingDp)
+            .putInt(KEY + "short_phrase_scale", style.shortPhraseScalePercent)
+            .putInt(KEY + "translation_gap", style.translationGapDp)
+            .putInt(KEY + "translation_max_lines", style.translationMaxLines).apply()
     }
 
     private fun removeLegacyPresentation(prefs: SharedPreferences) {

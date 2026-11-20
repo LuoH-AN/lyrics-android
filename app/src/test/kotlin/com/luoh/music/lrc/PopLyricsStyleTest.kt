@@ -116,6 +116,40 @@ class PopLyricsStyleTest {
         assertEquals(saved.id, PopLyricSchemes.saved(context).single().id)
     }
 
+    @Test fun coordinatedMotionAndCompositionRoundTripAndOldSnapshotsGetCompatibleDefaults() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE)
+        prefs.edit().clear().putString("pop_preset", "custom").putInt("pop_entrance_ms", 750).commit()
+        val old = PopLyricsPrefs.style(context)
+        assertEquals(750, old.entranceMs)
+        assertTrue(old.flowTransitions && old.adaptiveEmphasis && old.coordinateMotion)
+        assertEquals("balanced", old.motionStrength)
+        val style = old.copy(motionStrength = "strong", flowTransitions = false, adaptiveEmphasis = false,
+            coordinateMotion = false, stageAnchorPercent = 60, stagePaddingDp = 40, shortPhraseScalePercent = 110,
+            translationGapDp = 28, translationMaxLines = 4)
+        PopLyricsPrefs.save(context, style)
+        assertEquals(style, PopLyricsPrefs.style(context))
+        assertTrue(PopLyricSchemes.save(context, "协调与排版"))
+        assertEquals(style, PopLyricSchemes.saved(context).single().motion)
+        val snapshots = JSONArray(prefs.getString("pop_saved_schemes", "[]"))
+        val motion = snapshots.getJSONObject(0).getJSONObject("motion")
+        for (key in listOf("motionStrength", "flowTransitions", "adaptiveEmphasis", "coordinateMotion",
+            "stageAnchorPercent", "stagePaddingDp", "shortPhraseScalePercent", "translationGapDp", "translationMaxLines")) motion.remove(key)
+        prefs.edit().putString("pop_saved_schemes", snapshots.toString()).commit()
+        val loaded = PopLyricSchemes.saved(context).single()
+        assertEquals(old, loaded.motion)
+        PopLyricSchemes.apply(context, loaded)
+        assertEquals(old, PopLyricsPrefs.style(context))
+        val normalized = old.copy(stageAnchorPercent = -1, stagePaddingDp = 999, shortPhraseScalePercent = 999,
+            translationGapDp = -1, translationMaxLines = 999, motionStrength = "invalid").normalized()
+        assertEquals(30, normalized.stageAnchorPercent)
+        assertEquals(40, normalized.stagePaddingDp)
+        assertEquals(180, normalized.shortPhraseScalePercent)
+        assertEquals(4, normalized.translationGapDp)
+        assertEquals(4, normalized.translationMaxLines)
+        assertEquals("balanced", normalized.motionStrength)
+    }
+
     @Test fun characterChoreographyKeepsRealWordTimestampsAndComplexTextIntact() {
         val line = LyricLine(1000, "音乐é👩‍👩‍👧‍👦", endMs = 4000, words = listOf(
             LyricWord(1000, 1000, "音乐"), LyricWord(2000, 1000, "é"), LyricWord(3000, 1000, "👩‍👩‍👧‍👦")))

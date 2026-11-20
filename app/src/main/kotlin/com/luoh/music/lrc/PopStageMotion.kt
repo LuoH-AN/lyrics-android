@@ -100,6 +100,20 @@ internal object PopStageMotion {
         return PopCameraPath(points, bounds)
     }
 
+    /** A fixed boundary sample makes a transition reproducible after pause or seek. */
+    fun flow(outgoing: PopCameraPath?, incoming: PopCameraPath?, boundaryMs: Long,
+        style: PopLyricsStyle, width: Float, height: Float): PopVector {
+        if (style.camera == "off" || style.cameraPercent == 0) return PopVector(0f, 0f)
+        val before = sample(boundaryMs - 100L, outgoing, style)
+        val atBoundary = sample(boundaryMs, outgoing, style)
+        val flow = PopVector((atBoundary.x - before.x) * width, (atBoundary.y - before.y) * height)
+        if (kotlin.math.hypot(flow.x, flow.y) >= .8f) return flow
+        val first = incoming?.waypoints?.firstOrNull() ?: return PopVector(0f, 0f)
+        val from = sample(first.startMs, incoming, style)
+        val to = sample(first.startMs + minOf(120L, first.durationMs / 2), incoming, style)
+        return PopVector((to.x - from.x) * width, (to.y - from.y) * height)
+    }
+
     fun nextChangeDelayMs(time: Long, path: PopCameraPath?, style: PopLyricsStyle): Long {
         if (style.camera !in listOf("follow", "orbit") || style.cameraPercent == 0 || path == null) return 1000L
         val point = path.waypoints.lastOrNull { it.startMs <= time }

@@ -40,8 +40,8 @@ internal object PopVisualMotion {
 
     // C2 endpoints, with the peak speed before halfway: a gentle start and a longer landing.
     fun travel(fraction: Float): Float {
-        val p = fraction.coerceIn(0f, 1f)
-        return (p * p * p * (20f + p * (-45f + p * (36f - 10f * p)))).coerceIn(0f, 1f)
+        val p = fraction.coerceIn(0f, 1f).toDouble()
+        return (p * p * p * (20.0 + p * (-45.0 + p * (36.0 - 10.0 * p)))).coerceIn(0.0, 1.0).toFloat()
     }
 
     fun entranceOffset(mode: String, seed: Long, x: Float, y: Float, width: Float, height: Float,
@@ -63,10 +63,10 @@ internal object PopVisualMotion {
 
     /** The same transition vocabulary for whole sentences and their short phrases. */
     fun phrase(mode: String, direction: PopVector, fraction: Float, entering: Boolean,
-        width: Float, height: Float): PopVisualPose {
+        width: Float, height: Float, amount: Float = 1f): PopVisualPose {
         val progress = travel(fraction)
         if ((entering && progress == 1f) || (!entering && progress == 0f)) return PopVisualPose()
-        val remaining = if (entering) 1f - progress else progress
+        val remaining = (if (entering) 1f - progress else progress) * amount
         val alpha = if (entering) travel((fraction * 1.45f).coerceAtMost(1f)) else 1f - progress
         return when (mode) {
             "slide" -> PopVisualPose(direction.x * width * .18f * remaining * (if (entering) -1f else 1f),

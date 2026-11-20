@@ -16,11 +16,11 @@ internal object PopLyricSchemes {
         PopLyricScheme("calm", "舒缓", PopLyricsStyle(layout = "centered", entrance = "rise",
             entranceMs = 600, travelPercent = 35, activeScalePercent = 120, rotationDegrees = 0,
             cameraPercent = 35, breathing = false, transition = "fade", rowMotionPercent = 25,
-            staggerPercent = 0, sustainShakePercent = 35)),
+            staggerPercent = 0, sustainShakePercent = 35, motionStrength = "gentle")),
         PopLyricScheme("flow", "灵动", PopLyricsStyle()),
         PopLyricScheme("dynamic", "强节奏", PopLyricsStyle(entranceMs = 300, lookaheadMs = 60,
             activeScalePercent = 160, rotationDegrees = 14, cameraPercent = 90,
-            cameraSpeedPercent = 150, rowMotionPercent = 80, pageLength = 8, sustainShakePercent = 140)),
+            cameraSpeedPercent = 150, rowMotionPercent = 80, pageLength = 8, sustainShakePercent = 140, motionStrength = "strong")),
     )
 
     fun saved(context: Context): List<PopLyricScheme> {
@@ -84,6 +84,15 @@ internal object PopLyricSchemes {
         put("passedOpacityPercent", s.passedOpacityPercent); put("paginate", s.paginate)
         put("pageLength", s.pageLength); put("sustainShakePercent", s.sustainShakePercent)
         put("pushDirection", s.pushDirection)
+        put("flowTransitions", s.flowTransitions)
+        put("motionStrength", s.motionStrength)
+        put("adaptiveEmphasis", s.adaptiveEmphasis)
+        put("coordinateMotion", s.coordinateMotion)
+        put("stageAnchorPercent", s.stageAnchorPercent)
+        put("stagePaddingDp", s.stagePaddingDp)
+        put("shortPhraseScalePercent", s.shortPhraseScalePercent)
+        put("translationGapDp", s.translationGapDp)
+        put("translationMaxLines", s.translationMaxLines)
     }
 
     private fun readMotion(j: JSONObject): PopLyricsStyle {
@@ -104,6 +113,15 @@ internal object PopLyricSchemes {
             passedOpacityPercent = j.optInt("passedOpacityPercent", d.passedOpacityPercent), paginate = j.optBoolean("paginate", d.paginate),
             pageLength = j.optInt("pageLength", d.pageLength), sustainShakePercent = j.optInt("sustainShakePercent", d.sustainShakePercent),
             pushDirection = j.optString("pushDirection", d.pushDirection),
+            flowTransitions = j.optBoolean("flowTransitions", d.flowTransitions),
+            motionStrength = j.optString("motionStrength", d.motionStrength),
+            adaptiveEmphasis = j.optBoolean("adaptiveEmphasis", d.adaptiveEmphasis),
+            coordinateMotion = j.optBoolean("coordinateMotion", d.coordinateMotion),
+            stageAnchorPercent = j.optInt("stageAnchorPercent", d.stageAnchorPercent),
+            stagePaddingDp = j.optInt("stagePaddingDp", d.stagePaddingDp),
+            shortPhraseScalePercent = j.optInt("shortPhraseScalePercent", d.shortPhraseScalePercent),
+            translationGapDp = j.optInt("translationGapDp", d.translationGapDp),
+            translationMaxLines = j.optInt("translationMaxLines", d.translationMaxLines),
         ).normalized()
     }
 }
