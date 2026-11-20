@@ -116,7 +116,7 @@ class ComposePopLyricsTest {
             LyricWord(1000 + index * 250L, 250, character.toString())
         })
         PopLyricsPrefs.save(context, PopLyricsStyle(pageLength = 4))
-        state.setLyrics(LyricDocument(listOf(line)), true)
+        state.setLyrics(LyricDocument(listOf(line), true))
         state.setProgress(2000, false)
         show()
         fun displayed() = compose.onNodeWithTag("home_pop_canvas", useUnmergedTree = true)
@@ -134,7 +134,7 @@ class ComposePopLyricsTest {
     @Test fun phraseChangesReuseOneContinuousCameraPathForTheWholeSentence() {
         val text = "牵着你的手一阵莫名感动让我一直陪你到天亮"
         state.setLyrics(LyricDocument(listOf(LyricLine(1000, text, endMs = 11000,
-            words = text.mapIndexed { index, character -> LyricWord(1000 + index * 250L, 250, character.toString()) }))), true)
+            words = text.mapIndexed { index, character -> LyricWord(1000 + index * 250L, 250, character.toString()) })), true))
         state.setProgress(1800, false)
         val style = PopLyricsStyle(pageLength = 4)
         lateinit var observed: PopPlaybackFrame
