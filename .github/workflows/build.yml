@@ -1,24 +1,10 @@
-name: Build Compact Test APK
+name: Build Nightly APK
 
 on:
   push:
-    branches: [main, "dev/**", "feat/**"]
-    paths-ignore:
-      - "website/**"
-      - "docs/**"
-      - "**/*.md"
-      - ".github/workflows/website*.yml"
-      - ".github/workflows/showcase-video.yml"
-      - "tools/showcase-video/**"
+    branches: ["**"]
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "website/**"
-      - "docs/**"
-      - "**/*.md"
-      - ".github/workflows/website*.yml"
-      - ".github/workflows/showcase-video.yml"
-      - "tools/showcase-video/**"
   workflow_dispatch:
     inputs:
       full_checks:
@@ -26,7 +12,7 @@ on:
         type: boolean
         default: false
       full_optimization:
-        description: "Use full R8 optimization for the test APK (slower)"
+        description: "Use full R8 optimization for the Nightly APK (slower)"
         type: boolean
         default: false
 
@@ -34,8 +20,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: true
+  # Each pushed commit keeps its build, even when another commit arrives.
+  group: nightly-${{ github.event_name }}-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -44,6 +31,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Read Nightly version
+        id: nightly
+        run: echo "version=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -63,19 +56,23 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.full_checks
         run: node tests/run.cjs
 
-      - name: Build compact APK
+      - name: Build Nightly APK
+        env:
+          NIGHTLY_VERSION: ${{ steps.nightly.outputs.version }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleCompact -PfullOptimization=${{ github.event_name == 'workflow_dispatch' && inputs.full_optimization || false }} --stacktrace
+          ./gradlew assembleNightly -PnightlyVersion="$NIGHTLY_VERSION" -PfullOptimization=${{ github.event_name == 'workflow_dispatch' && inputs.full_optimization || false }} --stacktrace
 
       - name: Run optional Android checks
         if: github.event_name == 'workflow_dispatch' && inputs.full_checks
         run: ./gradlew testDebugUnitTest --stacktrace
 
-      - name: Verify compact APK and size
+      - name: Verify Nightly APK and size
+        env:
+          NIGHTLY_VERSION: ${{ steps.nightly.outputs.version }}
         run: |
-          python3 tools/check-apk-size.py app/build/outputs/apk/compact/app-compact.apk --report app/build/reports/package-size/size.json
-          python3 tools/verify-compact-apk.py
+          python3 tools/check-apk-size.py app/build/outputs/apk/nightly/app-nightly.apk --report app/build/reports/package-size/size.json
+          python3 tools/verify-nightly-apk.py
 
       - name: Upload optional Android test reports
         if: always() && github.event_name == 'workflow_dispatch' && inputs.full_checks
@@ -85,18 +82,18 @@ jobs:
           path: app/build/reports/tests/testDebugUnitTest/
           if-no-files-found: ignore
 
-      - name: Upload compact test APK
+      - name: Upload Nightly APK
         uses: actions/upload-artifact@v4
         with:
-          name: lyrics-android-debug
-          path: app/build/outputs/apk/compact/*.apk
+          name: lyrics-android-nightly-${{ steps.nightly.outputs.version }}
+          path: app/build/outputs/apk/nightly/*.apk
           compression-level: 0
           if-no-files-found: error
 
-      - name: Preserve compact crash mapping
+      - name: Preserve Nightly crash mapping
         uses: actions/upload-artifact@v4
         with:
-          name: lyrics-android-compact-mapping
-          path: app/build/outputs/mapping/compact/mapping.txt
+          name: lyrics-android-nightly-mapping-${{ steps.nightly.outputs.version }}
+          path: app/build/outputs/mapping/nightly/mapping.txt
           if-no-files-found: error
           retention-days: 90

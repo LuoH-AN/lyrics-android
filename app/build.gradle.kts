@@ -14,6 +14,17 @@ val signingProperties = Properties().apply {
     }
 }
 
+// CI supplies the checked-out commit; direct Gradle builds use the same Git hash.
+val nightlyVersion = providers.gradleProperty("nightlyVersion").orElse(
+    providers.exec {
+        workingDir(rootProject.projectDir)
+        commandLine("git", "rev-parse", "--short=7", "HEAD")
+    }.standardOutput.asText.map { it.trim() }
+).map {
+    require(it.matches(Regex("[0-9a-f]{7,40}"))) { "Nightly version must be a commit hash" }
+    it
+}
+
 android {
     namespace = "com.luoh.music.lrc"
     compileSdk = 36
@@ -68,10 +79,9 @@ android {
                 proguardFile("proguard-compact.pro")
             }
         }
-        create("compact") {
+        create("nightly") {
             initWith(getByName("release"))
             applicationIdSuffix = ".dev"
-            versionNameSuffix = "-test"
             signingConfig = getByName("debug").signingConfig
             matchingFallbacks += listOf("release")
             // Daily installation builds still shrink unused code/resources, but
@@ -102,6 +112,14 @@ android {
 
     buildFeatures { compose = true }
 
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("nightly")) { variant ->
+        variant.outputs.forEach { output ->
+            output.versionName.set(nightlyVersion)
+        }
+    }
 }
 
 kotlin {

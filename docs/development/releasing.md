@@ -6,17 +6,19 @@
 
 - `tests/`：Node 源码边界检查与歌词引擎回归测试，统一入口为 `node tests/run.cjs`，自动运行全部 `*.test.cjs`。
 - `app/src/test/`：Kotlin/JUnit 与 Robolectric 测试，在 Actions 手动运行时勾选 `full_checks` 执行。日常构建跳过这批检查，不生成或上传界面截图。
-- 两个 APK 工作流默认跳过全部 Node、JUnit 和 Robolectric 测试，不生成截图；只有手动勾选 `full_checks` 才运行测试。日常交付使用快速 `compact` CI，不在开发环境运行测试或 Gradle。
+- 两个 APK 工作流默认跳过全部 Node、JUnit 和 Robolectric 测试，不生成截图；只有手动勾选 `full_checks` 才运行测试。日常交付使用快速 `nightly` CI，不在开发环境运行测试或 Gradle。
 
-## 测试包
+## Nightly 包
 
-`build.yml` 在 `main`、`feat/**`、`dev/**` 分支推送或面向 `main` 的 PR 时运行，也可手动触发。仅官网、文档、Markdown 或网页工作流变更时跳过；包含 Android 源码变更时照常运行。通过后从 Artifacts 下载 `lyrics-android-debug`。
+`build.yml` 在所有分支的每次推送、面向 `main` 的 PR 更新时运行，也可手动触发。官网、文档和 Markdown 变更同样构建，每次推送的构建不会被后续提交取消。通过后从 Artifacts 下载 `lyrics-android-nightly-<短 commit>`。
 
-测试包使用 `com.luoh.music.lrc.dev` 和已有公开调试签名，与正式包分开安装。
+Nightly 的应用名称为「桌面歌词·Nightly」，使用 `com.luoh.music.lrc.dev` 和仓库内已有的 `debug.keystore` 签名，可覆盖旧 Debug／测试包，与正式包分开安装。`versionName` 使用所构建 commit 的短哈希（`git rev-parse --short=7 HEAD`），例如 `a1b2c3d`，不再附加正式版本号或 `-test`。PR 构建使用 PR 的实际提交。正式版版本号独立维护。
 
-默认测试 artifact 提供 `compact` 精简包，启用 R8 代码裁剪、混淆和资源裁剪，跳过耗时的全程序优化；手动勾选 `full_optimization` 可以生成完整优化的测试包。正式版 CI 同样默认跳过全程序优化，普通 `debug` 构建用于原生测试和源码调试。CI 检查签名、包名及 28 MiB 的体积预算，并保存精简包崩溃映射。详见 [APK 体积优化](apk-size.md)。
+`nightly` 构建类型沿用原 `compact` 精简包的 R8 代码裁剪、混淆和资源裁剪，默认跳过耗时的全程序优化；手动勾选 `full_optimization` 可以生成完整优化的 Nightly 包。正式版 CI 同样默认跳过全程序优化，普通 `debug` 构建用于原生测试和源码调试。CI 检查 Debug 签名、包名、commit 版本号及 28 MiB 的体积预算，并保存 `lyrics-android-nightly-mapping-<短 commit>` 崩溃映射。详见 [APK 体积优化](apk-size.md)。
 
-默认仅执行 `assembleCompact`，不构建重复的 debug APK、不运行 Node 或 Robolectric 测试。保留 APK 签名、安装信息和体积校验。APK 大小及 SHA-256 显示在 Actions 运行摘要中，组件尺寸可在校验步骤日志中查看。
+默认仅执行 `assembleNightly -PnightlyVersion=<短 commit>`，不构建重复的 debug APK、不运行 Node 或 Robolectric 测试。省略 `nightlyVersion` 时，Gradle 从当前 Git 提交读取短哈希。APK 大小、commit 版本号及 SHA-256 显示在 Actions 运行摘要中，组件尺寸可在校验步骤日志中查看。
+
+需要提交代码但暂不构建时，在该次 commit 信息中加入 `[skip ci]`；GitHub 会跳过自动 push／PR 工作流。后续普通提交仍自动构建，也可手动触发 Nightly。
 
 Gradle 构建缓存启用，开发分支推送也写入缓存，PR 只读。日常更改可以复用未受影响的任务产物；相同源码重跑可复用更多任务。仅使用到的扩展图标随源码保留，编译和 R8 不再处理整套图标库。首次缓存填充、实际源码修改和完全命中缓存的重跑耗时应分别记录，GitHub 排队时间另计。
 
