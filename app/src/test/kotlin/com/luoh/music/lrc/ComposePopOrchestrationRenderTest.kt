@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontFamily
@@ -124,6 +125,40 @@ class ComposePopOrchestrationRenderTest {
     @Test
     @Config(qualifiers = "w800dp-h320dp-mdpi")
     fun builtInSchemesKeepBilingualTextVisibleInLandscape() = reviewBuiltIns(800, 320, "landscape")
+
+    private fun reviewShortPhraseRhythm(width: Int, height: Int, orientation: String) {
+        val text = "晚风轻拂山海星光照亮远方"
+        val state = HomePresentationState(LyricClock { 0L }).apply {
+            setSnapshot(HomePresentationState.Snapshot(track = "短语切换示例", durationMs = 8000))
+            setLyrics(LyricDocument(listOf(LyricLine(1000, text, "Evening breeze and starlight", 7000,
+                text.mapIndexed { index, char -> LyricWord(1000L + index * 500, 500, char.toString()) })), true))
+            setTranslationMode(LyricsOverlayService.TRANSLATION_BILINGUAL)
+            setProgress(1500, false)
+            setActive(true)
+        }
+        show(state, PopLyricsStyle(), width, height)
+        val seen = ArrayList<String>()
+        for (time in listOf(1500L, 3300L, 4500L, 6500L)) {
+            compose.runOnIdle { state.setProgress(time, false) }
+            val bitmap = capture()
+            val phrase = compose.onNodeWithTag("home_pop_canvas", useUnmergedTree = true)
+                .fetchSemanticsNode().config[SemanticsProperties.Text].single().text
+            assertTrue("$orientation at $time: screen shows a short phrase", phrase.length <= 6)
+            seen += phrase
+            save(bitmap, "phrase-rhythm-$orientation-$time")
+            bitmap.recycle()
+        }
+        assertEquals("Each phrase stays until its next real onset", seen[0], seen[1])
+        assertNotEquals("The next phrase must replace the old text", seen[1], seen[2])
+        assertEquals(seen[2], seen[3])
+        assertEquals("$orientation: both chunks preserve the complete lyric", text, seen[0] + seen[2])
+    }
+
+    @Test fun shortPhrasesReplaceOldTextInsteadOfFillingThePortraitStage() = reviewShortPhraseRhythm(400, 760, "portrait")
+
+    @Test
+    @Config(qualifiers = "w800dp-h320dp-mdpi")
+    fun shortPhrasesReplaceOldTextInsteadOfFillingTheLandscapeStage() = reviewShortPhraseRhythm(800, 320, "landscape")
 
     private fun reviewSparseTypography(width: Int, height: Int, orientation: String) {
         val selected = mutableStateOf(PopLyricSchemes.recommended)
