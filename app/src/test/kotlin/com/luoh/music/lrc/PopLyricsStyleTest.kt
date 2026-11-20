@@ -13,6 +13,74 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
 class PopLyricsStyleTest {
+    @Test fun recommendedSchemeMatchesFreshInstallAndRestoresMotionAndTypographyTogether() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE)
+        prefs.edit().clear().commit()
+        val recommended = PopLyricSchemes.recommended
+        assertEquals("flow", recommended.id)
+        assertEquals(recommended.motion, PopLyricsPrefs.style(context))
+        assertEquals(recommended.text, HomeLyricsPrefs.appearance(context))
+        val custom = recommended.motion.copy(entranceMs = 750, layout = "stairs", stagePaddingDp = 32)
+        val text = HomeLyricAppearance(fontSize = 40, translationSize = 24, fontWeight = 700)
+        PopLyricsPrefs.save(context, custom)
+        HomeLyricsPrefs.saveAppearance(context, text)
+        assertTrue(PopLyricSchemes.save(context, "自定义方案"))
+        PopLyricSchemes.apply(context, recommended)
+        assertEquals(recommended.motion, PopLyricsPrefs.style(context))
+        assertEquals(recommended.text, HomeLyricsPrefs.appearance(context))
+        val saved = PopLyricSchemes.saved(context).single()
+        assertEquals(custom, saved.motion)
+        assertEquals(text, saved.text)
+    }
+
+    @Test fun everyBuiltInSchemeCanBeAppliedAndSavedWithItsOwnTypography() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+        val schemes = PopLyricSchemes.builtIns
+        assertEquals(9, schemes.size)
+        assertEquals(schemes.size, schemes.map { it.id }.distinct().size)
+        assertEquals(schemes.size, schemes.map { it.motion }.distinct().size)
+        assertTrue(schemes.map { it.id }.containsAll(listOf("calm", "flow", "dynamic")))
+        for (scheme in schemes) {
+            PopLyricSchemes.apply(context, scheme)
+            assertEquals(scheme.name, scheme.motion, PopLyricsPrefs.style(context))
+            assertEquals(scheme.name, scheme.text, HomeLyricsPrefs.appearance(context))
+            assertTrue(PopLyricSchemes.save(context, scheme.name))
+            val saved = PopLyricSchemes.saved(context).first { it.name == scheme.name }
+            assertEquals(scheme.motion, saved.motion)
+            assertEquals(scheme.text, saved.text)
+        }
+    }
+
+    @Test fun additionalBuiltInsDoNotConsumeTheUserSchemeLimit() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+        for (index in 1..PopLyricSchemes.LIMIT) assertTrue(PopLyricSchemes.save(context, "方案 $index"))
+        assertFalse(PopLyricSchemes.save(context, "额外方案"))
+        val first = PopLyricSchemes.saved(context).first()
+        PopLyricSchemes.apply(context, PopLyricSchemes.builtIns.last())
+        assertTrue(PopLyricSchemes.save(context, first.name))
+        val updated = PopLyricSchemes.saved(context).first()
+        assertEquals(first.id, updated.id)
+        assertEquals(PopLyricSchemes.builtIns.last().motion, updated.motion)
+        assertEquals(PopLyricSchemes.LIMIT, PopLyricSchemes.saved(context).size)
+    }
+
+    @Test fun expandedPresetCatalogPreservesExistingRevisionThreeSettings() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE)
+        prefs.edit().clear().commit()
+        val style = PopLyricsStyle(preset = "flow", entranceMs = 700, layout = "wave",
+            cameraPercent = 25, rotationDegrees = 2, stagePaddingDp = 32)
+        val text = HomeLyricAppearance(fontSize = 42, translationSize = 22, fontWeight = 600)
+        PopLyricsPrefs.save(context, style)
+        HomeLyricsPrefs.saveAppearance(context, text)
+        assertEquals(3, prefs.getInt("pop_defaults_revision", 0))
+        assertEquals(style, PopLyricsPrefs.style(context))
+        assertEquals(text, HomeLyricsPrefs.appearance(context))
+    }
+
     @Test fun customSettingsPersistNormalizeAndRemainIndependentOfScrolling() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()

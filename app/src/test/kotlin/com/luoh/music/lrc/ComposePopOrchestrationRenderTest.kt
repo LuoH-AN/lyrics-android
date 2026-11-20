@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -50,23 +51,74 @@ class ComposePopOrchestrationRenderTest {
     }
 
     private fun show(state: HomePresentationState, style: PopLyricsStyle, width: Int, height: Int,
-        appearance: HomeLyricAppearance = HomeLyricAppearance(), fontScale: Float = 1f) {
+        appearance: HomeLyricAppearance = HomeLyricAppearance(), fontScale: Float = 1f,
+        scheme: (() -> PopLyricScheme)? = null) {
         compose.setContent {
+            val selected = scheme?.invoke()
+            val currentStyle = selected?.motion ?: style
+            val currentAppearance = selected?.text ?: appearance
             val view = LocalView.current
             SideEffect { root = view }
             val density = LocalDensity.current
             CompositionLocalProvider(LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduceMotion = false),
                 LocalDensity provides Density(density.density, fontScale)) {
                 MaterialTheme {
-                    val frame = rememberPopPlayback(state, style)
+                    val frame = rememberPopPlayback(state, currentStyle)
                     Box(Modifier.size(width.dp, height.dp).background(MaterialTheme.colorScheme.background)) {
                         PopLyricsStage(state, Modifier.size(width.dp, height.dp)
-                            .popStageCamera(frame, style, true), false, appearance, style, frame)
+                            .popStageCamera(frame, currentStyle, true), false, currentAppearance, currentStyle, frame)
                     }
                 }
             }
         }
     }
+
+    private fun reviewBuiltIns(width: Int, height: Int, orientation: String) {
+        val selected = mutableStateOf(PopLyricSchemes.recommended)
+        val state = HomePresentationState(LyricClock { 0L }).apply {
+            setSnapshot(HomePresentationState.Snapshot(track = "方案示例", durationMs = 6000))
+            setLyrics(LyricDocument(listOf(LyricLine(1000, "让音乐陪你到天亮",
+                "Let the music stay with you until the morning light", 4000,
+                listOf(LyricWord(1000, 700, "让音乐"), LyricWord(1700, 700, "陪你"),
+                    LyricWord(2400, 1600, "到天亮")))), true))
+            setTranslationMode(LyricsOverlayService.TRANSLATION_BILINGUAL)
+            setProgress(2900, false)
+            setActive(true)
+        }
+        show(state, PopLyricsStyle(), width, height, scheme = { selected.value })
+        for (scheme in PopLyricSchemes.builtIns) {
+            compose.runOnIdle { selected.value = scheme }
+            for (time in listOf(2900L, 4400L)) {
+                compose.runOnIdle { state.setProgress(time, false) }
+                val bitmap = capture()
+                val stage = compose.onNodeWithTag("home_pop_stage", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+                val caption = compose.onNodeWithTag("home_pop_translation", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+                val label = "$orientation ${scheme.id} at $time"
+                assertTrue("$label: caption stays within stage height", caption.top >= stage.top && caption.bottom <= stage.bottom + 1f)
+                assertTrue("$label: caption stays within stage width", caption.left >= stage.left && caption.right <= stage.right + 1f)
+                val background = bitmap.getPixel(0, 0)
+                var ink = 0
+                for (y in stage.top.toInt().coerceAtLeast(0) until caption.top.toInt().coerceAtMost(bitmap.height)) {
+                    for (x in stage.left.toInt().coerceAtLeast(0) until stage.right.toInt().coerceAtMost(bitmap.width)) {
+                        val pixel = bitmap.getPixel(x, y)
+                        val contrast = kotlin.math.abs(android.graphics.Color.red(pixel) - android.graphics.Color.red(background)) +
+                            kotlin.math.abs(android.graphics.Color.green(pixel) - android.graphics.Color.green(background)) +
+                            kotlin.math.abs(android.graphics.Color.blue(pixel) - android.graphics.Color.blue(background))
+                        if (contrast > 300) ink++
+                    }
+                }
+                assertTrue("$label: main lyrics produce readable native ink", ink >= 100)
+                save(bitmap, "scheme-$orientation-${scheme.id}-$time")
+                bitmap.recycle()
+            }
+        }
+    }
+
+    @Test fun builtInSchemesKeepBilingualTextVisibleInPortrait() = reviewBuiltIns(400, 760, "portrait")
+
+    @Test
+    @Config(qualifiers = "w800dp-h320dp-mdpi")
+    fun builtInSchemesKeepBilingualTextVisibleInLandscape() = reviewBuiltIns(800, 320, "landscape")
 
     @Test fun sentenceAndBilingualCaptionFreezeTogetherAndSeekingReproducesTheSameFrame() {
         val state = HomePresentationState(LyricClock { 0L }).apply {
