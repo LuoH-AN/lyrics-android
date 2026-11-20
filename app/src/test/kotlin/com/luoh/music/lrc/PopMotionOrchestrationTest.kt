@@ -63,6 +63,23 @@ class PopMotionOrchestrationTest {
         }
     }
 
+    @Test fun shallowStagesYieldMotionBeforeReducingTypographyAndRespectTheOptOut() {
+        val style = PopLyricsStyle(motionStrength = "strong", rotationDegrees = 30)
+        val word = PopMotionOrchestration.words(PopLyricTimeline(listOf(PopLyricToken("音乐", 1000, 2600)), true), style).single()
+        val spacious = PopMotionOrchestration.spatial(style, 100f, 800f)
+        val shallow = PopMotionOrchestration.spatial(style, 100f, 210f)
+        assertEquals(PopSpatialBudget(), spacious)
+        val fitted = PopMotionOrchestration.fitWord(word, shallow)
+        assertTrue(fitted.activeScale < word.activeScale && fitted.activeScale > 1f)
+        assertTrue(fitted.rotation < word.rotation && fitted.rotation > 0f)
+        assertTrue(fitted.travel < word.travel)
+        assertTrue(shallow.row < spacious.row)
+        assertEquals(PopSpatialBudget(), PopMotionOrchestration.spatial(style.copy(coordinateMotion = false), 100f, 100f))
+        val extent = popGlyphExtent(240f, 100f, word.maxScale, 30f * word.rotation)
+        val fittedExtent = popGlyphExtent(240f, 100f, fitted.maxScale, 30f * fitted.rotation)
+        assertTrue("Yielding motion must leave more height for readable native type", fittedExtent.height < extent.height * .7f)
+    }
+
     @Test fun flowGuidesAutomaticDirectionsButPreservesExplicitChoicesAndAxisConstraints() {
         val flow = PopVector(10f, -4f)
         for (mode in listOf("left", "right", "up", "down")) assertEquals(

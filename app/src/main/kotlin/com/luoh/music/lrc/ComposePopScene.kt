@@ -85,7 +85,11 @@ internal class PopSceneBuilder(private val cache: PopRenderCache, private val me
             val sceneSeed = PopVisualMotion.seed(renderTimeline.startMs, renderTimeline.tokens.joinToString("") { it.text })
             val layoutMode = PopVisualMotion.layout(style.layout, sceneSeed)
             val entranceMode = PopVisualMotion.entrance(style.entrance, sceneSeed)
+            val typicalGlyphHeight = measured.layouts.map { it.size.height.toFloat() }.sorted()
+                .let { it.getOrElse(it.size / 2) { 1f } }
+            val spatial = PopMotionOrchestration.spatial(style, typicalGlyphHeight, height)
             val sourceDynamics = PopMotionOrchestration.words(candidate, style)
+                .map { PopMotionOrchestration.fitWord(it, spatial) }
             val dynamics = measured.sourceIndices.map { sourceDynamics[it] }
             val balance = PopMotionOrchestration.balance(style)
             val renderTiming = PopLyricRenderTiming(profile.transitionMs,
@@ -109,7 +113,7 @@ internal class PopSceneBuilder(private val cache: PopRenderCache, private val me
                 }.coerceIn(0L, 1000L) / 1000f
                 val variation = if (layoutMode == "centered") .6f else 1f
                 val hierarchy = (group.from until group.until).map { dynamics[it].hierarchy }.average().toFloat()
-                val phraseScale = (1f + (-.06f + seed * .20f + sustain * .09f) * variation) * hierarchy
+                val phraseScale = (1f + (-.06f + seed * .20f + sustain * .09f) * variation * spatial.hierarchy) * hierarchy
                 for (index in group.from until group.until) emphasis[index] = phraseScale
             }
             val angles = FloatArray(layouts.size) { index ->
@@ -137,7 +141,7 @@ internal class PopSceneBuilder(private val cache: PopRenderCache, private val me
             }
             val rowTravel = if (renderTimeline.wordTimed && profile.transitionMs > 0)
                 20f * density.density * style.rowMotionPercent / 100f *
-                    PopMotionOrchestration.strength(style) * balance.row else 0f
+                    PopMotionOrchestration.strength(style) * balance.row * spatial.row else 0f
             val rowTravelX = rowTravel * 1.6f
             val typicalHeight = extents.map { it.height + rowTravel * 2f }.sorted()[extents.size / 2]
             val rowLimit = popLyricRowLimit((width * .92f).coerceAtLeast(1f), typicalHeight, layoutMode, style.lineWidthPercent)

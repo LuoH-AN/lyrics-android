@@ -119,16 +119,22 @@ class ComposePopOrchestrationRenderTest {
         assertTrue(caption.left >= stage.left && caption.right <= stage.right + 1f)
         val background = bitmap.getPixel(0, 0)
         var bottom = -1
+        var band = 0
+        var longestBand = 0
         for (y in stage.top.toInt().coerceAtLeast(0) until caption.top.toInt().coerceAtMost(bitmap.height)) {
+            var paintedRow = false
             for (x in stage.left.toInt().coerceAtLeast(0) until stage.right.toInt().coerceAtMost(bitmap.width)) {
                 val pixel = bitmap.getPixel(x, y)
                 val contrast = kotlin.math.abs(android.graphics.Color.red(pixel) - android.graphics.Color.red(background)) +
                     kotlin.math.abs(android.graphics.Color.green(pixel) - android.graphics.Color.green(background)) +
                     kotlin.math.abs(android.graphics.Color.blue(pixel) - android.graphics.Color.blue(background))
-                if (contrast > 300) bottom = y
+                if (contrast > 300) { bottom = y; paintedRow = true }
             }
+            band = if (paintedRow) band + 1 else 0
+            longestBand = maxOf(longestBand, band)
         }
         assertTrue("Large text must still produce visible native glyphs", bottom >= 0)
+        assertTrue("The requested large type must stay readable; shrink motion before shrinking text (band=$longestBand)", longestBand >= 28)
         assertTrue("The caption must have a real clear gap below lyric ink", caption.top - bottom >= 4f)
         save(bitmap, "coordinated-landscape-large-font")
         bitmap.recycle()

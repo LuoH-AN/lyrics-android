@@ -6,6 +6,8 @@ import kotlin.math.roundToInt
 
 internal data class PopMotionBalance(val word: Float = 1f, val row: Float = 1f,
     val camera: Float = 1f, val transition: Float = 1f)
+internal data class PopSpatialBudget(val scale: Float = 1f, val rotation: Float = 1f,
+    val travel: Float = 1f, val row: Float = 1f, val hierarchy: Float = 1f)
 internal data class PopWordDynamics(val activeScale: Float = 1f, val rotation: Float = 1f,
     val travel: Float = 1f, val sustain: Float = 1f, val hierarchy: Float = 1f) {
     val maxScale get() = activeScale + (activeScale - .72f) * .05f
@@ -36,6 +38,19 @@ internal object PopMotionOrchestration {
             1f / (1f + .20f * word * row * energy),
             1f / (1f + .24f * (word + row) * energy))
     }
+
+    /** Preserve type size in shallow stages by yielding motion BEFORE the fit calculation. */
+    fun spatial(style: PopLyricsStyle, glyphHeight: Float, stageHeight: Float): PopSpatialBudget {
+        if (!style.coordinateMotion) return PopSpatialBudget()
+        val room = PopVisualMotion.travel((stageHeight / glyphHeight.coerceAtLeast(1f) - 1.4f) / 3.2f)
+        return PopSpatialBudget(.25f + .75f * room, .15f + .85f * room,
+            .40f + .60f * room, .20f + .80f * room, .50f + .50f * room)
+    }
+
+    fun fitWord(word: PopWordDynamics, budget: PopSpatialBudget): PopWordDynamics = word.copy(
+        activeScale = 1f + (word.activeScale - 1f) * budget.scale,
+        rotation = word.rotation * budget.rotation, travel = word.travel * budget.travel,
+        sustain = word.sustain * budget.hierarchy, hierarchy = 1f + (word.hierarchy - 1f) * budget.hierarchy)
 
     fun cameraStyle(style: PopLyricsStyle): PopLyricsStyle = style.copy(
         cameraPercent = (style.cameraPercent * strength(style) * balance(style).camera).roundToInt().coerceIn(0, 200))
