@@ -28,7 +28,7 @@ internal data class PopLyricsStyle(
     val textHoldMs: Int = 0,
     val passedOpacityPercent: Int = 72,
     val paginate: Boolean = true,
-    val pageLength: Int = 10,
+    val pageLength: Int = 6,
     val sustainShakePercent: Int = 100,
     val pushDirection: String = "left",
     val flowTransitions: Boolean = true,

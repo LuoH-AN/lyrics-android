@@ -13,6 +13,22 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
 class PopLyricsStyleTest {
+    @Test fun previousPhraseDefaultIsShortenedOnceWithoutResettingOtherSettings() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE)
+        prefs.edit().clear().putString("pop_preset", "custom").putInt("pop_defaults_revision", 3)
+            .putInt("pop_page_length", 10).putInt("pop_entrance_ms", 700)
+            .putString("pop_layout", "wave").putInt("pop_stage_fill", 96).commit()
+        val migrated = PopLyricsPrefs.style(context)
+        assertEquals(6, migrated.pageLength)
+        assertEquals(700, migrated.entranceMs)
+        assertEquals("wave", migrated.layout)
+        assertEquals(96, migrated.stageFillPercent)
+        PopLyricsPrefs.save(context, migrated.copy(pageLength = 10))
+        assertEquals(10, PopLyricsPrefs.style(context).pageLength)
+        prefs.edit().remove("pop_phrase_revision").putInt("pop_page_length", 14).commit()
+        assertEquals(14, PopLyricsPrefs.style(context).pageLength)
+    }
     @Test fun recommendedSchemeMatchesFreshInstallAndRestoresMotionAndTypographyTogether() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE)

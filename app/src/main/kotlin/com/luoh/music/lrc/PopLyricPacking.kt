@@ -63,7 +63,7 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
     boundaryGaps: FloatArray? = null, rowGap: Float = gap, indentPercent: Int = 100,
     lineWidthPercent: Int = 100, rowMotionReach: Float = 0f, maxFitScale: Float = 1f,
     horizontalMotionReach: Float = 0f, layoutSeed: Long = 0L, anchorY: Float = .5f,
-    fillViewport: Boolean = false): PopLyricPacking {
+    fillViewport: Boolean = false, maxRows: Int = 4): PopLyricPacking {
     val layout = PopVisualMotion.layout(layoutStyle, layoutSeed)
     require(widths.size == heights.size && widths.size <= PopLyricTimeline.MAX_TOKENS)
     require(breakPenalties == null || breakPenalties.size == widths.size + 1)
@@ -97,7 +97,7 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
     var bestScore = -1f
     // Compare complete compositions, rather than stopping at the first row count that fits.
     // Four rows bound the work and keep individual phrases readable even on tall phones.
-    val candidates = if (fillViewport) 1..minOf(groupCount, 4) else minimumRows..groupCount
+    val candidates = if (fillViewport) 1..minOf(groupCount, maxRows.coerceIn(1, 4)) else minimumRows..groupCount
     for (rows in candidates) {
         val target = sums[count] / rows
         // Alternating phrase lengths create a readable rhythm; centered keeps balanced lines.

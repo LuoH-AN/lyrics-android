@@ -8,6 +8,20 @@ class PopLyricPagesTest {
         PopLyricToken(character.toString(), 1000 + index * 250L, 1250 + index * 250L)
     }
 
+    @Test fun sungPhraseCapacityIsIndependentOfFontInkAndViewport() {
+        val source = tokens("晚风吹过山海星光照亮远方音乐陪你直到天亮")
+        val pages = paginatePopLyrics(source, FloatArray(source.size + 1), PopLyricsStyle().pageLength)
+        assertTrue(pages.size >= 4)
+        assertTrue(pages.all { it.until - it.from <= 6 })
+        assertEquals(source.indices.toList(), pages.flatMap { (it.from until it.until).toList() })
+        val timeline = PopLyricTimeline(source, true)
+        val handoffs = popPhraseHandoffs(pages, timeline)
+        for ((index, page) in pages.withIndex()) {
+            val now = source[page.from].startMs + handoffs[index].durationMs
+            assertEquals(PopPhraseWindow(index, null), popPhraseWindow(pages, timeline, handoffs, now, true))
+        }
+    }
+
     @Test fun longSentencesBecomeSmallPagesWithoutLosingTextOrChangingClocks() {
         val tokens = tokens("牵着你的手一阵莫名感动让我一直陪你到天亮")
         val original = tokens.toList()

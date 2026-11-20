@@ -56,7 +56,7 @@ internal object PopLyricSchemes {
             HomeLyricAppearance(fontSize = 30, translationSize = 17, fontWeight = 600), "四向聚合，向外散出"),
         PopLyricScheme("dynamic", "节奏", PopLyricsStyle(entranceMs = 300, lookaheadMs = 60,
             activeScalePercent = 160, rotationDegrees = 14, cameraPercent = 90,
-            cameraSpeedPercent = 150, rowMotionPercent = 80, pageLength = 8, sustainShakePercent = 140,
+            cameraSpeedPercent = 150, rowMotionPercent = 80, pageLength = 4, sustainShakePercent = 140,
             motionStrength = "strong"), description = "快速入场，强化重音"),
         PopLyricScheme("random", "自由变换", PopLyricsStyle(layout = "random", entrance = "random",
             transition = "random", pushDirection = "random", entranceMs = 480, travelPercent = 75,

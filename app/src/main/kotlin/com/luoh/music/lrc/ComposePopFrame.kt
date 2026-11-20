@@ -15,6 +15,25 @@ internal class PopFrameBuffer(private val scenes: PopScenes, private val style: 
     val fits = FloatArray(scenes.pages.size) { 1f }
     val bottoms = FloatArray(scenes.pages.size) { height / 2f }
     val alphas = FloatArray(scenes.pages.size)
+    // Fit the resting composition once. Fitting animated ink every frame cancels springs and zooms.
+    private val restingFits = scenes.pages.map { page ->
+        var left = Float.POSITIVE_INFINITY
+        var right = Float.NEGATIVE_INFINITY
+        var top = Float.POSITIVE_INFINITY
+        var bottom = Float.NEGATIVE_INFINITY
+        for (glyph in page.glyphs) {
+            if (glyph.ink.isEmpty) continue
+            val scale = page.scale * glyph.baseScale
+            val angle = Math.toRadians(glyph.angle.toDouble())
+            val halfWidth = (glyph.ink.width * abs(cos(angle)) + glyph.ink.height * abs(sin(angle))).toFloat() * scale / 2f
+            val halfHeight = (glyph.ink.height * abs(cos(angle)) + glyph.ink.width * abs(sin(angle))).toFloat() * scale / 2f
+            left = minOf(left, glyph.slot.x - halfWidth); right = maxOf(right, glyph.slot.x + halfWidth)
+            top = minOf(top, glyph.slot.y - halfHeight); bottom = maxOf(bottom, glyph.slot.y + halfHeight)
+        }
+        val fill = style.stageFillPercent / 100f
+        if (left.isFinite()) minOf(width * fill / (right - left).coerceAtLeast(1f),
+            height * fill / (bottom - top).coerceAtLeast(1f)) else 1f
+    }
     private var preparedAt = Long.MIN_VALUE
     var window = popPhraseWindow(scenes.ranges, scenes.timeline, scenes.handoffs, scenes.timeline.startMs, allowMotion)
         private set
@@ -110,8 +129,13 @@ internal class PopFrameBuffer(private val scenes: PopScenes, private val style: 
                     rowX + shake.xDp * density * wordGain * baseScale
                 val gy = row.center.y + (glyph.slot.y + glyph.entranceOffset.y * remaining * wordGain - row.center.y) * rowScale +
                     rowY + shake.yDp * density * wordGain * baseScale
-                val dx = (gx - width / 2f) * pose.scale
-                val dy = (gy - height / 2f) * pose.scale
+                val localX = gx - width / 2f
+                val localY = gy - height / 2f
+                // Centered parallax preserves camera and directional motion after recentering.
+                val shearX = camera.x * 1.5f + pose.x / width.coerceAtLeast(1f) * .6f
+                val shearY = camera.y * 1.5f + pose.y / height.coerceAtLeast(1f) * .6f
+                val dx = (localX + localY * shearX) * pose.scale
+                val dy = (localY + localX * shearY) * pose.scale
                 frame[0] = width / 2f + dx * cosine - dy * sine
                 frame[1] = height / 2f + dx * sine + dy * cosine
                 frame[2] = baseScale * pose.scale
@@ -138,10 +162,8 @@ internal class PopFrameBuffer(private val scenes: PopScenes, private val style: 
         val centerY = (top + bottom) / 2f
         val hardFit = minOf(width * .98f / (right - left).coerceAtLeast(1f),
             height * .98f / (bottom - top).coerceAtLeast(1f))
-        val fill = style.stageFillPercent / 100f
-        val fillFit = minOf(width * fill / (right - left).coerceAtLeast(1f),
-            height * fill / (bottom - top).coerceAtLeast(1f))
-        // Once the final word is revealed, use the real ink instead of reserving every peak at once.
+        val fillFit = restingFits[pageIndex]
+        // Once the final word is revealed, grow to the resting ink size, preserving animated scale.
         // Blend on the playback clock so revealing the last glyph cannot cause an abrupt size jump.
         val last = timeline.tokens.lastIndex
         val lastElapsed = now - (timeline.tokens[last].startMs - timing.lookaheadMs[last] + timeline.tokens[last].visualDelayMs)

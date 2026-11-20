@@ -184,17 +184,12 @@ internal class PopSceneBuilder(private val cache: PopRenderCache, private val me
                 20f * density.density * style.rowMotionPercent / 100f *
                     PopMotionOrchestration.strength(style) * balance.row * spatial.row else 0f
             val rowTravelX = rowTravel * 1.6f
-            val typicalHeight = extents.map { it.height + rowTravel * 2f }.sorted()[extents.size / 2]
             val fill = style.stageFillPercent / 100f
             val packingWidth = (width * fill).coerceAtLeast(1f)
             val packingHeight = (height * fill).coerceAtLeast(1f)
-            val rowLimit = (packingWidth * style.lineWidthPercent / 100f).coerceIn(1f, packingWidth)
-            val availableRows = (packingHeight / (typicalHeight + gap * style.rowGapPercent / 100f)).coerceIn(1f, 2f)
-            // Pagination needs widths, not an expensive layout of the entire long sentence.
+            // Keep the sung chunks identical across fonts and orientations; fit each chunk afterwards.
             val ranges = if (style.paginate && renderTimeline.wordTimed) paginatePopLyrics(
-                renderTimeline.tokens, measured.groups.penalties,
-                FloatArray(extents.size) { extents[it].width + gaps[it] },
-                (rowLimit - rowTravelX * 2f).coerceAtLeast(1f) * availableRows, style.pageLength)
+                renderTimeline.tokens, measured.groups.penalties, style.pageLength)
                 else listOf(PopLyricPage(0, renderTimeline.tokens.size))
             fun buildPage(page: PopLyricPage): PopScene {
                 val tokens = renderTimeline.tokens.subList(page.from, page.until)
@@ -214,7 +209,8 @@ internal class PopSceneBuilder(private val cache: PopRenderCache, private val me
                     extents.subList(page.from, page.until), gaps.copyOfRange(page.from, page.until + 1),
                     gap * style.rowGapPercent / 100f, style.staggerPercent, style.lineWidthPercent, 0f,
                     maxFitScale = 16f, horizontalMotionReach = 0f,
-                    layoutSeed = sceneSeed, fillViewport = true)
+                    layoutSeed = sceneSeed, fillViewport = true,
+                    maxRows = if (style.paginate && renderTimeline.wordTimed) 2 else 4)
                 val travelX = 72f * density.density * style.travelPercent / 100f
                 val travelY = 48f * density.density * style.travelPercent / 100f
                 val glyphs = pageLayouts.mapIndexed { index, layout ->
@@ -223,16 +219,11 @@ internal class PopSceneBuilder(private val cache: PopRenderCache, private val me
                     val slot = PopLyricSlot(packed.x + (width - packingWidth) / 2f,
                         packed.y + (height - packingHeight) / 2f)
                     val seed = PopVisualMotion.seed(renderTimeline.startMs, tokens[index].text, source)
-                    val halfWidth = (extents[source].width / 2f + rowTravelX) * packing.scale
-                    val halfHeight = (extents[source].height / 2f + rowTravel) * packing.scale
                     val entry = PopVisualMotion.entranceOffset(entranceMode, seed, slot.x, slot.y,
                         width, height, travelX * dynamics[source].travel, travelY * dynamics[source].travel,
                         style.travelPercent / 100f * dynamics[source].travel)
-                    val dx = entry.x.coerceIn(
-                        (halfWidth - slot.x).coerceAtMost(0f), (width - halfWidth - slot.x).coerceAtLeast(0f))
-                    val dy = entry.y.coerceIn(
-                        (halfHeight - slot.y).coerceAtMost(0f), (height - halfHeight - slot.y).coerceAtLeast(0f))
-                    PopGlyph(layout, measured.ink[source], slot, angles[source], Offset(dx, dy), emphasis[source],
+                    // The frame's edge fit handles temporary travel; static bounds must not zero it out.
+                    PopGlyph(layout, measured.ink[source], slot, angles[source], Offset(entry.x, entry.y), emphasis[source],
                         Shadow(activeColor.copy(alpha = .35f), Offset.Zero, 6f * density.density), dynamics[source])
                 }
                 val rows = packing.rowStarts.mapIndexed { row, from ->

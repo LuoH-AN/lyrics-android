@@ -2,6 +2,11 @@ package com.luoh.music.lrc
 
 internal data class PopLyricPage(val from: Int, val until: Int)
 
+/** Font size and orientation affect packing, never how long a sung phrase stays on stage. */
+internal fun paginatePopLyrics(tokens: List<PopLyricToken>, penalties: FloatArray,
+    pageLength: Int): List<PopLyricPage> = paginatePopLyrics(tokens, penalties,
+    FloatArray(tokens.size), Float.MAX_VALUE, pageLength)
+
 /** Page boundaries need a real new onset. Never divide simultaneous syllables or
  * discard the end of a held note just to meet a character budget. */
 internal fun paginatePopLyrics(tokens: List<PopLyricToken>, penalties: FloatArray,

@@ -14,6 +14,12 @@ internal object PopLyricsPrefs {
             save(context, defaults)
             return defaults
         }
+        if (prefs.getInt(KEY + "phrase_revision", 0) < 1) {
+            // Only shorten the previous default; preserve other edits and saved snapshots.
+            val edit = prefs.edit().putInt(KEY + "phrase_revision", 1)
+            if (prefs.getInt(KEY + "page_length", 10) == 10) edit.putInt(KEY + "page_length", defaults.pageLength)
+            edit.apply()
+        }
         fun string(name: String, fallback: String) = prefs.getString(KEY + name, fallback) ?: fallback
         return PopLyricsStyle(string("preset", defaults.preset), string("reveal", defaults.reveal),
             string("layout", defaults.layout), string("entrance", defaults.entrance),
@@ -51,6 +57,7 @@ internal object PopLyricsPrefs {
         removeLegacyPresentation(prefs)
         prefs.edit()
             .putInt(KEY + "defaults_revision", 3)
+            .putInt(KEY + "phrase_revision", 1)
             .putString(KEY + "preset", style.preset).putString(KEY + "reveal", style.reveal)
             .putString(KEY + "layout", style.layout).putString(KEY + "entrance", style.entrance)
             .putInt(KEY + "entrance_ms", style.entranceMs).putInt(KEY + "lookahead_ms", style.lookaheadMs)
