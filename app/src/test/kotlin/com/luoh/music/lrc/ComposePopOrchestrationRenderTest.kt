@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
@@ -18,6 +19,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontFamily
 import com.luoh.music.lrc.ui.agora.AgoraMotionPolicy
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
 import org.junit.Assert.*
@@ -38,13 +40,6 @@ class ComposePopOrchestrationRenderTest {
 
     private fun capture(): Bitmap {
         compose.waitForIdle()
-        // Native ink measurements update the caption offset during draw; settle that layout first.
-        compose.runOnIdle {
-            Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888).also {
-                root.draw(Canvas(it)); it.recycle()
-            }
-        }
-        compose.waitForIdle()
         return compose.runOnIdle {
             Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888).also { root.draw(Canvas(it)) }
         }
@@ -59,7 +54,7 @@ class ComposePopOrchestrationRenderTest {
 
     private fun show(state: HomePresentationState, style: PopLyricsStyle, width: Int, height: Int,
         appearance: HomeLyricAppearance = HomeLyricAppearance(), fontScale: Float = 1f,
-        scheme: (() -> PopLyricScheme)? = null) {
+        scheme: (() -> PopLyricScheme)? = null, fontFamily: (() -> FontFamily)? = null) {
         compose.setContent {
             val selected = scheme?.invoke()
             val currentStyle = selected?.motion ?: style
@@ -69,7 +64,10 @@ class ComposePopOrchestrationRenderTest {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduceMotion = false),
                 LocalDensity provides Density(density.density, fontScale)) {
-                MaterialTheme {
+                val typography = fontFamily?.invoke()?.let {
+                    Typography(headlineLarge = MaterialTheme.typography.headlineLarge.copy(fontFamily = it))
+                } ?: MaterialTheme.typography
+                MaterialTheme(typography = typography) {
                     val frame = rememberPopPlayback(state, currentStyle)
                     Box(Modifier.size(width.dp, height.dp).background(MaterialTheme.colorScheme.background)) {
                         PopLyricsStage(state, Modifier.size(width.dp, height.dp)
@@ -129,15 +127,17 @@ class ComposePopOrchestrationRenderTest {
 
     private fun reviewSparseTypography(width: Int, height: Int, orientation: String) {
         val selected = mutableStateOf(PopLyricSchemes.recommended)
+        val family = mutableStateOf(FontFamily.SansSerif)
         val state = HomePresentationState(LyricClock { 0L }).apply {
             setSnapshot(HomePresentationState.Snapshot(track = "字号与居中示例", durationMs = 9000))
             setActive(true)
         }
-        show(state, PopLyricsStyle(), width, height, scheme = { selected.value })
+        show(state, PopLyricsStyle(), width, height, scheme = { selected.value }, fontFamily = { family.value })
         val samples = listOf("晚风轻拂", "山海", "让音乐陪你到天亮", "Stay with me")
         for (font in listOf(16, 28, 48)) for ((sample, text) in samples.withIndex()) {
             val words = if (text.first().code < 128) listOf("Stay ", "with ", "me") else text.map { it.toString() }
             compose.runOnIdle {
+                family.value = when (font) { 16 -> FontFamily.SansSerif; 28 -> FontFamily.Serif; else -> FontFamily.Monospace }
                 selected.value = PopLyricScheme("test", "字号示例", PopLyricsStyle(
                     layout = listOf("staggered", "wave", "random", "stairs")[sample],
                     entrance = "random", transition = "random", camera = "orbit", pushDirection = "random",

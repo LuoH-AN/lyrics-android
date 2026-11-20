@@ -1,19 +1,26 @@
 package com.luoh.music.lrc
 
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.graphics.Rect as NativeRect
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontSynthesis
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.LineBreak
@@ -25,18 +32,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.sin
 
-internal data class PopGlyph(val layout: TextLayoutResult, val slot: PopLyricSlot, val angle: Float,
+internal data class PopGlyph(val layout: TextLayoutResult, val ink: Rect, val slot: PopLyricSlot, val angle: Float,
     val entranceOffset: Offset, val baseScale: Float, val glow: Shadow, val dynamics: PopWordDynamics)
 internal data class PopRow(val from: Int, val until: Int, val startMs: Long, val entranceMs: Long,
     val passStartMs: Long, val passMs: Long, val travel: Float, val travelX: Float, val center: Offset)
 internal data class PopScene(val timeline: PopLyricTimeline, val timing: PopLyricRenderTiming,
-    val glyphs: List<PopGlyph>, val rows: List<PopRow>, val scale: Float, val bounds: PopCameraBounds, val bottom: Float) {
-    val renderedBottom = mutableFloatStateOf(bottom)
-}
+    val glyphs: List<PopGlyph>, val rows: List<PopRow>, val scale: Float, val bounds: PopCameraBounds, val bottom: Float)
 internal data class PopMeasureKey(val timeline: PopLyricTimeline, val textStyle: androidx.compose.ui.text.TextStyle,
-    val width: Int, val semantic: Boolean, val density: Float, val fontScale: Float)
+    val width: Int, val semantic: Boolean, val density: Float, val fontScale: Float, val typeface: Typeface)
 internal data class PopMeasured(val layouts: List<TextLayoutResult>, val groups: PopLyricGroups,
-    val timeline: PopLyricTimeline, val sourceIndices: List<Int>)
+    val timeline: PopLyricTimeline, val sourceIndices: List<Int>, val ink: List<Rect>)
 internal data class PopScenes(val timeline: PopLyricTimeline, val ranges: List<PopLyricPage>, val pages: List<PopScene>,
     val handoffs: List<PopPhraseHandoff>, val cameraPath: PopCameraPath)
 internal data class PopSceneKey(val measured: PopMeasured, val timeline: PopLyricTimeline, val timing: PopLyricRenderTiming,
@@ -61,24 +66,54 @@ internal fun rememberPopSceneBuilder(cache: PopRenderCache, appearance: HomeLyri
         lineHeight = ((appearance.fontSize + 10).coerceIn(24, 64) * 1.15f).sp,
         fontWeight = FontWeight((appearance.fontWeight + 200).coerceAtMost(900)), color = foreground,
         textAlign = TextAlign.Center, lineBreak = LineBreak.Heading, hyphens = Hyphens.Auto)
+    val typeface = LocalFontFamilyResolver.current.resolve(textStyle.fontFamily ?: FontFamily.Default,
+        textStyle.fontWeight ?: FontWeight.Normal, textStyle.fontStyle ?: FontStyle.Normal,
+        textStyle.fontSynthesis ?: FontSynthesis.All).value as Typeface
     val gap = with(density) { (appearance.lineSpacing / 3f + 4f).dp.toPx() }
-    return remember(cache, measurer, density, textStyle, shapingWidth, width, height, gap, style, activeColor) {
-        PopSceneBuilder(cache, measurer, density, textStyle, shapingWidth, width, height, gap, style, activeColor)
+    return remember(cache, measurer, density, textStyle, typeface, shapingWidth, width, height, gap, style, activeColor) {
+        PopSceneBuilder(cache, measurer, density, textStyle, shapingWidth, width, height, gap, style, activeColor, typeface)
     }
 }
 
 internal class PopSceneBuilder(private val cache: PopRenderCache, private val measurer: TextMeasurer,
     private val density: Density, private val textStyle: TextStyle, private val shapingWidth: Int,
     val width: Float, val height: Float, private val gap: Float, private val style: PopLyricsStyle,
-    private val activeColor: Color) {
+    private val activeColor: Color, private val typeface: Typeface) {
+    private val inkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.typeface = this@PopSceneBuilder.typeface
+        textSize = with(density) { textStyle.fontSize.toPx() }
+    }
+
+    /** Font line boxes contain leading and whitespace; fit and center the actual shaped ink. */
+    private fun inkBounds(layout: TextLayoutResult): Rect {
+        val source = layout.layoutInput.text.text
+        val native = NativeRect()
+        var result: Rect? = null
+        for (line in 0 until layout.lineCount) {
+            val start = layout.getLineStart(line)
+            val end = layout.getLineEnd(line, visibleEnd = true)
+            if (end <= start) continue
+            inkPaint.getTextBounds(source, start, end, native)
+            if (native.isEmpty) continue
+            val left = layout.getLineLeft(line)
+            val baseline = layout.getLineBaseline(line)
+            val rect = Rect(left + native.left, baseline + native.top, left + native.right, baseline + native.bottom)
+            result = result?.let { Rect(minOf(it.left, rect.left), minOf(it.top, rect.top),
+                maxOf(it.right, rect.right), maxOf(it.bottom, rect.bottom)) } ?: rect
+        }
+        return result ?: Rect(0f, 0f, layout.size.width.toFloat().coerceAtLeast(1f), layout.size.height.toFloat().coerceAtLeast(1f))
+    }
+
     private fun measure(candidate: PopLyricTimeline) = cache.measured.getOrPut(PopMeasureKey(candidate, textStyle, shapingWidth,
-        style.semanticGrouping, density.density, density.fontScale)) {
+        style.semanticGrouping, density.density, density.fontScale, typeface)) {
         val expanded = popLayoutTokens(candidate)
         val renderTimeline = PopLyricTimeline(expanded.tokens, candidate.wordTimed, candidate.startMs, candidate.endMs)
-        PopMeasured(expanded.tokens.map { token ->
+        val layouts = expanded.tokens.map { token ->
             measurer.measure(AnnotatedString(popLyricPreview(token.text)), style = textStyle,
                 constraints = Constraints(maxWidth = shapingWidth), maxLines = 8, overflow = TextOverflow.Ellipsis)
-        }, groupPopLyrics(expanded.tokens, style.semanticGrouping), renderTimeline, expanded.sourceIndices)
+        }
+        PopMeasured(layouts, groupPopLyrics(expanded.tokens, style.semanticGrouping), renderTimeline, expanded.sourceIndices,
+            layouts.map(::inkBounds))
     }
 
     fun build(candidate: PopLyricTimeline, profile: PopLyricRenderTiming): PopScenes {
@@ -88,7 +123,7 @@ internal class PopSceneBuilder(private val cache: PopRenderCache, private val me
             val sceneSeed = PopVisualMotion.seed(renderTimeline.startMs, renderTimeline.tokens.joinToString("") { it.text })
             val layoutMode = PopVisualMotion.layout(style.layout, sceneSeed)
             val entranceMode = PopVisualMotion.entrance(style.entrance, sceneSeed)
-            val typicalGlyphHeight = measured.layouts.map { it.size.height.toFloat() }.sorted()
+            val typicalGlyphHeight = measured.ink.map { it.height }.sorted()
                 .let { it.getOrElse(it.size / 2) { 1f } }
             val spatial = PopMotionOrchestration.spatial(style, typicalGlyphHeight, height)
             val sourceDynamics = PopMotionOrchestration.words(candidate, style)
@@ -124,17 +159,18 @@ internal class PopSceneBuilder(private val cache: PopRenderCache, private val me
                 if (renderTimeline.wordTimed) ((seed % 7f) - 3f) * style.rotationDegrees / 20f * dynamics[index].rotation else 0f
             }
             val extents = layouts.mapIndexed { index, layout ->
+                val ink = measured.ink[index]
                 val shake = renderTiming.sustain[index]
                 val wordScale = if (renderTimeline.wordTimed) dynamics[index].maxScale else 1f
                 val wordRotation = if (renderTimeline.wordTimed) style.rotationDegrees * dynamics[index].rotation else 0f
                 val glyphScale = wordScale * emphasis[index] * 1.015f
                 val maxAngle = maxOf(kotlin.math.abs(angles[index]) + wordRotation * .1f,
                     kotlin.math.abs(angles[index] + wordRotation)) + (shake?.reachDegrees ?: 0f)
-                val extent = if (style.dynamicSpacing) popGlyphExtent(layout.size.width.toFloat(),
-                    layout.size.height.toFloat(), glyphScale, maxAngle) else {
+                val extent = if (style.dynamicSpacing) popGlyphExtent(ink.width,
+                    ink.height, glyphScale, maxAngle) else {
                     val reach = (sin((wordRotation + (shake?.reachDegrees ?: 0f)) * 1.15 * Math.PI / 180) * wordScale).toFloat()
-                    PopGlyphExtent((layout.size.width * wordScale + layout.size.height * reach) * emphasis[index] * 1.015f,
-                        (layout.size.height * wordScale + layout.size.width * reach) * emphasis[index] * 1.015f)
+                    PopGlyphExtent((ink.width * wordScale + ink.height * reach) * emphasis[index] * 1.015f,
+                        (ink.height * wordScale + ink.width * reach) * emphasis[index] * 1.015f)
                 }
                 PopGlyphExtent(extent.width + (shake?.reachXDp ?: 0f) * density.density * 2f * glyphScale,
                     extent.height + (shake?.reachYDp ?: 0f) * density.density * 2f * glyphScale)
@@ -170,12 +206,12 @@ internal class PopSceneBuilder(private val cache: PopRenderCache, private val me
                     renderTiming.passMs.copyOfRange(page.from, page.until),
                     renderTiming.sustain.subList(page.from, page.until))
                 val pageLayouts = layouts.subList(page.from, page.until)
-                val packing = packPopLyrics(FloatArray(tokens.size) { pageLayouts[it].size.width.toFloat() },
-                    FloatArray(tokens.size) { pageLayouts[it].size.height.toFloat() }, packingWidth, packingHeight, gap,
+                val packing = packPopLyrics(FloatArray(tokens.size) { measured.ink[page.from + it].width },
+                    FloatArray(tokens.size) { measured.ink[page.from + it].height }, packingWidth, packingHeight, gap,
                     layoutMode, reservedScale, reservedRotation, measured.groups.penalties.copyOfRange(page.from, page.until + 1),
                     extents.subList(page.from, page.until), gaps.copyOfRange(page.from, page.until + 1),
-                    gap * style.rowGapPercent / 100f, style.staggerPercent, style.lineWidthPercent, rowTravel,
-                    maxFitScale = 16f, horizontalMotionReach = rowTravelX,
+                    gap * style.rowGapPercent / 100f, style.staggerPercent, style.lineWidthPercent, 0f,
+                    maxFitScale = 16f, horizontalMotionReach = 0f,
                     layoutSeed = sceneSeed, fillViewport = true)
                 val travelX = 72f * density.density * style.travelPercent / 100f
                 val travelY = 48f * density.density * style.travelPercent / 100f
@@ -194,7 +230,7 @@ internal class PopSceneBuilder(private val cache: PopRenderCache, private val me
                         (halfWidth - slot.x).coerceAtMost(0f), (width - halfWidth - slot.x).coerceAtLeast(0f))
                     val dy = entry.y.coerceIn(
                         (halfHeight - slot.y).coerceAtMost(0f), (height - halfHeight - slot.y).coerceAtLeast(0f))
-                    PopGlyph(layout, slot, angles[source], Offset(dx, dy), emphasis[source],
+                    PopGlyph(layout, measured.ink[source], slot, angles[source], Offset(dx, dy), emphasis[source],
                         Shadow(activeColor.copy(alpha = .35f), Offset.Zero, 6f * density.density), dynamics[source])
                 }
                 val rows = packing.rowStarts.mapIndexed { row, from ->
