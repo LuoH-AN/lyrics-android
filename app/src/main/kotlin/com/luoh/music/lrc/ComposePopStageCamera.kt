@@ -8,9 +8,7 @@ internal fun Modifier.popStageCamera(frame: PopPlaybackFrame?, style: PopLyricsS
     val cameraStyle = PopMotionOrchestration.cameraStyle(style)
     return graphicsLayer {
         val pose = PopStageMotion.sample(frame.cameraPosition.value, frame.cameraPath.value, cameraStyle)
-        translationX = pose.x * size.width
-        translationY = pose.y * size.height
-        rotationZ = pose.rotation
+        // Pan/tilt is centered inside the glyph renderer; only breathing scales the whole composition.
         scaleX = pose.zoom
         scaleY = pose.zoom
     }

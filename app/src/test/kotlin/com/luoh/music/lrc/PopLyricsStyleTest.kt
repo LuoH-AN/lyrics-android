@@ -194,7 +194,7 @@ class PopLyricsStyleTest {
         assertEquals("balanced", old.motionStrength)
         val style = old.copy(motionStrength = "strong", flowTransitions = false, adaptiveEmphasis = false,
             coordinateMotion = false, stageAnchorPercent = 60, stagePaddingDp = 40, shortPhraseScalePercent = 110,
-            translationGapDp = 28, translationMaxLines = 4)
+            translationGapDp = 28, translationMaxLines = 4, stageFillPercent = 100)
         PopLyricsPrefs.save(context, style)
         assertEquals(style, PopLyricsPrefs.style(context))
         assertTrue(PopLyricSchemes.save(context, "协调与排版"))
@@ -202,20 +202,21 @@ class PopLyricsStyleTest {
         val snapshots = JSONArray(prefs.getString("pop_saved_schemes", "[]"))
         val motion = snapshots.getJSONObject(0).getJSONObject("motion")
         for (key in listOf("motionStrength", "flowTransitions", "adaptiveEmphasis", "coordinateMotion",
-            "stageAnchorPercent", "stagePaddingDp", "shortPhraseScalePercent", "translationGapDp", "translationMaxLines")) motion.remove(key)
+            "stageAnchorPercent", "stagePaddingDp", "shortPhraseScalePercent", "translationGapDp", "translationMaxLines", "stageFillPercent")) motion.remove(key)
         prefs.edit().putString("pop_saved_schemes", snapshots.toString()).commit()
         val loaded = PopLyricSchemes.saved(context).single()
         assertEquals(old, loaded.motion)
         PopLyricSchemes.apply(context, loaded)
         assertEquals(old, PopLyricsPrefs.style(context))
         val normalized = old.copy(stageAnchorPercent = -1, stagePaddingDp = 999, shortPhraseScalePercent = 999,
-            translationGapDp = -1, translationMaxLines = 999, motionStrength = "invalid").normalized()
+            translationGapDp = -1, translationMaxLines = 999, motionStrength = "invalid", stageFillPercent = 999).normalized()
         assertEquals(30, normalized.stageAnchorPercent)
         assertEquals(40, normalized.stagePaddingDp)
         assertEquals(180, normalized.shortPhraseScalePercent)
         assertEquals(4, normalized.translationGapDp)
         assertEquals(4, normalized.translationMaxLines)
         assertEquals("balanced", normalized.motionStrength)
+        assertEquals(100, normalized.stageFillPercent)
     }
 
     @Test fun characterChoreographyKeepsRealWordTimestampsAndComplexTextIntact() {

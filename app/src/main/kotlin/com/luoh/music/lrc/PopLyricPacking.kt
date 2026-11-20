@@ -62,7 +62,8 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
     breakPenalties: FloatArray? = null, extents: List<PopGlyphExtent>? = null,
     boundaryGaps: FloatArray? = null, rowGap: Float = gap, indentPercent: Int = 100,
     lineWidthPercent: Int = 100, rowMotionReach: Float = 0f, maxFitScale: Float = 1f,
-    horizontalMotionReach: Float = 0f, layoutSeed: Long = 0L, anchorY: Float = .5f): PopLyricPacking {
+    horizontalMotionReach: Float = 0f, layoutSeed: Long = 0L, anchorY: Float = .5f,
+    fillViewport: Boolean = false): PopLyricPacking {
     val layout = PopVisualMotion.layout(layoutStyle, layoutSeed)
     require(widths.size == heights.size && widths.size <= PopLyricTimeline.MAX_TOKENS)
     require(breakPenalties == null || breakPenalties.size == widths.size + 1)
@@ -79,7 +80,8 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
     val typicalHeight = reservedHeights.sorted()[count / 2]
     // Wide landscape stages still read as a phrase, rather than a screen-long ribbon.
     val composed = layout != "centered"
-    val rowLimit = popLyricRowLimit(width, typicalHeight, layout, lineWidthPercent)
+    val rowLimit = if (fillViewport) (width * lineWidthPercent / 100f).coerceIn(1f, width)
+        else popLyricRowLimit(width, typicalHeight, layout, lineWidthPercent)
     val budget = rowLimit / .88f
     val sums = FloatArray(count + 1)
     for (index in widths.indices) sums[index + 1] = sums[index] + reservedWidths[index] + gaps[index]
@@ -92,7 +94,11 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
     // produce a row (scaled to fit), rather than require more rows than can exist.
     val groupCount = 1 + (1 until count).count { protectedStart[it] == it }
     val minimumRows = ceil(sums[count] / budget).toInt().coerceIn(1, groupCount)
-    for (rows in minimumRows..groupCount) {
+    var bestScore = -1f
+    // Compare complete compositions, rather than stopping at the first row count that fits.
+    // Four rows bound the work and keep individual phrases readable even on tall phones.
+    val candidates = if (fillViewport) 1..minOf(groupCount, 4) else minimumRows..groupCount
+    for (rows in candidates) {
         val target = sums[count] / rows
         // Alternating phrase lengths create a readable rhythm; centered keeps balanced lines.
         val weights = FloatArray(rows) { row -> when {
@@ -110,11 +116,11 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
             for (start in end - 1 downTo row - 1) {
                 if (start > 0 && (breakPenalties?.get(start) ?: 0f) >= 40f) continue
                 val rowWidth = rowWidth(start, end)
-                if (rowWidth > budget && end - start > 1 && protectedStart[end - 1] != start) break
+                if (!fillViewport && rowWidth > budget && end - start > 1 && protectedStart[end - 1] != start) break
                 if (!costs[row - 1][start].isFinite()) continue
                 val rowTarget = target * weights[row - 1] / averageWeight
                 val deviation = (rowWidth - rowTarget) / rowTarget.coerceAtLeast(1f)
-                val overflow = ((rowWidth - rowLimit) / rowLimit).coerceAtLeast(0f)
+                val overflow = if (fillViewport) 0f else ((rowWidth - rowLimit) / rowLimit).coerceAtLeast(0f)
                 val orphan = if (rows > 1 && rowWidth < target * .5f)
                     (1f - rowWidth / (target * .5f).coerceAtLeast(1f)) * 1.6f else 0f
                 val cost = costs[row - 1][start] + deviation * deviation + overflow * overflow * 2f + orphan +
@@ -126,8 +132,17 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
             val starts = ArrayList<Int>(rows)
             var end = count
             for (row in rows downTo 1) { end = previous[row][end]; starts.add(end) }
-            rowStarts = starts.asReversed().toList()
-            break
+            val candidate = starts.asReversed().toList()
+            if (!fillViewport) { rowStarts = candidate; break }
+            val candidateWidth = candidate.mapIndexed { index, start ->
+                rowWidth(start, candidate.getOrNull(index + 1) ?: count) }.maxOrNull() ?: 1f
+            val candidateHeight = candidate.mapIndexed { index, start ->
+                (start until (candidate.getOrNull(index + 1) ?: count)).maxOf { reservedHeights[it] }
+            }.sum() + rowGap * (rows - 1)
+            val scale = min(maxFitScale, minOf(rowLimit / (candidateWidth + horizontalMotionReach * 2f),
+                height / candidateHeight.coerceAtLeast(1f)))
+            val score = scale / (1f + costs[rows][count] * .025f)
+            if (score > bestScore) { bestScore = score; rowStarts = candidate }
         }
     }
     val rowWidths = rowStarts.mapIndexed { index, start -> rowWidth(start, rowStarts.getOrNull(index + 1) ?: count) }
@@ -139,7 +154,7 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
     val fit = min(maxFitScale, min(rowLimit / (totalWidth + horizontalMotionReach * 2f).coerceAtLeast(1f),
         height / totalHeight.coerceAtLeast(1f)))
     val slots = ArrayList<PopLyricSlot>(count)
-    var top = ((height - totalHeight * fit) * anchorY.coerceIn(0f, 1f)).coerceAtLeast(0f)
+    var top = ((height - totalHeight * fit) * (if (fillViewport) .5f else anchorY.coerceIn(0f, 1f))).coerceAtLeast(0f)
     val indent = min(width * .16f, typicalHeight * .9f) * fit * indentPercent / 100f
     for (row in rowStarts.indices) {
         val slack = (width - rowWidths[row] * fit).coerceAtLeast(0f)
@@ -159,5 +174,9 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
         }
         top += rowHeights[row] * fit
     }
-    return PopLyricPacking(slots, fit, rowStarts)
+    // Center the union of the actual row extents; alternating indents can otherwise bias the block.
+    val left = slots.indices.minOf { slots[it].x - (reservedWidths[it] / 2f + horizontalMotionReach) * fit }
+    val right = slots.indices.maxOf { slots[it].x + (reservedWidths[it] / 2f + horizontalMotionReach) * fit }
+    val correction = width / 2f - (left + right) / 2f
+    return PopLyricPacking(slots.map { it.copy(x = it.x + correction) }, fit, rowStarts)
 }

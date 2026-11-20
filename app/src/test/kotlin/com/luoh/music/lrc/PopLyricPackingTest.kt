@@ -5,6 +5,29 @@ import org.junit.Test
 import kotlin.math.abs
 
 class PopLyricPackingTest {
+    @Test fun viewportFitEnlargesShortPhrasesAndCentersEveryComposedLayout() {
+        for (mode in listOf("centered", "staggered", "stairs", "wave", "random")) {
+            for ((width, height) in listOf(360f to 680f, 760f to 240f)) {
+                for (glyphSize in listOf(22f, 42f, 70f)) {
+                    val widths = floatArrayOf(glyphSize, glyphSize * .7f, glyphSize, glyphSize * 1.2f)
+                    val heights = FloatArray(4) { glyphSize * 1.15f }
+                    val extents = widths.map { PopGlyphExtent(it * 1.2f, glyphSize * 1.4f) }
+                    val packed = packPopLyrics(widths, heights, width, height, 4f, mode, 1.2f, 0,
+                        extents = extents, maxFitScale = 16f, indentPercent = 150, fillViewport = true)
+                    val left = packed.slots.indices.minOf { packed.slots[it].x - extents[it].width * packed.scale / 2f }
+                    val right = packed.slots.indices.maxOf { packed.slots[it].x + extents[it].width * packed.scale / 2f }
+                    val top = packed.slots.indices.minOf { packed.slots[it].y - extents[it].height * packed.scale / 2f }
+                    val bottom = packed.slots.indices.maxOf { packed.slots[it].y + extents[it].height * packed.scale / 2f }
+                    assertEquals(width / 2f, (left + right) / 2f, .01f)
+                    assertEquals(height / 2f, (top + bottom) / 2f, .01f)
+                    assertTrue(left >= -.01f && right <= width + .01f && top >= -.01f && bottom <= height + .01f)
+                    assertTrue("Sparse type must fill a physical stage dimension", (right - left) >= width * .75f || (bottom - top) >= height * .75f)
+                    if (glyphSize == 22f) assertTrue("Small font preferences must not cap sparse stage type", packed.scale > 2f)
+                }
+            }
+        }
+    }
+
     @Test fun waveAndRandomLayoutsAreStableAndKeepEveryGlyphInsideTheStage() {
         for (mode in listOf("wave", "random")) for (seed in 0L..20L) {
             val widths = FloatArray(12) { if (it % 3 == 0) 55f else 30f }

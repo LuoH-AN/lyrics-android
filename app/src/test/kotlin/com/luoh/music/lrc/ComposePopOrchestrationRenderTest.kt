@@ -38,6 +38,13 @@ class ComposePopOrchestrationRenderTest {
 
     private fun capture(): Bitmap {
         compose.waitForIdle()
+        // Native ink measurements update the caption offset during draw; settle that layout first.
+        compose.runOnIdle {
+            Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888).also {
+                root.draw(Canvas(it)); it.recycle()
+            }
+        }
+        compose.waitForIdle()
         return compose.runOnIdle {
             Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888).also { root.draw(Canvas(it)) }
         }
@@ -119,6 +126,75 @@ class ComposePopOrchestrationRenderTest {
     @Test
     @Config(qualifiers = "w800dp-h320dp-mdpi")
     fun builtInSchemesKeepBilingualTextVisibleInLandscape() = reviewBuiltIns(800, 320, "landscape")
+
+    private fun reviewSparseTypography(width: Int, height: Int, orientation: String) {
+        val selected = mutableStateOf(PopLyricSchemes.recommended)
+        val state = HomePresentationState(LyricClock { 0L }).apply {
+            setSnapshot(HomePresentationState.Snapshot(track = "字号与居中示例", durationMs = 9000))
+            setActive(true)
+        }
+        show(state, PopLyricsStyle(), width, height, scheme = { selected.value })
+        val samples = listOf("晚风轻拂", "山海", "让音乐陪你到天亮", "Stay with me")
+        for (font in listOf(16, 28, 48)) for ((sample, text) in samples.withIndex()) {
+            val words = if (text.first().code < 128) listOf("Stay ", "with ", "me") else text.map { it.toString() }
+            compose.runOnIdle {
+                selected.value = PopLyricScheme("test", "字号示例", PopLyricsStyle(
+                    layout = listOf("staggered", "wave", "random", "stairs")[sample],
+                    entrance = "random", transition = "random", camera = "orbit", pushDirection = "random",
+                    paginate = false, stageAnchorPercent = 30, shortPhraseScalePercent = 110),
+                    HomeLyricAppearance(fontSize = font, fontWeight = if (font == 16) 300 else 800))
+                state.setLyrics(LyricDocument(listOf(LyricLine(1000, text, "Evening breeze", 6500,
+                    words.mapIndexed { index, word -> LyricWord(1000 + index * 500L, 500, word) })), true))
+                state.setTranslationMode(LyricsOverlayService.TRANSLATION_BILINGUAL)
+            }
+            for (time in listOf(1350L, 6800L)) {
+                compose.runOnIdle { state.setProgress(time, false) }
+                val bitmap = capture()
+                val stage = compose.onNodeWithTag("home_pop_stage", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+                val caption = compose.onNodeWithTag("home_pop_translation", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+                val background = bitmap.getPixel(0, 0)
+                var left = Int.MAX_VALUE
+                var right = -1
+                var top = Int.MAX_VALUE
+                var bottom = -1
+                var band = 0
+                var longestBand = 0
+                for (y in stage.top.toInt().coerceAtLeast(0) until caption.top.toInt().coerceAtMost(bitmap.height)) {
+                    var painted = false
+                    for (x in stage.left.toInt().coerceAtLeast(0) until stage.right.toInt().coerceAtMost(bitmap.width)) {
+                        val pixel = bitmap.getPixel(x, y)
+                        val contrast = kotlin.math.abs(android.graphics.Color.red(pixel) - android.graphics.Color.red(background)) +
+                            kotlin.math.abs(android.graphics.Color.green(pixel) - android.graphics.Color.green(background)) +
+                            kotlin.math.abs(android.graphics.Color.blue(pixel) - android.graphics.Color.blue(background))
+                        if (contrast > 300) {
+                            left = minOf(left, x); right = maxOf(right, x)
+                            top = minOf(top, y); bottom = maxOf(bottom, y); painted = true
+                        }
+                    }
+                    band = if (painted) band + 1 else 0
+                    longestBand = maxOf(longestBand, band)
+                }
+                val label = "$orientation font=$font sample=$sample time=$time"
+                assertTrue("$label: visible lyric ink", right >= left)
+                assertEquals("$label: horizontal ink center", stage.center.x, (left + right) / 2f, width * .04f)
+                assertEquals("$label: vertical ink center", stage.center.y, (top + bottom) / 2f, height * .06f)
+                assertTrue("$label: caption below lyric ink", caption.top - bottom >= 4f)
+                if (time == 6800L && sample == 0) {
+                    assertTrue("$label: sparse words occupy the stage width (ink=${right-left})", right - left >= width * .60f)
+                    assertTrue("$label: small font preferences still yield large native glyphs (band=$longestBand)",
+                        longestBand >= if (orientation == "portrait") 70 else 35)
+                }
+                save(bitmap, "centered-fill-$orientation-$font-$sample-$time")
+                bitmap.recycle()
+            }
+        }
+    }
+
+    @Test fun shortPhrasesUseLargeTypeAndStayCenteredAtEveryFontSizeInPortrait() = reviewSparseTypography(400, 760, "portrait")
+
+    @Test
+    @Config(qualifiers = "w800dp-h320dp-mdpi")
+    fun shortPhrasesUseLargeTypeAndStayCenteredAtEveryFontSizeInLandscape() = reviewSparseTypography(800, 320, "landscape")
 
     @Test fun sentenceAndBilingualCaptionFreezeTogetherAndSeekingReproducesTheSameFrame() {
         val state = HomePresentationState(LyricClock { 0L }).apply {

@@ -917,14 +917,11 @@ private fun PopLyricSettings(context: Context, revision: Int, previewPinned: Boo
         } },
     ))
     SettingsGroup(title = "舞台留白", items = listOf(
-        { SettingsSliderItem("歌词垂直位置", style.stageAnchorPercent, 30..60, 2, "%", Icons.Default.FormatAlignLeft) {
-            value -> save { it.copy(stageAnchorPercent = value) }
+        { SettingsSliderItem("画面占比", style.stageFillPercent, 65..100, 1, "%", Icons.Default.FormatSize) {
+            value -> save { it.copy(stageFillPercent = value) }
         } },
         { SettingsSliderItem("水平留白", style.stagePaddingDp, 8..40, 2, "dp", Icons.Default.FormatAlignLeft) {
             value -> save { it.copy(stagePaddingDp = value) }
-        } },
-        { SettingsSliderItem("短语缩放上限", style.shortPhraseScalePercent, 110..180, 5, "%", Icons.Default.FormatSize) {
-            value -> save { it.copy(shortPhraseScalePercent = value) }
         } },
         { SettingsSliderItem("译文间距", style.translationGapDp, 4..28, 2, "dp", Icons.Default.Translate) {
             value -> save { it.copy(translationGapDp = value) }

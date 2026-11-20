@@ -3,6 +3,7 @@ package com.luoh.music.lrc
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
@@ -29,7 +30,9 @@ internal data class PopGlyph(val layout: TextLayoutResult, val slot: PopLyricSlo
 internal data class PopRow(val from: Int, val until: Int, val startMs: Long, val entranceMs: Long,
     val passStartMs: Long, val passMs: Long, val travel: Float, val travelX: Float, val center: Offset)
 internal data class PopScene(val timeline: PopLyricTimeline, val timing: PopLyricRenderTiming,
-    val glyphs: List<PopGlyph>, val rows: List<PopRow>, val scale: Float, val bounds: PopCameraBounds, val bottom: Float)
+    val glyphs: List<PopGlyph>, val rows: List<PopRow>, val scale: Float, val bounds: PopCameraBounds, val bottom: Float) {
+    val renderedBottom = mutableFloatStateOf(bottom)
+}
 internal data class PopMeasureKey(val timeline: PopLyricTimeline, val textStyle: androidx.compose.ui.text.TextStyle,
     val width: Int, val semantic: Boolean, val density: Float, val fontScale: Float)
 internal data class PopMeasured(val layouts: List<TextLayoutResult>, val groups: PopLyricGroups,
@@ -144,8 +147,11 @@ internal class PopSceneBuilder(private val cache: PopRenderCache, private val me
                     PopMotionOrchestration.strength(style) * balance.row * spatial.row else 0f
             val rowTravelX = rowTravel * 1.6f
             val typicalHeight = extents.map { it.height + rowTravel * 2f }.sorted()[extents.size / 2]
-            val rowLimit = popLyricRowLimit((width * .92f).coerceAtLeast(1f), typicalHeight, layoutMode, style.lineWidthPercent)
-            val availableRows = (height * .9f / (typicalHeight + gap * style.rowGapPercent / 100f)).coerceIn(1f, 2f)
+            val fill = style.stageFillPercent / 100f
+            val packingWidth = (width * fill).coerceAtLeast(1f)
+            val packingHeight = (height * fill).coerceAtLeast(1f)
+            val rowLimit = (packingWidth * style.lineWidthPercent / 100f).coerceIn(1f, packingWidth)
+            val availableRows = (packingHeight / (typicalHeight + gap * style.rowGapPercent / 100f)).coerceIn(1f, 2f)
             // Pagination needs widths, not an expensive layout of the entire long sentence.
             val ranges = if (style.paginate && renderTimeline.wordTimed) paginatePopLyrics(
                 renderTimeline.tokens, measured.groups.penalties,
@@ -165,18 +171,19 @@ internal class PopSceneBuilder(private val cache: PopRenderCache, private val me
                     renderTiming.sustain.subList(page.from, page.until))
                 val pageLayouts = layouts.subList(page.from, page.until)
                 val packing = packPopLyrics(FloatArray(tokens.size) { pageLayouts[it].size.width.toFloat() },
-                    FloatArray(tokens.size) { pageLayouts[it].size.height.toFloat() }, (width * .92f).coerceAtLeast(1f), height * .9f, gap,
+                    FloatArray(tokens.size) { pageLayouts[it].size.height.toFloat() }, packingWidth, packingHeight, gap,
                     layoutMode, reservedScale, reservedRotation, measured.groups.penalties.copyOfRange(page.from, page.until + 1),
                     extents.subList(page.from, page.until), gaps.copyOfRange(page.from, page.until + 1),
                     gap * style.rowGapPercent / 100f, style.staggerPercent, style.lineWidthPercent, rowTravel,
-                    maxFitScale = style.shortPhraseScalePercent / 100f, horizontalMotionReach = rowTravelX,
-                    layoutSeed = sceneSeed, anchorY = style.stageAnchorPercent / 100f)
+                    maxFitScale = 16f, horizontalMotionReach = rowTravelX,
+                    layoutSeed = sceneSeed, fillViewport = true)
                 val travelX = 72f * density.density * style.travelPercent / 100f
                 val travelY = 48f * density.density * style.travelPercent / 100f
                 val glyphs = pageLayouts.mapIndexed { index, layout ->
                     val source = page.from + index
                     val packed = packing.slots[index]
-                    val slot = PopLyricSlot(packed.x + width * .04f, packed.y + height * .05f)
+                    val slot = PopLyricSlot(packed.x + (width - packingWidth) / 2f,
+                        packed.y + (height - packingHeight) / 2f)
                     val seed = PopVisualMotion.seed(renderTimeline.startMs, tokens[index].text, source)
                     val halfWidth = (extents[source].width / 2f + rowTravelX) * packing.scale
                     val halfHeight = (extents[source].height / 2f + rowTravel) * packing.scale

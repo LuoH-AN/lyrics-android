@@ -35,11 +35,12 @@ internal data class PopLyricsStyle(
     val motionStrength: String = "balanced",
     val adaptiveEmphasis: Boolean = true,
     val coordinateMotion: Boolean = true,
-    val stageAnchorPercent: Int = 46,
+    val stageAnchorPercent: Int = 46, // Legacy snapshot value; the visual anchor is now always centered.
     val stagePaddingDp: Int = 20,
-    val shortPhraseScalePercent: Int = 160,
+    val shortPhraseScalePercent: Int = 160, // Legacy snapshot value; stageFillPercent controls viewport fitting.
     val translationGapDp: Int = 10,
     val translationMaxLines: Int = 3,
+    val stageFillPercent: Int = 94,
 ) {
     fun normalized() = copy(
         preset = preset.takeIf { it in listOf("calm", "flow", "dynamic", "custom") } ?: "custom",
@@ -65,6 +66,7 @@ internal data class PopLyricsStyle(
         shortPhraseScalePercent = shortPhraseScalePercent.coerceIn(110, 180),
         translationGapDp = translationGapDp.coerceIn(4, 28),
         translationMaxLines = translationMaxLines.coerceIn(1, 4),
+        stageFillPercent = stageFillPercent.coerceIn(65, 100),
         transition = transition.takeIf { it in listOf("fade", "slide", "zoom", "converge", "disperse", "random") } ?: "fade",
     )
     val maxWordScale get() = (1f + (activeScalePercent / 100f - 1f) * PopMotionOrchestration.strength(this) * 1.10f).coerceAtMost(1.94f) * 1.05f

@@ -5,6 +5,20 @@ import org.junit.Test
 import kotlin.math.abs
 
 class PopStageLayoutTest {
+    @Test fun mainLyricsStayAtViewportCenterAndOnlyActualCaptionHeightIsReserved() {
+        for ((width, height) in listOf(400f to 800f, 800f to 320f)) {
+            val layout = popStageLayout(width, height, 1f, 1f, HomeLyricAppearance(),
+                PopLyricsStyle(stageAnchorPercent = 30), true, captionHeight = 24f)
+            assertEquals(height / 2f, layout.insetY + layout.bodyTop + layout.bodyHeight / 2f, .001f)
+            assertEquals(34f, layout.captionReserve, .001f)
+            assertEquals(.5f, layout.anchor, 0f)
+            val original = popStageLayout(width, height, 1f, 1f, HomeLyricAppearance(),
+                PopLyricsStyle(stageAnchorPercent = 60), true, captionHeight = 0f)
+            assertEquals(0f, original.captionReserve, 0f)
+            assertEquals(height / 2f, original.insetY + original.bodyHeight / 2f, .001f)
+        }
+    }
+
     @Test fun portraitLandscapePreviewAndLargeFontsReserveSafeCaptionSpace() {
         for ((width, height) in listOf(400f to 800f, 800f to 320f, 320f to 156f, 160f to 100f)) {
             for (fontScale in listOf(1f, 1.5f, 2f)) for (maxLines in 1..4) {

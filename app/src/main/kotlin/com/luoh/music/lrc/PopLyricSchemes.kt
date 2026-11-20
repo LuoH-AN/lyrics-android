@@ -136,6 +136,7 @@ internal object PopLyricSchemes {
         put("shortPhraseScalePercent", s.shortPhraseScalePercent)
         put("translationGapDp", s.translationGapDp)
         put("translationMaxLines", s.translationMaxLines)
+        put("stageFillPercent", s.stageFillPercent)
     }
 
     private fun readMotion(j: JSONObject): PopLyricsStyle {
@@ -165,6 +166,7 @@ internal object PopLyricSchemes {
             shortPhraseScalePercent = j.optInt("shortPhraseScalePercent", d.shortPhraseScalePercent),
             translationGapDp = j.optInt("translationGapDp", d.translationGapDp),
             translationMaxLines = j.optInt("translationMaxLines", d.translationMaxLines),
+            stageFillPercent = j.optInt("stageFillPercent", d.stageFillPercent),
         ).normalized()
     }
 }

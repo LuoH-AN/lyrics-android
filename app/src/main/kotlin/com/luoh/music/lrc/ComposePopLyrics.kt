@@ -56,6 +56,8 @@ import androidx.compose.ui.unit.sp
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
 import kotlinx.coroutines.delay
 import kotlin.math.sin
+import kotlin.math.cos
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import androidx.compose.ui.text.style.TextAlign
 
@@ -187,8 +189,24 @@ internal fun PopLyricsStage(state: HomePresentationState, modifier: Modifier, al
         val width = with(density) { maxWidth.toPx() }
         val height = with(density) { maxHeight.toPx() }
         val bilingual = state.translationDisplayMode == LyricsOverlayService.TRANSLATION_BILINGUAL
-        val composition = remember(width, height, density, appearance, style, bilingual) {
+        val capacity = remember(width, height, density, appearance, style, bilingual) {
             popStageLayout(width, height, density.density, density.fontScale, appearance, style, bilingual)
+        }
+        val captionMeasurer = rememberTextMeasurer(cacheSize = 2)
+        val captionStyle = MaterialTheme.typography.bodyLarge.copy(
+            fontSize = (appearance.translationSize * capacity.captionScale).sp,
+            lineHeight = (appearance.translationSize * capacity.captionScale * 1.4f).sp,
+            textAlign = TextAlign.Center, lineBreak = LineBreak.Paragraph, hyphens = Hyphens.Auto)
+        val captionHeight = remember(frame.line?.translation, frame.previous?.line?.translation,
+            captionStyle, capacity, captionMeasurer) {
+            if (capacity.captionLines == 0) 0f else listOf(frame.line?.translation, frame.previous?.line?.translation)
+                .filterNotNull().filter { it.isNotBlank() }.maxOfOrNull { captionMeasurer.measure(AnnotatedString(it),
+                    style = captionStyle, constraints = Constraints(maxWidth = capacity.captionWidth.toInt().coerceAtLeast(1),
+                        maxHeight = (capacity.captionReserve - capacity.captionGap).toInt().coerceAtLeast(1)),
+                    maxLines = capacity.captionLines, overflow = TextOverflow.Ellipsis).size.height.toFloat() } ?: 0f
+        }
+        val composition = remember(width, height, density, appearance, style, bilingual, captionHeight) {
+            popStageLayout(width, height, density.density, density.fontScale, appearance, style, bilingual, captionHeight)
         }
         val builder = rememberPopSceneBuilder(cache, appearance, style, foreground, activeColor,
             composition.bodyWidth, composition.bodyHeight)
@@ -271,15 +289,16 @@ private fun PopSentenceContent(scenes: PopScenes, builder: PopSceneBuilder, posi
     Box(Modifier.fillMaxSize().graphicsLayer {
         val fraction = if (durationMs > 0) ((position.value - startMs).toFloat() / durationMs).coerceIn(0f, 1f) else 1f
         val pose = PopMotionOrchestration.pose(plan, fraction, entering, builder.width, builder.height)
-        translationX = pose.x
-        translationY = pose.y
+        // Directional handoffs pivot around the lyric center rather than moving its anchor.
+        rotationZ = pose.x / builder.width.coerceAtLeast(1f) * 5f - pose.y / builder.height.coerceAtLeast(1f) * 5f
         scaleX = pose.scale
         scaleY = pose.scale
         alpha = pose.alpha
-        transformOrigin = TransformOrigin(.5f, (composition.bodyHeight * composition.anchor / size.height.coerceAtLeast(1f)))
+        transformOrigin = TransformOrigin.Center
     }.then(if (entering) Modifier else Modifier.clearAndSetSemantics {})) {
         PopLyricCanvas(scenes, builder, position, style, allowMotion, foreground, activeColor, cameraPath,
-            Modifier.fillMaxWidth().height(with(density) { composition.bodyHeight.toDp() }), phraseMotionUntil,
+            Modifier.fillMaxWidth().height(with(density) { composition.bodyHeight.toDp() })
+                .offset(y = with(density) { composition.bodyTop.toDp() }), phraseMotionUntil,
             startMs, if (entering) durationMs else 0, entering, connectCamera)
         if (caption != null) {
             Text(translation, style = translationStyle, maxLines = composition.captionLines, overflow = TextOverflow.Ellipsis,
@@ -290,9 +309,9 @@ private fun PopSentenceContent(scenes: PopScenes, builder: PopSceneBuilder, posi
                         val handoff = scenes.handoffs[window.current]
                         val progress = if (window.retiring != null && handoff.durationMs > 0L)
                             (position.value - handoff.startMs).toFloat() / handoff.durationMs else 1f
-                        IntOffset(0, popCaptionTop(scenes.pages[window.current].bottom,
-                            window.retiring?.let { scenes.pages[it].bottom }, progress, composition.captionGap,
-                            composition.bodyHeight + composition.captionReserve - caption.size.height).roundToInt())
+                        IntOffset(0, popCaptionTop(scenes.pages[window.current].renderedBottom.floatValue + composition.bodyTop,
+                            window.retiring?.let { scenes.pages[it].renderedBottom.floatValue + composition.bodyTop }, progress, composition.captionGap,
+                            composition.bodyHeight + composition.bodyTop * 2f - caption.size.height).roundToInt())
                     }.testTag(if (entering) "home_pop_translation" else "home_pop_retiring_translation"))
         }
     }
@@ -331,6 +350,8 @@ private fun PopLyricCanvas(scenes: PopScenes, builder: PopSceneBuilder, position
             PopMotionOrchestration.cameraStyle(style), width, height)
         PopMotionOrchestration.transition(style, phraseSeed, flow)
     }
+    // Reuse frame buffers; centering does not allocate glyph objects on every display frame.
+    val drawFrames = remember(scenes) { scenes.pages.map { page -> Array(page.glyphs.size) { FloatArray(8) } } }
     Canvas(modifier.testTag(if (enteringSentence) "home_pop_canvas" else "home_pop_retiring_canvas").semantics {
         text = AnnotatedString(current.timeline.tokens.joinToString("") { it.text })
     }) {
@@ -343,66 +364,112 @@ private fun PopLyricCanvas(scenes: PopScenes, builder: PopSceneBuilder, position
         val progress = minOf(fraction, sentenceProgress)
         val wordGain = PopMotionOrchestration.handoffGain(progress, style.coordinateMotion, false)
         val rowGain = PopMotionOrchestration.handoffGain(progress, style.coordinateMotion, true)
-        fun drawPhrase(page: PopScene, pose: PopVisualPose) {
+        val camera = PopStageMotion.sample(now, joinedCamera, PopMotionOrchestration.cameraStyle(style), allowMotion)
+        fun drawPhrase(pageIndex: Int, pose: PopVisualPose) {
             if (pose.alpha <= 0f) return
+            val page = scenes.pages[pageIndex]
+            val glyphFrames = drawFrames[pageIndex]
             val timeline = page.timeline
             val timing = page.timing
             val animated = timeline.wordTimed && allowMotion
-            withTransform({
-                translate(pose.x, pose.y)
-                scale(pose.scale, pose.scale, Offset(width / 2f, height * style.stageAnchorPercent / 100f))
-            }) {
-                for (row in page.rows) {
-                    val enteredRow = if (animated && row.entranceMs > 0L)
-                        PopLyricMotion.enter(now - row.startMs, row.entranceMs) else 1f
-                    val passedRow = if (animated && row.passMs > 0L)
-                        PopLyricMotion.pass(now - row.passStartMs, row.passMs) else 0f
-                    val rowLife = if (animated) (1f - passedRow) * PopVisualMotion.travel(
-                        (now - row.startMs).toFloat() / row.entranceMs.coerceAtLeast(1L)) else 0f
-                    val sway = if (animated) sin((now - row.startMs) / 650f) * row.travel * .12f * rowLife * rowGain else 0f
-                    val rowY = if (animated) row.travel * .55f * (1f - enteredRow) * rowGain + sway else 0f
-                    withTransform({
-                        translate(if (animated) row.travelX * .55f * (1f - enteredRow) * rowGain else 0f, rowY)
-                        val rowScale = if (animated && row.travel > 0f) 1f - .04f * (1f - enteredRow) * rowGain else 1f
-                        scale(rowScale, rowScale, row.center)
-                    }) {
-                        for (index in row.from until row.until) {
-                            val token = timeline.tokens[index]
-                            val elapsed = now - (token.startMs - timing.lookaheadMs[index] + token.visualDelayMs)
-                            if (animated && elapsed < 0L) continue
-                            val entered = if (animated && timing.entranceMs[index] > 0L)
-                                PopLyricMotion.enter(elapsed, timing.entranceMs[index]) else 1f
-                            val passed = if (animated && timing.passMs[index] > 0L)
-                                PopLyricMotion.pass(now - timing.passStartMs[index], timing.passMs[index]) else if (animated && now >= timing.passStartMs[index]) 1f else 0f
-                            val fadeMs = minOf(140L, timing.entranceMs[index] / 3).coerceAtLeast(1L)
-                            val wordAlpha = if (animated) (if (timing.entranceMs[index] == 0L) 1f else PopVisualMotion.travel(elapsed.toFloat() / fadeMs)) *
-                                (1f - passed * (1f - style.passedOpacityPercent / 100f)) else 1f
-                            val glyph = page.glyphs[index]
-                            val targetScale = 1f + (glyph.dynamics.activeScale - 1f) * wordGain
-                            val entranceScale = .78f + entered * (targetScale - .78f)
-                            val scale = if (animated) (entranceScale + (1f - entranceScale) * passed)
-                                .coerceIn(.5f, glyph.dynamics.maxScale) else 1f
-                            val shake = PopSustainMotion.sample(if (animated) timing.sustain.getOrNull(index) else null, now)
-                            withTransform({
-                                // Preserve the negative overshoot: the word lands, rebounds, then settles.
-                                val remaining = if (animated) 1f - entered else 0f
-                                translate(glyph.slot.x + glyph.entranceOffset.x * remaining * wordGain, glyph.slot.y + glyph.entranceOffset.y * remaining * wordGain)
-                                scale(page.scale * scale * glyph.baseScale, page.scale * scale * glyph.baseScale, pivot = Offset.Zero)
-                                translate(shake.xDp * density.density * wordGain, shake.yDp * density.density * wordGain)
-                                if (animated) rotate((glyph.angle * (1f - passed * .65f) + style.rotationDegrees * glyph.dynamics.rotation * (1f - entered) + shake.degrees) * wordGain, pivot = Offset.Zero)
-                                translate(-glyph.layout.size.width / 2f, -glyph.layout.size.height / 2f)
-                            }) {
-                                drawText(glyph.layout, color = if (animated) lerp(activeColor, foreground, passed) else foreground,
-                                    alpha = wordAlpha * pose.alpha, shadow = if (animated && now >= token.startMs && now < token.endMs)
-                                        glyph.glow else Shadow.None)
-                            }
-                        }
+            val tilt = pose.x / width.coerceAtLeast(1f) * 5f - pose.y / height.coerceAtLeast(1f) * 5f +
+                (camera.x - camera.y) * 8f + camera.rotation
+            val radians = Math.toRadians(tilt.toDouble())
+            val cosine = cos(radians).toFloat()
+            val sine = sin(radians).toFloat()
+            var left = Float.POSITIVE_INFINITY
+            var right = Float.NEGATIVE_INFINITY
+            var top = Float.POSITIVE_INFINITY
+            var bottom = Float.NEGATIVE_INFINITY
+            for (row in page.rows) {
+                val enteredRow = if (animated && row.entranceMs > 0L)
+                    PopLyricMotion.enter(now - row.startMs, row.entranceMs) else 1f
+                val passedRow = if (animated && row.passMs > 0L)
+                    PopLyricMotion.pass(now - row.passStartMs, row.passMs) else 0f
+                val rowLife = if (animated) (1f - passedRow) * PopVisualMotion.travel(
+                    (now - row.startMs).toFloat() / row.entranceMs.coerceAtLeast(1L)) else 0f
+                val sway = if (animated) sin((now - row.startMs) / 650f) * row.travel * .12f * rowLife * rowGain else 0f
+                val rowY = if (animated) row.travel * .55f * (1f - enteredRow) * rowGain + sway else 0f
+                val rowX = if (animated) row.travelX * .55f * (1f - enteredRow) * rowGain else 0f
+                val rowScale = if (animated && row.travel > 0f) 1f - .04f * (1f - enteredRow) * rowGain else 1f
+                for (index in row.from until row.until) {
+                    val token = timeline.tokens[index]
+                    val glyph = page.glyphs[index]
+                    val frame = glyphFrames[index]
+                    val elapsed = now - (token.startMs - timing.lookaheadMs[index] + token.visualDelayMs)
+                    if (animated && elapsed < 0L) { frame[4] = 0f; continue }
+                    val entered = if (animated && timing.entranceMs[index] > 0L)
+                        PopLyricMotion.enter(elapsed, timing.entranceMs[index]) else 1f
+                    val passed = if (animated && timing.passMs[index] > 0L)
+                        PopLyricMotion.pass(now - timing.passStartMs[index], timing.passMs[index])
+                        else if (animated && now >= timing.passStartMs[index]) 1f else 0f
+                    val fadeMs = minOf(140L, timing.entranceMs[index] / 3).coerceAtLeast(1L)
+                    val visibility = if (animated && timing.entranceMs[index] > 0L)
+                        PopVisualMotion.travel(elapsed.toFloat() / fadeMs) else 1f
+                    frame[4] = visibility * (if (animated) 1f - passed * (1f - style.passedOpacityPercent / 100f) else 1f)
+                    frame[5] = passed
+                    if (visibility <= 0f || frame[4] <= 0f) continue
+                    val targetScale = 1f + (glyph.dynamics.activeScale - 1f) * wordGain
+                    val entranceScale = .78f + entered * (targetScale - .78f)
+                    val wordScale = if (animated) (entranceScale + (1f - entranceScale) * passed)
+                        .coerceIn(.5f, glyph.dynamics.maxScale) else 1f
+                    val shake = PopSustainMotion.sample(if (animated) timing.sustain.getOrNull(index) else null, now)
+                    val baseScale = page.scale * wordScale * glyph.baseScale * rowScale
+                    val remaining = if (animated) 1f - entered else 0f
+                    val gx = row.center.x + (glyph.slot.x + glyph.entranceOffset.x * remaining * wordGain - row.center.x) * rowScale +
+                        rowX + shake.xDp * density.density * wordGain * baseScale
+                    val gy = row.center.y + (glyph.slot.y + glyph.entranceOffset.y * remaining * wordGain - row.center.y) * rowScale +
+                        rowY + shake.yDp * density.density * wordGain * baseScale
+                    val dx = (gx - width / 2f) * pose.scale
+                    val dy = (gy - height / 2f) * pose.scale
+                    frame[0] = width / 2f + dx * cosine - dy * sine
+                    frame[1] = height / 2f + dx * sine + dy * cosine
+                    frame[2] = baseScale * pose.scale
+                    frame[3] = tilt + if (animated) (glyph.angle * (1f - passed * .65f) +
+                        style.rotationDegrees * glyph.dynamics.rotation * (1f - entered) + shake.degrees) * wordGain else 0f
+                    val angle = Math.toRadians(frame[3].toDouble())
+                    frame[6] = (glyph.layout.size.width * abs(cos(angle)) + glyph.layout.size.height * abs(sin(angle))).toFloat() * frame[2] / 2f
+                    frame[7] = (glyph.layout.size.height * abs(cos(angle)) + glyph.layout.size.width * abs(sin(angle))).toFloat() * frame[2] / 2f
+                    val gl = frame[0] - frame[6]
+                    val gr = frame[0] + frame[6]
+                    val gt = frame[1] - frame[7]
+                    val gb = frame[1] + frame[7]
+                    if (!left.isFinite()) { left = gl; right = gr; top = gt; bottom = gb } else {
+                        // Fade new bounds in with the new glyph; a barely visible onset must not jerk the block.
+                        left += (gl - left).coerceAtMost(0f) * visibility
+                        right += (gr - right).coerceAtLeast(0f) * visibility
+                        top += (gt - top).coerceAtMost(0f) * visibility
+                        bottom += (gb - bottom).coerceAtLeast(0f) * visibility
                     }
                 }
             }
+            if (!left.isFinite()) return
+            val centerX = (left + right) / 2f
+            val centerY = (top + bottom) / 2f
+            val fit = minOf(1f, width * .98f / (right - left).coerceAtLeast(1f),
+                height * .98f / (bottom - top).coerceAtLeast(1f))
+            val renderedBottom = height / 2f + (bottom - top) * fit / 2f
+            if (abs(page.renderedBottom.floatValue - renderedBottom) > .25f)
+                page.renderedBottom.floatValue = renderedBottom
+            for (index in page.glyphs.indices) {
+                val frame = glyphFrames[index]
+                if (frame[4] <= 0f) continue
+                val glyph = page.glyphs[index]
+                val token = timeline.tokens[index]
+                withTransform({
+                    translate(width / 2f + (frame[0] - centerX) * fit, height / 2f + (frame[1] - centerY) * fit)
+                    scale(frame[2] * fit, frame[2] * fit, pivot = Offset.Zero)
+                    rotate(frame[3], pivot = Offset.Zero)
+                    translate(-glyph.layout.size.width / 2f, -glyph.layout.size.height / 2f)
+                }) {
+                    drawText(glyph.layout, color = if (animated) lerp(activeColor, foreground, frame[5]) else foreground,
+                        alpha = frame[4] * pose.alpha, shadow = if (animated && now >= token.startMs && now < token.endMs)
+                            glyph.glow else Shadow.None)
+                }
+            }
         }
-        window.retiring?.let { drawPhrase(scenes.pages[it],
+        window.retiring?.let { drawPhrase(it,
             PopMotionOrchestration.pose(phrasePlan, fraction, false, width, height)) }
-        drawPhrase(current, PopMotionOrchestration.pose(phrasePlan, fraction, true, width, height))
+        drawPhrase(window.current, PopMotionOrchestration.pose(phrasePlan, fraction, true, width, height))
     }
 }
