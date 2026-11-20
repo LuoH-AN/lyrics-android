@@ -88,7 +88,7 @@ internal object PopLyricSchemes {
         put("stackAnchorPercent", s.stackAnchorPercent); put("stackScrollMs", s.stackScrollMs)
         put("stackDirection", s.stackDirection); put("stackEdgeFadeDp", s.stackEdgeFadeDp)
         put("stackHistoryOpacityPercent", s.stackHistoryOpacityPercent); put("stackRows", s.stackRows)
-        put("stackTranslations", s.stackTranslations)
+        put("stackTranslations", s.stackTranslations); put("pushDirection", s.pushDirection)
     }
 
     private fun readMotion(j: JSONObject): PopLyricsStyle {
@@ -114,6 +114,7 @@ internal object PopLyricSchemes {
             stackEdgeFadeDp = j.optInt("stackEdgeFadeDp", d.stackEdgeFadeDp),
             stackHistoryOpacityPercent = j.optInt("stackHistoryOpacityPercent", d.stackHistoryOpacityPercent),
             stackRows = j.optInt("stackRows", d.stackRows), stackTranslations = j.optBoolean("stackTranslations", d.stackTranslations),
+            pushDirection = j.optString("pushDirection", d.pushDirection),
         ).normalized()
     }
 }

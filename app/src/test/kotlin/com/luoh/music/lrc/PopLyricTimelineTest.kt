@@ -16,20 +16,20 @@ class PopLyricTimelineTest {
         assertEquals(listOf(1600L, 3600L, 6000L), plan.tokens.map { it.endMs })
         assertEquals(0L, plan.nextChangeDelayMs(5100, 9000))
         assertEquals(0L, plan.nextChangeDelayMs(1100, 9000))
-        assertEquals(0L, plan.nextChangeDelayMs(2000, 9000))
+        assertEquals(310L, plan.nextChangeDelayMs(2000, 9000))
         assertEquals(1000L, plan.nextChangeDelayMs(7000, 9000))
         assertEquals(50L, plan.nextChangeDelayMs(8950, 9000))
     }
 
     @Test fun stableWordsSleepButEntrancesAndPassTransitionsRequestFrames() {
         val plan = PopLyricTimeline.prepare(line)
-        assertEquals(850L, plan.nextChangeDelayMs(0, 9000))
-        assertEquals(0L, plan.nextChangeDelayMs(850, 9000))
-        assertEquals(0L, plan.nextChangeDelayMs(1449, 9000))
-        assertEquals(150L, plan.nextChangeDelayMs(1450, 9000))
+        assertEquals(910L, plan.nextChangeDelayMs(0, 9000))
+        assertEquals(0L, plan.nextChangeDelayMs(910, 9000))
+        assertEquals(0L, plan.nextChangeDelayMs(1329, 9000))
+        assertEquals(270L, plan.nextChangeDelayMs(1330, 9000))
         assertEquals(0L, plan.nextChangeDelayMs(1600, 9000))
-        assertEquals(0L, plan.nextChangeDelayMs(2099, 9000))
-        assertEquals(150L, plan.nextChangeDelayMs(2100, 9000))
+        assertEquals(0L, plan.nextChangeDelayMs(1879, 9000))
+        assertEquals(430L, plan.nextChangeDelayMs(1880, 9000))
     }
 
     @Test fun translationsMissingTimingMismatchesAndTooManyWordsKeepTheWholeSentence() {

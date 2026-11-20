@@ -50,14 +50,12 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
-import kotlin.math.cos
-import kotlin.math.sin
 
 private data class StackGlyph(val layout: TextLayoutResult, val slot: PopLyricSlot,
     val angle: Float, val sourceIndex: Int, val rowStart: Int, val entranceOffset: Offset)
 private data class StackBlock(val lineIndex: Int, val timeline: PopLyricTimeline,
     val timing: PopLyricRenderTiming, val glyphs: List<StackGlyph>, val scale: Float,
-    val height: Float, val translation: TextLayoutResult?, val translationTop: Float)
+    val height: Float, val left: Float, val width: Float, val translation: TextLayoutResult?, val translationTop: Float)
 
 /** Retain measured phrases across source lines. The viewport clips them only after
  * new phrases push them out; no lyric-end timer removes completed text. */
@@ -94,6 +92,9 @@ internal fun PopStackLyricsStage(state: HomePresentationState, modifier: Modifie
                 line.translation.isNotBlank()) line.translation else line.text
             if (primary.isBlank()) return@getOrPut emptyList()
             val source = PopLyricTimeline.prepare(line, primary, style.reveal)
+            val sceneSeed = PopVisualMotion.seed(source.startMs, primary)
+            val layoutMode = PopVisualMotion.layout(style.layout, sceneSeed)
+            val entranceMode = PopVisualMotion.entrance(style.entrance, sceneSeed)
             val profile = popLyricRenderTiming(source, style, document.lines.getOrNull(lineIndex + 1)?.startMs)
             val expanded = popLayoutTokens(source)
             val timeline = PopLyricTimeline(expanded.tokens, source.wordTimed, source.startMs, source.endMs)
@@ -124,7 +125,7 @@ internal fun PopStackLyricsStage(state: HomePresentationState, modifier: Modifie
                 (if (groups.tightBoundaries[index]) style.innerGapDp else style.groupGapDp) * density.density
             }
             val typicalHeight = extents.map { it.height + rowTravel * 2f }.sorted()[extents.size / 2]
-            val rowLimit = popLyricRowLimit(width * .92f, typicalHeight, style.layout, style.lineWidthPercent)
+            val rowLimit = popLyricRowLimit(width * .92f, typicalHeight, layoutMode, style.lineWidthPercent)
             val ranges = if (timeline.wordTimed) paginatePopLyrics(timeline.tokens, groups.penalties,
                 FloatArray(extents.size) { extents[it].width + gaps[it] },
                 rowLimit * style.stackRows, style.pageLength) else listOf(PopLyricPage(0, timeline.tokens.size))
@@ -137,10 +138,10 @@ internal fun PopStackLyricsStage(state: HomePresentationState, modifier: Modifie
                 val pageExtents = extents.subList(range.from, range.until)
                 val packing = packPopLyrics(FloatArray(pageLayouts.size) { pageLayouts[it].size.width.toFloat() },
                     FloatArray(pageLayouts.size) { pageLayouts[it].size.height.toFloat() }, width * .92f, height * .85f,
-                    wordGap, style.layout, reservedScale, style.rotationDegrees,
+                    wordGap, layoutMode, reservedScale, style.rotationDegrees,
                     groups.penalties.copyOfRange(range.from, range.until + 1), pageExtents,
                     gaps.copyOfRange(range.from, range.until + 1), wordGap * style.rowGapPercent / 100f,
-                    style.staggerPercent, style.lineWidthPercent, rowTravel, maxFitScale = 1f)
+                    style.staggerPercent, style.lineWidthPercent, rowTravel, maxFitScale = 1f, layoutSeed = sceneSeed)
                 val top = packing.slots.indices.minOf { packing.slots[it].y -
                     (pageExtents[it].height / 2f + rowTravel) * packing.scale }
                 val bottom = packing.slots.indices.maxOf { packing.slots[it].y +
@@ -149,18 +150,23 @@ internal fun PopStackLyricsStage(state: HomePresentationState, modifier: Modifie
                 val captionTop = bottom - top + translationGap
                 val glyphs = pageLayouts.mapIndexed { index, layout ->
                     val rowStart = packing.rowStarts.last { it <= index }
-                    val seed = tokensSeed(timeline.tokens[range.from + index], range.from + index)
-                    val entranceX = if (style.entrance == "scatter") sin(seed) * 72f * density.density * style.travelPercent / 100f else 0f
-                    val entranceY = if (style.entrance == "zoom") 0f else
-                        (if (style.entrance == "scatter") cos(seed) else 1f) * 48f * density.density * style.travelPercent / 100f
-                    StackGlyph(layout, PopLyricSlot(packing.slots[index].x + width * .04f, packing.slots[index].y - top),
-                        angles[range.from + index], range.from + index, range.from + rowStart, Offset(entranceX, entranceY))
+                    val slot = PopLyricSlot(packing.slots[index].x + width * .04f, packing.slots[index].y - top)
+                    val seed = PopVisualMotion.seed(source.startMs, timeline.tokens[range.from + index].text, range.from + index)
+                    val offset = PopVisualMotion.entranceOffset(entranceMode, seed, slot.x, slot.y,
+                        width, bottom - top, 72f * density.density * style.travelPercent / 100f,
+                        48f * density.density * style.travelPercent / 100f, style.travelPercent / 100f)
+                    StackGlyph(layout, slot, angles[range.from + index], range.from + index, range.from + rowStart,
+                        Offset(offset.x, offset.y))
                 }
+                val left = minOf(glyphs.indices.minOf { glyphs[it].slot.x - pageExtents[it].width * packing.scale / 2f },
+                    if (caption != null) (width - caption.size.width) / 2f else width)
+                val right = maxOf(glyphs.indices.maxOf { glyphs[it].slot.x + pageExtents[it].width * packing.scale / 2f },
+                    if (caption != null) (width + caption.size.width) / 2f else 0f)
                 val tokens = timeline.tokens.subList(range.from, range.until)
                 StackBlock(lineIndex, PopLyricTimeline(tokens, timeline.wordTimed, tokens.first().startMs,
                     tokens.maxOf { it.endMs }), timing, glyphs, packing.scale,
                     (if (caption == null) bottom - top else captionTop + caption.size.height).coerceAtLeast(1f),
-                    caption, captionTop)
+                    left, (right - left).coerceAtLeast(1f), caption, captionTop)
             }
         }
 
@@ -170,24 +176,30 @@ internal fun PopStackLyricsStage(state: HomePresentationState, modifier: Modifie
         } }
         val blocks = remember(currentBlocks, phraseIndex, cache, height) {
             val history = currentBlocks.toMutableList()
-            var extent = currentBlocks.take(phraseIndex + 1).sumOf { it.height.toDouble() + blockGap }.toFloat()
+            fun extent(block: StackBlock): Double = when (style.stackDirection) {
+                "up", "down" -> (block.height + blockGap) / height.toDouble()
+                "left", "right", "horizontal" -> (block.width + blockGap) / width.toDouble()
+                else -> minOf((block.height + blockGap) / height.toDouble(), (block.width + blockGap) / width.toDouble())
+            }
+            var extent = currentBlocks.take(phraseIndex + 1).sumOf(::extent)
             val cutoff = currentBlocks.getOrNull(phraseIndex)?.timeline?.startMs
                 ?: document.lines.getOrNull(frame.index)?.startMs ?: Long.MIN_VALUE
             var previous = frame.index - 1
             // The retained strip is bounded by measured screen space, not a lyric count or timeout.
-            while (previous >= 0 && extent < height * 2f) {
+            while (previous >= 0 && extent < 2.0) {
                 val prior = lineBlocks(previous--)
                 history.addAll(0, prior)
-                extent += prior.filter { it.timeline.startMs <= cutoff }.sumOf { it.height.toDouble() + blockGap }.toFloat()
+                extent += prior.filter { it.timeline.startMs <= cutoff }.sumOf(::extent)
             }
             // Knowing the next real onset lets a fast phrase finish its push before
             // the next one starts. Future blocks stay invisible in PopStackFlow.
             if (frame.index + 1 in document.lines.indices) lineBlocks(frame.index + 1).firstOrNull()?.let(history::add)
             history.sortedWith(compareBy<StackBlock> { it.timeline.startMs }.thenBy { it.lineIndex })
         }
-        val flow = remember(blocks, height, blockGap, style.stackAnchorPercent, style.stackScrollMs, style.stackDirection) {
-            PopStackFlow(blocks.map { PopStackMetric(it.timeline.startMs, it.height) }, height, blockGap,
-                style.stackAnchorPercent, style.stackScrollMs, style.stackDirection == "down")
+        val flow = remember(blocks, width, height, blockGap, style.stackAnchorPercent, style.stackScrollMs, style.stackDirection) {
+            PopStackFlow(blocks.map { PopStackMetric(it.timeline.startMs, it.height, it.width,
+                PopVisualMotion.seed(it.timeline.startMs, it.timeline.tokens.joinToString("") { token -> token.text })) }, height, blockGap,
+                style.stackAnchorPercent, style.stackScrollMs, viewportWidth = width, direction = style.stackDirection)
         }
         // Floats change in drawing; composition only follows new phrases or clipping boundaries.
         val visibleIndices by remember(flow, frame.position, allowMotion) { derivedStateOf {
@@ -212,7 +224,7 @@ internal fun PopStackLyricsStage(state: HomePresentationState, modifier: Modifie
             }
         }
         fun lineAt(point: Offset): Int = flow.at(frame.position.value, allowMotion).visible.lastOrNull {
-            point.y >= it.top && point.y < it.bottom
+            point.y >= it.top && point.y < it.bottom && point.x >= it.left && point.x < it.right
         }?.let { blocks[it.index].lineIndex } ?: frame.index
         val interaction = if (!interactive) Modifier else Modifier.pointerInput(flow, blocks, onLyricTap) {
             detectTapGestures(onTap = { point ->
@@ -252,17 +264,17 @@ internal fun PopStackLyricsStage(state: HomePresentationState, modifier: Modifie
                         val animated = block.timeline.wordTimed && allowMotion
                         val entered = if (animated) PopLyricMotion.enter(elapsed, block.timing.entranceMs[sourceIndex]) else 1f
                         val passed = PopLyricMotion.pass(now - block.timing.passStartMs[sourceIndex], block.timing.passMs[sourceIndex])
-                        val alpha = (if (animated) (elapsed.toFloat() / minOf(65L, block.timing.entranceMs[sourceIndex]).coerceAtLeast(1L))
+                        val alpha = (if (animated) (PopVisualMotion.travel(elapsed.toFloat() / minOf(140L, block.timing.entranceMs[sourceIndex] / 3).coerceAtLeast(1L)))
                             .coerceIn(0f, 1f) else 1f) * (1f - passed * (1f - style.passedOpacityPercent / 100f)) * historyAlpha
-                        val entranceScale = .5f + entered * (style.activeScalePercent / 100f - .5f)
+                        val entranceScale = .72f + entered * (style.activeScalePercent / 100f - .72f)
                         val scale = if (animated) (entranceScale + (1f - entranceScale) * passed).coerceIn(.5f, style.maxWordScale) else 1f
-                        val shake = PopSustainMotion.sample(if (animated && state.playing) block.timing.sustain[sourceIndex] else null, now)
+                        val shake = PopSustainMotion.sample(if (animated) block.timing.sustain[sourceIndex] else null, now)
                         val rowToken = block.timeline.tokens[glyph.rowStart - block.glyphs.first().sourceIndex]
                         val rowElapsed = now - (rowToken.startMs - block.timing.lookaheadMs[glyph.rowStart])
                         val rowOffset = if (animated) rowTravel * block.scale *
                             (1f - PopLyricMotion.enter(rowElapsed, block.timing.entranceMs[glyph.rowStart].coerceAtMost(300L))) else 0f
                         withTransform({
-                            translate(glyph.slot.x + glyph.entranceOffset.x * (1f - entered),
+                            translate(placement.left - block.left + glyph.slot.x + glyph.entranceOffset.x * (1f - entered),
                                 placement.top + glyph.slot.y + rowOffset + glyph.entranceOffset.y * (1f - entered))
                             scale(block.scale * scale, block.scale * scale, Offset.Zero)
                             translate(shake.xDp * density.density, shake.yDp * density.density)
@@ -274,12 +286,16 @@ internal fun PopStackLyricsStage(state: HomePresentationState, modifier: Modifie
                         }
                     }
                     block.translation?.let { caption -> drawText(caption,
-                        topLeft = Offset((width - caption.size.width) / 2f, placement.top + block.translationTop),
+                        topLeft = Offset(placement.left - block.left + (width - caption.size.width) / 2f, placement.top + block.translationTop),
                         alpha = historyAlpha) }
                 }
                 val edge = (style.stackEdgeFadeDp * density.density / height).coerceIn(0f, .49f)
                 if (edge > 0f) drawRect(Brush.verticalGradient(0f to Color.Transparent, edge to Color.Black,
                     (1f - edge) to Color.Black, 1f to Color.Transparent, endY = height), blendMode = BlendMode.DstIn)
+                val side = (style.stackEdgeFadeDp * density.density / width).coerceIn(0f, .49f)
+                if (side > 0f && style.stackDirection !in listOf("up", "down", "vertical"))
+                    drawRect(Brush.horizontalGradient(0f to Color.Transparent, side to Color.Black,
+                        (1f - side) to Color.Black, 1f to Color.Transparent, endX = width), blendMode = BlendMode.DstIn)
             }
         }
         frame.interlude?.let { gap ->
@@ -292,5 +308,3 @@ internal fun PopStackLyricsStage(state: HomePresentationState, modifier: Modifie
         }
     }
 }
-
-private fun tokensSeed(token: PopLyricToken, index: Int): Float = token.text.hashCode().toFloat() + index * 17f

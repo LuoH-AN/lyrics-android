@@ -62,7 +62,8 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
     breakPenalties: FloatArray? = null, extents: List<PopGlyphExtent>? = null,
     boundaryGaps: FloatArray? = null, rowGap: Float = gap, indentPercent: Int = 100,
     lineWidthPercent: Int = 100, rowMotionReach: Float = 0f, maxFitScale: Float = 1f,
-    horizontalMotionReach: Float = 0f): PopLyricPacking {
+    horizontalMotionReach: Float = 0f, layoutSeed: Long = 0L): PopLyricPacking {
+    val layout = PopVisualMotion.layout(layoutStyle, layoutSeed)
     require(widths.size == heights.size && widths.size <= PopLyricTimeline.MAX_TOKENS)
     require(breakPenalties == null || breakPenalties.size == widths.size + 1)
     require(extents == null || extents.size == widths.size)
@@ -77,8 +78,8 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
     val gaps = FloatArray(count) { if (it == 0) 0f else boundaryGaps?.get(it) ?: gap }
     val typicalHeight = reservedHeights.sorted()[count / 2]
     // Wide landscape stages still read as a phrase, rather than a screen-long ribbon.
-    val composed = layoutStyle != "centered"
-    val rowLimit = popLyricRowLimit(width, typicalHeight, layoutStyle, lineWidthPercent)
+    val composed = layout != "centered"
+    val rowLimit = popLyricRowLimit(width, typicalHeight, layout, lineWidthPercent)
     val budget = rowLimit / .88f
     val sums = FloatArray(count + 1)
     for (index in widths.indices) sums[index + 1] = sums[index] + reservedWidths[index] + gaps[index]
@@ -96,7 +97,8 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
         // Alternating phrase lengths create a readable rhythm; centered keeps balanced lines.
         val weights = FloatArray(rows) { row -> when {
             !composed || rows == 1 -> 1f
-            layoutStyle == "stairs" -> .78f + .44f * row / (rows - 1)
+            layout == "stairs" -> .78f + .44f * row / (rows - 1)
+            layout == "wave" -> 1f + sin(row * 1.35f + PopVisualMotion.choice(layoutSeed, 8)) * .25f
             row % 2 == 0 -> .78f
             else -> 1.22f
         } }
@@ -141,8 +143,9 @@ internal fun packPopLyrics(widths: FloatArray, heights: FloatArray, width: Float
     for (row in rowStarts.indices) {
         val slack = (width - rowWidths[row] * fit).coerceAtLeast(0f)
         val offset = when {
-            rowStarts.size == 1 || layoutStyle == "centered" -> 0f
-            layoutStyle == "stairs" -> (row.toFloat() / (rowStarts.size - 1) * 2f - 1f) * indent
+            rowStarts.size == 1 || layout == "centered" -> 0f
+            layout == "stairs" -> (row.toFloat() / (rowStarts.size - 1) * 2f - 1f) * indent
+            layout == "wave" -> sin(row * 1.35f + PopVisualMotion.choice(layoutSeed, 8)) * indent
             row % 2 == 0 -> -indent
             else -> indent
         }

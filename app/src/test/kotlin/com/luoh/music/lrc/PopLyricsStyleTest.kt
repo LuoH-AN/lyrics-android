@@ -55,8 +55,9 @@ class PopLyricsStyleTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
         val style = PopLyricsStyle(presentation = "stack", stackGapDp = 22, stackAnchorPercent = 35,
-            stackScrollMs = 650, stackDirection = "down", stackEdgeFadeDp = 18,
-            stackHistoryOpacityPercent = 55, stackRows = 3, stackTranslations = false)
+            stackScrollMs = 650, stackDirection = "random", stackEdgeFadeDp = 18,
+            stackHistoryOpacityPercent = 55, stackRows = 3, stackTranslations = false,
+            layout = "random", entrance = "random", transition = "random", pushDirection = "horizontal", camera = "orbit")
         PopLyricsPrefs.save(context, style)
         assertTrue(PopLyricSchemes.save(context, "我的堆叠"))
         val saved = PopLyricSchemes.saved(context).single()
@@ -65,6 +66,26 @@ class PopLyricsStyleTest {
         assertEquals(style, PopLyricSchemes.saved(context).single().motion)
         PopLyricSchemes.apply(context, saved)
         assertEquals(style, PopLyricsPrefs.style(context))
+    }
+
+    @Test fun allNewMotionChoicesSurviveSavingAndOldCustomPreferencesArePreserved() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE)
+        prefs.edit().clear().putString("pop_preset", "custom").putInt("pop_entrance_ms", 750)
+            .putString("pop_layout", "stairs").putString("pop_stack_direction", "down").commit()
+        val old = PopLyricsPrefs.style(context)
+        assertEquals(750, old.entranceMs)
+        assertEquals("stairs", old.layout)
+        assertEquals("down", old.stackDirection)
+        assertEquals("left", old.pushDirection)
+        for (direction in listOf("left", "right", "up", "down", "horizontal", "vertical", "random")) {
+            for (effect in listOf("converge", "disperse", "random")) {
+                val configured = old.copy(entrance = effect, transition = effect,
+                    pushDirection = direction, stackDirection = direction)
+                PopLyricsPrefs.save(context, configured)
+                assertEquals(configured, PopLyricsPrefs.style(context))
+            }
+        }
     }
 
     @Test fun characterChoreographyKeepsRealWordTimestampsAndComplexTextIntact() {
@@ -87,7 +108,7 @@ class PopLyricsStyleTest {
         val line = LyricLine(1000, "音乐陪你到天亮", words = listOf(
             LyricWord(1000, 1000, "音乐"), LyricWord(2000, 1000, "陪你"), LyricWord(3000, 1000, "到天亮")))
         val timeline = PopLyricTimeline.prepare(line)
-        val style = PopLyricsStyle()
+        val style = PopLyricsStyle(breathing = false)
         val path = PopStageMotion.path(timeline,
             listOf(PopCameraPoint(-.3f, -.15f), PopCameraPoint(0f, 0f), PopCameraPoint(.3f, .15f)), style)
         val left = PopStageMotion.sample(1600, path, style)
@@ -143,7 +164,7 @@ class PopLyricsStyleTest {
         val timeline = PopLyricTimeline.prepare(LyricLine(1000, "音乐陪伴", words = listOf(
             LyricWord(1000, 150, "音"), LyricWord(1150, 150, "乐"),
             LyricWord(1300, 150, "陪"), LyricWord(1450, 150, "伴"))))
-        val style = PopLyricsStyle()
+        val style = PopLyricsStyle(breathing = false)
         val path = PopStageMotion.path(timeline, listOf(PopCameraPoint(-.2f, -.1f),
             PopCameraPoint(-.1f, -.05f), PopCameraPoint(.1f, .05f), PopCameraPoint(.2f, .1f)), style)
         for (point in path.waypoints.drop(1)) {

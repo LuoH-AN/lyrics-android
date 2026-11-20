@@ -80,4 +80,42 @@ class PopLyricStackTest {
         val placement = flow.at(0).visible.single()
         assertTrue(placement.top <= 0f && placement.bottom >= 50f)
     }
+
+    @Test fun horizontalPushesUseActualWidthsAndKeepOldLyricsUntilTheyLeave() {
+        val metrics = (0..10).map { PopStackMetric(it * 1000L, 80f, 70f) }
+        for (direction in listOf("left", "right")) {
+            val flow = PopStackFlow(metrics, 500f, 10f, 50, 400, viewportWidth = 400f, direction = direction)
+            assertEquals(listOf(0, 1), flow.at(1500).visible.map { it.index })
+            assertFalse(flow.at(9500).visible.any { it.index == 0 })
+            val blocks = flow.at(2500).visible.sortedBy { it.left }
+            blocks.zipWithNext().forEach { (a, b) -> assertTrue(a.right + 9f <= b.left) }
+            blocks.forEach { assertEquals(70f, it.right - it.left, .001f) }
+        }
+    }
+
+    @Test fun randomDirectionChangesStayDeterministicAndNeverReviveOffscreenHistory() {
+        val metrics = (0..100).map { PopStackMetric(it * 1000L, 80f, 90f, it.toLong()) }
+        for (direction in listOf("horizontal", "vertical", "random")) {
+            val flow = PopStackFlow(metrics, 500f, 10f, 50, 400, viewportWidth = 400f, direction = direction)
+            val retired = mutableSetOf<Int>()
+            var previous = emptySet<Int>()
+            for (index in metrics.indices) {
+                val window = flow.at(index * 1000L + 500)
+                val visible = window.visible.map { it.index }.toSet()
+                retired.addAll(previous - visible)
+                assertTrue(visible.intersect(retired).isEmpty())
+                assertTrue(index in visible)
+                val rects = window.visible
+                for (a in rects.indices) for (b in a + 1 until rects.size) {
+                    val x = rects[a]; val y = rects[b]
+                    assertTrue(x.right <= y.left || y.right <= x.left || x.bottom <= y.top || y.bottom <= x.top)
+                }
+                assertEquals(window, flow.at(index * 1000L + 500))
+                previous = visible
+            }
+            assertEquals(flow.at(2200), flow.at(2200))
+            assertEquals(flow.at(2200), PopStackFlow(metrics, 500f, 10f, 50, 400,
+                viewportWidth = 400f, direction = direction).at(2200))
+        }
+    }
 }

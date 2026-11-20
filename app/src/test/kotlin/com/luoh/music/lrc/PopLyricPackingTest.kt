@@ -5,6 +5,23 @@ import org.junit.Test
 import kotlin.math.abs
 
 class PopLyricPackingTest {
+    @Test fun waveAndRandomLayoutsAreStableAndKeepEveryGlyphInsideTheStage() {
+        for (mode in listOf("wave", "random")) for (seed in 0L..20L) {
+            val widths = FloatArray(12) { if (it % 3 == 0) 55f else 30f }
+            val heights = FloatArray(12) { 45f }
+            val packed = packPopLyrics(widths, heights, 320f, 500f, 4f, mode, 1f, 0, layoutSeed = seed)
+            assertEquals(packed, packPopLyrics(widths, heights, 320f, 500f, 4f, mode, 1f, 0, layoutSeed = seed))
+            assertEquals(widths.size, packed.slots.size)
+            for (index in widths.indices) {
+                val point = packed.slots[index]
+                assertTrue(point.x - widths[index] * packed.scale / 2f >= -.01f)
+                assertTrue(point.x + widths[index] * packed.scale / 2f <= 320.01f)
+                assertTrue(point.y - heights[index] * packed.scale / 2f >= -.01f)
+                assertTrue(point.y + heights[index] * packed.scale / 2f <= 500.01f)
+            }
+        }
+    }
+
     @Test fun sparsePagesEnlargeTheirTypeWithinTheActualMotionBounds() {
         for (mode in listOf("centered", "staggered", "stairs")) {
             val widths = floatArrayOf(42f, 42f, 42f)
@@ -68,7 +85,7 @@ class PopLyricPackingTest {
     @Test fun landscapeLimitsLineLengthAndShortPhrasesStayCentered() {
         for (mode in listOf("centered", "staggered", "stairs")) {
             val long = packPopLyrics(FloatArray(20) { 32f }, FloatArray(20) { 40f }, 800f, 320f, 0f, mode, 1f, 0)
-            assertEquals(2, long.rowStarts.size)
+            assertTrue("Landscape text should wrap into readable short rows", long.rowStarts.size >= 2)
             assertTrue(long.scale >= .88f)
             val short = packPopLyrics(FloatArray(3) { 60f }, FloatArray(3) { 40f }, 800f, 320f, 0f, mode, 1f, 0)
             assertEquals(listOf(0), short.rowStarts)

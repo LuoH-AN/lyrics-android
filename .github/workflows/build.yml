@@ -15,6 +15,10 @@ on:
         description: "Use full R8 optimization for the Nightly APK (slower)"
         type: boolean
         default: false
+      android_tests:
+        description: "Optional Android test class filters, separated by commas"
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -64,8 +68,18 @@ jobs:
           ./gradlew assembleNightly -PnightlyVersion="$NIGHTLY_VERSION" -PfullOptimization=${{ github.event_name == 'workflow_dispatch' && inputs.full_optimization || false }} --stacktrace
 
       - name: Run optional Android checks
-        if: github.event_name == 'workflow_dispatch' && inputs.full_checks
-        run: ./gradlew testDebugUnitTest --stacktrace
+        if: github.event_name == 'workflow_dispatch' && (inputs.full_checks || inputs.android_tests != '')
+        env:
+          ANDROID_TEST_FILTERS: ${{ inputs.android_tests }}
+        run: |
+          args=(testDebugUnitTest --stacktrace)
+          if [[ -n "$ANDROID_TEST_FILTERS" ]]; then
+            IFS=',' read -ra filters <<< "$ANDROID_TEST_FILTERS"
+            for filter in "${filters[@]}"; do
+              args+=(--tests "$filter")
+            done
+          fi
+          ./gradlew "${args[@]}"
 
       - name: Verify Nightly APK and size
         env:
@@ -75,7 +89,7 @@ jobs:
           python3 tools/verify-nightly-apk.py
 
       - name: Upload optional Android test reports
-        if: always() && github.event_name == 'workflow_dispatch' && inputs.full_checks
+        if: always() && github.event_name == 'workflow_dispatch' && (inputs.full_checks || inputs.android_tests != '')
         uses: actions/upload-artifact@v4
         with:
           name: material-ui-checks

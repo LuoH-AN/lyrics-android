@@ -28,7 +28,7 @@ internal fun popLyricRenderTiming(timeline: PopLyricTimeline, style: PopLyricsSt
     val available = ((nextLineMs ?: timeline.endMs).coerceAtMost(timeline.endMs) - timeline.startMs).coerceAtLeast(1L)
     val fast = style.adaptiveTiming && available < 800L
     val instant = style.adaptiveTiming && available <= 100L
-    val transition = if (instant) 0 else if (fast) (available / 4).toInt().coerceIn(16, 100) else 180
+    val transition = if (instant) 0 else if (fast) (available / 4).toInt().coerceIn(16, 100) else (style.entranceMs * .85f).toInt().coerceIn(220, 520)
     val entrances = LongArray(timeline.tokens.size) { index ->
         val tokenDuration = (timeline.tokens[index].endMs - timeline.tokens[index].startMs).coerceAtLeast(1)
         when {

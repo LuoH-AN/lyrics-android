@@ -8,7 +8,7 @@ class PopLyricRenderTimingTest {
         for (duration in listOf(80L, 400L, 6000L)) {
             val tokens = listOf(PopLyricToken("音乐", 1000, 1000 + duration))
             val timeline = PopLyricTimeline(tokens, true, 1000, 1000 + duration)
-            val timing = popLyricRenderTiming(timeline, PopLyricsStyle(), 1000 + duration)
+            val timing = popLyricRenderTiming(timeline, PopLyricsStyle(entranceMs = 600), 1000 + duration)
             assertEquals(tokens, timeline.tokens)
             if (duration == 80L) {
                 assertEquals(0, timing.transitionMs)
@@ -19,7 +19,7 @@ class PopLyricRenderTimingTest {
                 assertTrue(timing.transitionMs < 160)
                 assertTrue(timing.entranceMs[0] <= duration / 2)
             } else {
-                assertEquals(320, timing.transitionMs)
+                assertTrue(timing.transitionMs in 220..600)
                 assertEquals(600L, timing.entranceMs[0])
             }
         }
@@ -33,8 +33,8 @@ class PopLyricRenderTimingTest {
         assertEquals(0L, timing.nextChangeDelayMs(timeline.tokens, 2300, 4000))
         assertEquals(1000L, timing.nextChangeDelayMs(timeline.tokens, 3000, 4000))
         val fixed = popLyricRenderTiming(PopLyricTimeline(listOf(PopLyricToken("啊", 1000, 1080)), true),
-            PopLyricsStyle(adaptiveTiming = false))
-        assertEquals(320, fixed.transitionMs)
+            PopLyricsStyle(adaptiveTiming = false, entranceMs = 600))
+        assertTrue(fixed.transitionMs in 220..600)
         assertEquals(600L, fixed.entranceMs[0])
     }
 

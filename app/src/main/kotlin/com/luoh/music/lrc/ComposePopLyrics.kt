@@ -5,8 +5,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideIn
+import androidx.compose.animation.slideOut
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -64,7 +66,6 @@ import androidx.compose.ui.unit.sp
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
 import kotlinx.coroutines.delay
 import kotlin.math.sin
-import kotlin.math.cos
 import kotlin.math.roundToInt
 import androidx.compose.ui.text.style.TextAlign
 
@@ -101,7 +102,7 @@ internal fun rememberPopPlayback(state: HomePresentationState, style: PopLyricsS
         PopLyricTimeline.prepare(candidate, text, style.reveal)
     }
     val timeline = line?.let { prepare(it, primary) }
-    val cameraPath = remember(line, primary, style) { mutableStateOf<PopCameraPath?>(null) }
+    val cameraPath = remember(document, style) { mutableStateOf<PopCameraPath?>(null) }
     val phraseMotionUntil = remember(line, primary, style) { mutableStateOf<Long?>(null) }
     val policy = LocalAgoraMotionPolicy.current
     val allowMotion = policy.allowSpatialTransitions
@@ -202,18 +203,30 @@ internal fun PopLyricsStage(state: HomePresentationState, modifier: Modifier, al
         AnimatedContent(targetState = frame, modifier = Modifier.fillMaxSize().padding(bottom = reservedTranslation),
             contentKey = { it.line?.startMs to it.primary }, label = "popSentenceTransition",
             transitionSpec = {
-                val duration = if (allowMotion) targetState.timing?.transitionMs ?: 320 else 0
-                val enter = when (style.transition) {
-                    "zoom" -> fadeIn(tween((duration / 2).coerceAtLeast(0))) + scaleIn(tween(duration), initialScale = .94f)
-                    "slide" -> fadeIn(tween(duration)) + slideInHorizontally(tween(duration)) { it / 3 }
-                    else -> fadeIn(tween(duration))
+                val duration = if (allowMotion) targetState.timing?.transitionMs ?: 360 else 0
+                val seed = PopVisualMotion.seed(targetState.line?.startMs ?: 0L, targetState.primary)
+                val effect = PopVisualMotion.transition(style.transition, seed)
+                val direction = PopVisualMotion.direction(style.pushDirection, seed)
+                val easing = CubicBezierEasing(.18f, 0f, .2f, 1f)
+                val fadeEnter = fadeIn(tween((duration * .72f).toInt(), easing = easing))
+                val fadeExit = fadeOut(tween(duration, easing = easing))
+                val enter = when (effect) {
+                    "zoom", "converge", "disperse" -> fadeEnter + scaleIn(tween(duration, easing = easing),
+                        initialScale = when (effect) { "converge" -> 1.20f; "disperse" -> .78f; else -> .88f })
+                    "slide" -> fadeEnter + slideIn(tween(duration, easing = easing)) {
+                        IntOffset((-direction.x * it.width * .18f).roundToInt(), (-direction.y * it.height * .12f).roundToInt())
+                    }
+                    else -> fadeEnter
                 }
-                val exit = when (style.transition) {
-                    "zoom" -> fadeOut(tween(duration)) + scaleOut(tween(duration), targetScale = 1.06f)
-                    "slide" -> fadeOut(tween(duration)) + slideOutHorizontally(tween(duration)) { -it / 3 }
-                    else -> fadeOut(tween(duration))
+                val exit = when (effect) {
+                    "zoom", "converge", "disperse" -> fadeExit + scaleOut(tween(duration, easing = easing),
+                        targetScale = when (effect) { "converge" -> .82f; "disperse" -> 1.24f; else -> 1.08f })
+                    "slide" -> fadeExit + slideOut(tween(duration, easing = easing)) {
+                        IntOffset((direction.x * it.width * .18f).roundToInt(), (direction.y * it.height * .12f).roundToInt())
+                    }
+                    else -> fadeExit
                 }
-                enter togetherWith exit
+                (enter togetherWith exit).using(SizeTransform(clip = false))
             }) { sentence ->
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 val gap = sentence.interlude
@@ -313,6 +326,9 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
             val measured = measure(candidate)
             return cache.scenes.getOrPut(PopSceneKey(measured, candidate, profile, width, height, gap, density.density, style, activeColor)) {
                 val renderTimeline = measured.timeline
+                val sceneSeed = PopVisualMotion.seed(renderTimeline.startMs, renderTimeline.tokens.joinToString("") { it.text })
+                val layoutMode = PopVisualMotion.layout(style.layout, sceneSeed)
+                val entranceMode = PopVisualMotion.entrance(style.entrance, sceneSeed)
                 val renderTiming = PopLyricRenderTiming(profile.transitionMs,
                     measured.sourceIndices.map { profile.entranceMs[it] }.toLongArray(),
                     measured.sourceIndices.map { profile.lookaheadMs[it] }.toLongArray(),
@@ -330,7 +346,7 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
                     val sustain = (group.from until group.until).maxOf {
                         renderTimeline.tokens[it].endMs - renderTimeline.tokens[it].startMs
                     }.coerceIn(0L, 1000L) / 1000f
-                    val variation = if (style.layout == "centered") .6f else 1f
+                    val variation = if (layoutMode == "centered") .6f else 1f
                     val phraseScale = 1f + (-.08f + seed * .27f + sustain * .12f) * variation
                     for (index in group.from until group.until) emphasis[index] = phraseScale
                 }
@@ -359,7 +375,7 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
                     20f * density.density * style.rowMotionPercent / 100f else 0f
                 val rowTravelX = rowTravel * 1.6f
                 val typicalHeight = extents.map { it.height + rowTravel * 2f }.sorted()[extents.size / 2]
-                val rowLimit = popLyricRowLimit((width * .92f).coerceAtLeast(1f), typicalHeight, style.layout, style.lineWidthPercent)
+                val rowLimit = popLyricRowLimit((width * .92f).coerceAtLeast(1f), typicalHeight, layoutMode, style.lineWidthPercent)
                 val availableRows = (height * .9f / (typicalHeight + gap * style.rowGapPercent / 100f)).coerceIn(1f, 2f)
                 // Pagination needs widths, not an expensive layout of the entire long sentence.
                 val ranges = if (style.paginate && renderTimeline.wordTimed) paginatePopLyrics(
@@ -381,22 +397,24 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
                     val pageLayouts = layouts.subList(page.from, page.until)
                     val packing = packPopLyrics(FloatArray(tokens.size) { pageLayouts[it].size.width.toFloat() },
                         FloatArray(tokens.size) { pageLayouts[it].size.height.toFloat() }, (width * .92f).coerceAtLeast(1f), height * .9f, gap,
-                        style.layout, reservedScale, reservedRotation, measured.groups.penalties.copyOfRange(page.from, page.until + 1),
+                        layoutMode, reservedScale, reservedRotation, measured.groups.penalties.copyOfRange(page.from, page.until + 1),
                         extents.subList(page.from, page.until), gaps.copyOfRange(page.from, page.until + 1),
                         gap * style.rowGapPercent / 100f, style.staggerPercent, style.lineWidthPercent, rowTravel,
-                        maxFitScale = 1.8f, horizontalMotionReach = rowTravelX)
+                        maxFitScale = 1.8f, horizontalMotionReach = rowTravelX, layoutSeed = sceneSeed)
                     val travelX = 72f * density.density * style.travelPercent / 100f
                     val travelY = 48f * density.density * style.travelPercent / 100f
                     val glyphs = pageLayouts.mapIndexed { index, layout ->
                         val source = page.from + index
                         val packed = packing.slots[index]
                         val slot = PopLyricSlot(packed.x + width * .04f, packed.y + height * .05f)
-                        val seed = Math.floorMod(tokens[index].text.hashCode().toLong() + source * 17L, 997L).toFloat()
+                        val seed = PopVisualMotion.seed(renderTimeline.startMs, tokens[index].text, source)
                         val halfWidth = (extents[source].width / 2f + rowTravelX) * packing.scale
                         val halfHeight = (extents[source].height / 2f + rowTravel) * packing.scale
-                        val dx = (if (style.entrance == "scatter") sin(seed) * travelX else 0f).coerceIn(
+                        val entry = PopVisualMotion.entranceOffset(entranceMode, seed, slot.x, slot.y,
+                            width, height, travelX, travelY, style.travelPercent / 100f)
+                        val dx = entry.x.coerceIn(
                             (halfWidth - slot.x).coerceAtMost(0f), (width - halfWidth - slot.x).coerceAtLeast(0f))
-                        val dy = (when (style.entrance) { "scatter" -> cos(seed) * travelY; "rise" -> travelY; else -> 0f }).coerceIn(
+                        val dy = entry.y.coerceIn(
                             (halfHeight - slot.y).coerceAtMost(0f), (height - halfHeight - slot.y).coerceAtLeast(0f))
                         PopGlyph(layout, slot, angles[source], Offset(dx, dy), emphasis[source],
                             Shadow(activeColor.copy(alpha = .45f), Offset.Zero, 7f * density.density))
@@ -430,11 +448,11 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
                 val camera = PopStageMotion.path(renderTimeline, pages.flatMap { page -> page.glyphs.map {
                     PopCameraPoint(it.slot.x / width.coerceAtLeast(1f) - .5f, it.slot.y / height.coerceAtLeast(1f) - .5f)
                 } }, style, bounds, renderTiming)
-                PopScenes(renderTimeline, ranges, pages, popPhraseHandoffs(ranges, renderTimeline), camera)
+                PopScenes(renderTimeline, ranges, pages, popPhraseHandoffs(ranges, renderTimeline, profile.transitionMs), camera)
             }
         }
         val scenes = remember(timeline, timing, textStyle, density, width, height, gap, style, activeColor) { scene(timeline, timing) }
-        val animateHandoff = allowMotion && playing
+        val animateHandoff = allowMotion
         val window by remember(scenes, position, animateHandoff) { derivedStateOf {
             popPhraseWindow(scenes.ranges, scenes.timeline, scenes.handoffs, position.value, animateHandoff)
         } }
@@ -448,32 +466,46 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
             }
         }
         if (preheatOnly) return@BoxWithConstraints
+        val joinedCamera = remember(scenes, cameraPath) {
+            PopStageMotion.connect(scenes.cameraPath, cameraPath?.value, position.value)
+        }
         SideEffect {
-            if (cameraPath != null) cameraPath.value = scenes.cameraPath
+            if (cameraPath != null) cameraPath.value = joinedCamera
             if (contentBottom != null) contentBottom.value = maxOf(current.bottom,
                 window.retiring?.let { scenes.pages[it].bottom } ?: 0f)
             if (phraseMotionUntil != null) phraseMotionUntil.value = if (window.retiring == null) null else
                 scenes.handoffs[window.current].let { it.startMs + it.durationMs }
         }
+        val phraseSeed = remember(current) {
+            PopVisualMotion.seed(current.timeline.startMs, current.timeline.tokens.joinToString("") { it.text })
+        }
+        val phraseEffect = remember(style.transition, phraseSeed) { PopVisualMotion.transition(style.transition, phraseSeed) }
+        val phraseDirection = remember(style.pushDirection, phraseSeed) { PopVisualMotion.direction(style.pushDirection, phraseSeed) }
         Canvas(Modifier.fillMaxSize().testTag("home_pop_canvas").semantics {
             text = AnnotatedString(current.timeline.tokens.joinToString("") { it.text })
         }) {
             val now = position.value
-            fun drawPhrase(page: PopScene, phraseAlpha: Float, offsetY: Float) {
-                if (phraseAlpha <= 0f) return
+            fun drawPhrase(page: PopScene, pose: PopVisualPose) {
+                if (pose.alpha <= 0f) return
                 val timeline = page.timeline
                 val timing = page.timing
                 val animated = timeline.wordTimed && allowMotion
-                withTransform({ translate(0f, offsetY) }) {
+                withTransform({
+                    translate(pose.x, pose.y)
+                    scale(pose.scale, pose.scale, Offset(width / 2f, height / 2f))
+                }) {
                     for (row in page.rows) {
                         val enteredRow = if (animated && row.entranceMs > 0L)
                             PopLyricMotion.enter(now - row.startMs, row.entranceMs) else 1f
                         val passedRow = if (animated && row.passMs > 0L)
                             PopLyricMotion.pass(now - row.passStartMs, row.passMs) else 0f
-                        val rowY = if (animated) row.travel * (1f - enteredRow + passedRow * (1f - passedRow) * .3f) else 0f
+                        val rowLife = if (animated) (1f - passedRow) * PopVisualMotion.travel(
+                            (now - row.startMs).toFloat() / row.entranceMs.coerceAtLeast(1L)) else 0f
+                        val sway = if (animated) sin((now - row.startMs) / 650f) * row.travel * .12f * rowLife else 0f
+                        val rowY = if (animated) row.travel * .55f * (1f - enteredRow) + sway else 0f
                         withTransform({
-                            translate(if (animated) row.travelX * (1f - enteredRow) else 0f, rowY)
-                            val rowScale = if (animated && row.travel > 0f) .90f + enteredRow * .10f else 1f
+                            translate(if (animated) row.travelX * .55f * (1f - enteredRow) else 0f, rowY)
+                            val rowScale = if (animated && row.travel > 0f) .96f + enteredRow * .04f else 1f
                             scale(rowScale, rowScale, row.center)
                         }) {
                             for (index in row.from until row.until) {
@@ -484,14 +516,14 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
                                     PopLyricMotion.enter(elapsed, timing.entranceMs[index]) else 1f
                                 val passed = if (animated && timing.passMs[index] > 0L)
                                     PopLyricMotion.pass(now - timing.passStartMs[index], timing.passMs[index]) else if (animated && now >= timing.passStartMs[index]) 1f else 0f
-                                val fadeMs = minOf(65L, timing.entranceMs[index]).coerceAtLeast(1L)
-                                val wordAlpha = if (animated) (if (timing.entranceMs[index] == 0L) 1f else (elapsed.toFloat() / fadeMs).coerceIn(0f, 1f)) *
+                                val fadeMs = minOf(140L, timing.entranceMs[index] / 3).coerceAtLeast(1L)
+                                val wordAlpha = if (animated) (if (timing.entranceMs[index] == 0L) 1f else PopVisualMotion.travel(elapsed.toFloat() / fadeMs)) *
                                     (1f - passed * (1f - style.passedOpacityPercent / 100f)) else 1f
-                                val entranceScale = .5f + entered * (style.activeScalePercent / 100f - .5f)
+                                val entranceScale = .72f + entered * (style.activeScalePercent / 100f - .72f)
                                 val scale = if (animated) (entranceScale + (1f - entranceScale) * passed)
                                     .coerceIn(.5f, style.maxWordScale) else 1f
                                 val glyph = page.glyphs[index]
-                                val shake = PopSustainMotion.sample(if (animated && playing) timing.sustain.getOrNull(index) else null, now)
+                                val shake = PopSustainMotion.sample(if (animated) timing.sustain.getOrNull(index) else null, now)
                                 withTransform({
                                     // Preserve the negative overshoot: the word lands, rebounds, then settles.
                                     val remaining = if (animated) 1f - entered else 0f
@@ -502,7 +534,7 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
                                     translate(-glyph.layout.size.width / 2f, -glyph.layout.size.height / 2f)
                                 }) {
                                     drawText(glyph.layout, color = if (animated) lerp(activeColor, foreground, passed) else foreground,
-                                        alpha = wordAlpha * phraseAlpha, shadow = if (animated && now >= token.startMs && now < token.endMs)
+                                        alpha = wordAlpha * pose.alpha, shadow = if (animated && now >= token.startMs && now < token.endMs)
                                             glyph.glow else Shadow.None)
                                 }
                             }
@@ -511,10 +543,10 @@ private fun PopLyricCanvas(timeline: PopLyricTimeline, timing: PopLyricRenderTim
                 }
             }
             val handoff = scenes.handoffs[window.current]
-            val progress = if (window.retiring != null) PopLyricMotion.pass(now - handoff.startMs, handoff.durationMs) else 1f
-            val travel = (height * .025f).coerceAtMost(12f * density.density)
-            window.retiring?.let { drawPhrase(scenes.pages[it], 1f - progress, -travel * progress) }
-            drawPhrase(current, progress, travel * (1f - progress))
+            val fraction = if (window.retiring != null) ((now - handoff.startMs).toFloat() / handoff.durationMs).coerceIn(0f, 1f) else 1f
+            window.retiring?.let { drawPhrase(scenes.pages[it],
+                PopVisualMotion.phrase(phraseEffect, phraseDirection, fraction, false, width, height)) }
+            drawPhrase(current, PopVisualMotion.phrase(phraseEffect, phraseDirection, fraction, true, width, height))
         }
     }
 }

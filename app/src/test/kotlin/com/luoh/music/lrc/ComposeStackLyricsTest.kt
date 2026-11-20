@@ -106,4 +106,20 @@ class ComposeStackLyricsTest {
             assertEquals(source, draft.lines[draft.initialIndex].text)
         }
     }
+
+    @Test fun horizontalStackingAndRandomWordEffectsKeepTheActiveSourceLineAndTranslation() {
+        val state = state(listOf(LyricLine(1000, "向左推进", "Push left", 2000),
+            LyricLine(3000, "继续向前", "Keep moving", 4000)))
+        state.setTranslationMode(LyricsOverlayService.TRANSLATION_BILINGUAL)
+        state.setProgress(3500, false)
+        show(state, PopLyricsStyle(presentation = "stack", stackDirection = "left", stackAnchorPercent = 70,
+            entrance = "random", layout = "random", stackScrollMs = 0))
+        assertTrue(text().contains("继续向前\nKeep moving"))
+        compose.onNodeWithTag("home_pop_stack_canvas").performSemanticsAction(SemanticsActions.OnLongClick) { it() }
+        compose.runOnIdle {
+            assertEquals(1, requireNotNull(state.shareDraft).initialIndex)
+        }
+        compose.runOnIdle { state.setProgress(1500, false) }
+        assertEquals("向左推进\nPush left", text())
+    }
 }

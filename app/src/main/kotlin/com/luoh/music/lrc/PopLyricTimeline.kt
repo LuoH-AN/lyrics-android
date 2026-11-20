@@ -106,11 +106,11 @@ internal object PopLyricMotion {
     const val FRAME_INTERVAL_NS = 0L
     const val MAX_SCALE = 1.55f
     private val entrance = FloatArray(257) { index ->
-        // Unit mass, stiffness 260, damping 20: a crisp attack and a visible, bounded rebound.
-        val seconds = index / 256.0 * DURATION_MS / 1000.0
-        val frequency = kotlin.math.sqrt(160.0)
-        (1.0 - exp(-10.0 * seconds) * (cos(frequency * seconds) + 10.0 / frequency * sin(frequency * seconds)))
-            .toFloat().coerceIn(0f, 1.10f)
+        // Smooth attack, one restrained rebound, and zero velocity at the settled end.
+        val p = index / 256.0
+        val spring = 1.0 - exp(-8.0 * p) * (cos(8.0 * p) + sin(8.0 * p))
+        val finish = PopVisualMotion.travel(((p - .72) / .28).toFloat())
+        (spring + (1.0 - spring) * finish).toFloat().coerceIn(0f, 1.05f)
     }.also { it[it.lastIndex] = 1f }
 
     fun enter(elapsedMs: Long, durationMs: Long = DURATION_MS): Float {

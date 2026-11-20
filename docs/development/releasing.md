@@ -5,8 +5,8 @@
 ## 测试
 
 - `tests/`：Node 源码边界检查与歌词引擎回归测试，统一入口为 `node tests/run.cjs`，自动运行全部 `*.test.cjs`。
-- `app/src/test/`：Kotlin/JUnit 与 Robolectric 测试，在 Actions 手动运行时勾选 `full_checks` 执行。日常构建跳过这批检查，不生成或上传界面截图。
-- 两个 APK 工作流默认跳过全部 Node、JUnit 和 Robolectric 测试，不生成截图；只有手动勾选 `full_checks` 才运行测试。日常交付使用快速 `nightly` CI，不在开发环境运行测试或 Gradle。
+- `app/src/test/`：Kotlin/JUnit 与 Robolectric 测试，在 Actions 手动运行时勾选 `full_checks` 执行，也可通过 `android_tests` 指定测试类。日常构建跳过这批检查，不生成或上传界面截图。
+- 两个 APK 工作流默认跳过全部 Node、JUnit 和 Robolectric 测试，不生成截图；只有手动勾选 `full_checks` 或在 Nightly 工作流指定 `android_tests` 才运行测试。日常交付使用快速 `nightly` CI，不在开发环境运行测试或 Gradle。
 
 ## Nightly 包
 
@@ -17,6 +17,8 @@ Nightly 的应用名称为「桌面歌词·Nightly」，使用 `com.luoh.music.l
 `nightly` 构建类型沿用原 `compact` 精简包的 R8 代码裁剪、混淆和资源裁剪，默认跳过耗时的全程序优化；手动勾选 `full_optimization` 可以生成完整优化的 Nightly 包。正式版 CI 同样默认跳过全程序优化，普通 `debug` 构建用于原生测试和源码调试。CI 检查 Debug 签名、包名、commit 版本号及 28 MiB 的体积预算，并保存 `lyrics-android-nightly-mapping-<短 commit>` 崩溃映射。详见 [APK 体积优化](apk-size.md)。
 
 默认仅执行 `assembleNightly -PnightlyVersion=<短 commit>`，不构建重复的 debug APK、不运行 Node 或 Robolectric 测试。省略 `nightlyVersion` 时，Gradle 从当前 Git 提交读取短哈希。APK 大小、commit 版本号及 SHA-256 显示在 Actions 运行摘要中，组件尺寸可在校验步骤日志中查看。
+
+原生动效或设置回归可手动传入 `android_tests`，例如 `com.luoh.music.lrc.PopVisualMotionTest,com.luoh.music.lrc.ComposeStackLyricsTest`；多个类用逗号分隔，支持 Gradle 测试过滤器。默认值为空，不影响每次提交的快速构建。
 
 需要提交代码但暂不构建时，在该次 commit 信息中加入 `[skip ci]`；GitHub 会跳过自动 push／PR 工作流。后续普通提交仍自动构建，也可手动触发 Nightly。
 

@@ -1,7 +1,5 @@
 package com.luoh.music.lrc
 
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import kotlin.math.sin
 
 internal data class PopStagePose(val x: Float = 0f, val y: Float = 0f, val zoom: Float = 1f, val rotation: Float = 0f)
@@ -10,7 +8,8 @@ internal data class PopCameraBounds(val minX: Float = -.30f, val maxX: Float = .
     val minY: Float = -.34f, val maxY: Float = .34f)
 internal data class PopCameraWaypoint(val startMs: Long, val durationMs: Long,
     val from: PopCameraPoint, val target: PopCameraPoint, val velocity: PopCameraPoint = PopCameraPoint(0f, 0f))
-internal data class PopCameraPath(val waypoints: List<PopCameraWaypoint>, val bounds: PopCameraBounds = PopCameraBounds())
+internal data class PopCameraPath(val waypoints: List<PopCameraWaypoint>, val bounds: PopCameraBounds = PopCameraBounds(),
+    val initialBounds: PopCameraBounds? = null)
 
 /** Cache a continuous camera trajectory from actual measured word centers, never token parity. */
 internal object PopStageMotion {
@@ -88,34 +87,53 @@ internal object PopStageMotion {
     }
 
     fun nextChangeDelayMs(time: Long, path: PopCameraPath?, style: PopLyricsStyle): Long {
-        if (style.camera != "follow" || style.cameraPercent == 0 || path == null) return 1000L
+        if (style.camera !in listOf("follow", "orbit") || style.cameraPercent == 0 || path == null) return 1000L
         val point = path.waypoints.lastOrNull { it.startMs <= time }
         if (point != null && time - point.startMs < point.durationMs) return 0L
         return path.waypoints.firstOrNull { it.startMs > time }?.let { (it.startMs - time).coerceIn(1L, 1000L) } ?: 1000L
     }
 
+    /** Carry the outgoing camera's position and velocity through an adjacent sentence. */
+    fun connect(path: PopCameraPath, previous: PopCameraPath?, now: Long): PopCameraPath {
+        val first = path.waypoints.firstOrNull() ?: return path
+        val old = previous?.waypoints?.lastOrNull { it.startMs <= now } ?: return path
+        if (first.startMs < previous.waypoints.first().startMs ||
+            now - old.startMs > old.durationMs + 1500L || now - first.startMs !in 0L..500L) return path
+        val points = ArrayList<PopCameraWaypoint>(path.waypoints.size)
+        for ((index, point) in path.waypoints.withIndex()) {
+            val start = if (index == 0) now else point.startMs
+            val predecessor = points.lastOrNull()
+            val from = predecessor?.let { at(it, start) } ?: at(old, now)
+            val speed = predecessor?.let { velocity(it, start) } ?: velocity(old, now)
+            points += point.copy(startMs = start, from = from, velocity = speed)
+        }
+        return path.copy(waypoints = points, initialBounds = previous.bounds)
+    }
+
     fun sample(time: Long, path: PopCameraPath?, style: PopLyricsStyle, allowMotion: Boolean = true): PopStagePose {
         if (!allowMotion || style.camera == "off" || style.cameraPercent == 0 || path == null) return PopStagePose()
+        val first = path.waypoints.firstOrNull()
+        val blend = if (first == null) 1f else PopVisualMotion.travel((time - first.startMs).toFloat() / first.durationMs)
+        val bounds = path.initialBounds?.let { old ->
+            PopCameraBounds(old.minX + (path.bounds.minX - old.minX) * blend,
+                old.maxX + (path.bounds.maxX - old.maxX) * blend,
+                old.minY + (path.bounds.minY - old.minY) * blend,
+                old.maxY + (path.bounds.maxY - old.maxY) * blend)
+        } ?: path.bounds
         val amount = style.cameraPercent / 100f
-        val floatY = if (style.breathing) wave(time, 7000) * .014f * amount else 0f
-        val floatX = if (style.breathing) wave(time, 8500, 40) * .007f * amount else 0f
-        val breathe = if (style.breathing) wave(time, 7000, 64) * .008f * amount else 0f
-        if (style.camera == "drift") return PopStagePose(floatX, floatY, 1f + breathe)
+        val end = path.waypoints.lastOrNull()?.let { it.startMs + it.durationMs }
+        val life = if (end == null) 1f else 1f - PopVisualMotion.travel((time - end) / 700f)
+        val floatY = if (style.breathing) wave(time, 7000) * .010f * amount * life else 0f
+        val floatX = if (style.breathing) wave(time, 8500, 40) * .006f * amount * life else 0f
+        val breathe = if (style.breathing) wave(time, 7000, 64) * .006f * amount * life else 0f
+        if (style.camera == "drift") return PopStagePose(
+            (wave(time, 9200) * .032f * amount * life + floatX).coerceIn(bounds.minX, bounds.maxX),
+            (wave(time, 7600, 64) * .024f * amount * life + floatY).coerceIn(bounds.minY, bounds.maxY), 1f + breathe)
         val point = path.waypoints.lastOrNull { it.startMs <= time }
         val position = point?.let { at(it, time) } ?: PopCameraPoint(0f, 0f)
-        return PopStagePose(position.x.coerceIn(path.bounds.minX, path.bounds.maxX) + floatX,
-            position.y.coerceIn(path.bounds.minY, path.bounds.maxY) + floatY, 1f + breathe)
-    }
-}
-
-internal fun Modifier.popStageCamera(frame: PopPlaybackFrame?, style: PopLyricsStyle, allowMotion: Boolean): Modifier {
-    if (frame == null || !allowMotion || style.presentation == "stack" || style.camera == "off" || style.cameraPercent == 0) return this
-    return graphicsLayer {
-        val pose = PopStageMotion.sample(frame.cameraPosition.value, if (frame.interlude == null) frame.cameraPath.value else null, style)
-        translationX = pose.x * size.width
-        translationY = pose.y * size.height
-        rotationZ = pose.rotation
-        scaleX = pose.zoom
-        scaleY = pose.zoom
+        val orbitX = if (style.camera == "orbit") wave(time, 6000) * .022f * amount * life else 0f
+        val orbitY = if (style.camera == "orbit") wave(time, 6000, 64) * .016f * amount * life else 0f
+        return PopStagePose((position.x + floatX + orbitX).coerceIn(bounds.minX, bounds.maxX),
+            (position.y + floatY + orbitY).coerceIn(bounds.minY, bounds.maxY), 1f + breathe)
     }
 }
