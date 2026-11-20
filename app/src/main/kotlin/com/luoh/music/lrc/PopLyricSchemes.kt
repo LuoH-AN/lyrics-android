@@ -21,6 +21,7 @@ internal object PopLyricSchemes {
         PopLyricScheme("dynamic", "强节奏", PopLyricsStyle(entranceMs = 300, lookaheadMs = 60,
             activeScalePercent = 160, rotationDegrees = 14, cameraPercent = 90,
             cameraSpeedPercent = 150, rowMotionPercent = 80, pageLength = 8, sustainShakePercent = 140)),
+        PopLyricScheme("stack", "持续堆叠", PopLyricsStyle(presentation = "stack", camera = "off", breathing = false)),
     )
 
     fun saved(context: Context): List<PopLyricScheme> {
@@ -83,6 +84,11 @@ internal object PopLyricSchemes {
         put("adaptiveTiming", s.adaptiveTiming); put("textHoldMs", s.textHoldMs)
         put("passedOpacityPercent", s.passedOpacityPercent); put("paginate", s.paginate)
         put("pageLength", s.pageLength); put("sustainShakePercent", s.sustainShakePercent)
+        put("presentation", s.presentation); put("stackGapDp", s.stackGapDp)
+        put("stackAnchorPercent", s.stackAnchorPercent); put("stackScrollMs", s.stackScrollMs)
+        put("stackDirection", s.stackDirection); put("stackEdgeFadeDp", s.stackEdgeFadeDp)
+        put("stackHistoryOpacityPercent", s.stackHistoryOpacityPercent); put("stackRows", s.stackRows)
+        put("stackTranslations", s.stackTranslations)
     }
 
     private fun readMotion(j: JSONObject): PopLyricsStyle {
@@ -102,6 +108,12 @@ internal object PopLyricSchemes {
             adaptiveTiming = j.optBoolean("adaptiveTiming", d.adaptiveTiming), textHoldMs = j.optInt("textHoldMs", d.textHoldMs),
             passedOpacityPercent = j.optInt("passedOpacityPercent", d.passedOpacityPercent), paginate = j.optBoolean("paginate", d.paginate),
             pageLength = j.optInt("pageLength", d.pageLength), sustainShakePercent = j.optInt("sustainShakePercent", d.sustainShakePercent),
+            presentation = j.optString("presentation", d.presentation), stackGapDp = j.optInt("stackGapDp", d.stackGapDp),
+            stackAnchorPercent = j.optInt("stackAnchorPercent", d.stackAnchorPercent),
+            stackScrollMs = j.optInt("stackScrollMs", d.stackScrollMs), stackDirection = j.optString("stackDirection", d.stackDirection),
+            stackEdgeFadeDp = j.optInt("stackEdgeFadeDp", d.stackEdgeFadeDp),
+            stackHistoryOpacityPercent = j.optInt("stackHistoryOpacityPercent", d.stackHistoryOpacityPercent),
+            stackRows = j.optInt("stackRows", d.stackRows), stackTranslations = j.optBoolean("stackTranslations", d.stackTranslations),
         ).normalized()
     }
 }

@@ -173,6 +173,10 @@ internal fun rememberPopPlayback(state: HomePresentationState, style: PopLyricsS
 internal fun PopLyricsStage(state: HomePresentationState, modifier: Modifier, albumBackground: Boolean,
     appearance: HomeLyricAppearance, style: PopLyricsStyle, frame: PopPlaybackFrame,
     onLyricTap: (() -> Unit)? = null, interactive: Boolean = true) {
+    if (style.presentation == "stack") {
+        PopStackLyricsStage(state, modifier, albumBackground, appearance, style, frame, onLyricTap, interactive)
+        return
+    }
     val position = frame.position
     val renderCache = remember(state.document) { PopRenderCache() }
     val line = frame.line

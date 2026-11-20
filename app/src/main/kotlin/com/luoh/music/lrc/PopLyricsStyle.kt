@@ -32,6 +32,15 @@ internal data class PopLyricsStyle(
     val paginate: Boolean = true,
     val pageLength: Int = 10,
     val sustainShakePercent: Int = 100,
+    val presentation: String = "phrase",
+    val stackGapDp: Int = 16,
+    val stackAnchorPercent: Int = 65,
+    val stackScrollMs: Int = 420,
+    val stackDirection: String = "up",
+    val stackEdgeFadeDp: Int = 24,
+    val stackHistoryOpacityPercent: Int = 80,
+    val stackRows: Int = 2,
+    val stackTranslations: Boolean = true,
 ) {
     fun normalized() = copy(
         preset = preset.takeIf { it in listOf("calm", "flow", "dynamic", "custom") } ?: "custom",
@@ -50,6 +59,13 @@ internal data class PopLyricsStyle(
         passedOpacityPercent = passedOpacityPercent.coerceIn(0, 100),
         pageLength = pageLength.coerceIn(4, 24),
         sustainShakePercent = sustainShakePercent.coerceIn(0, 200),
+        presentation = if (presentation == "stack") "stack" else "phrase",
+        stackGapDp = stackGapDp.coerceIn(0, 64), stackAnchorPercent = stackAnchorPercent.coerceIn(10, 90),
+        stackScrollMs = stackScrollMs.coerceIn(0, 1200),
+        stackDirection = if (stackDirection == "down") "down" else "up",
+        stackEdgeFadeDp = stackEdgeFadeDp.coerceIn(0, 80),
+        stackHistoryOpacityPercent = stackHistoryOpacityPercent.coerceIn(0, 100),
+        stackRows = stackRows.coerceIn(1, 4),
         transition = transition.takeIf { it in listOf("fade", "slide", "zoom") } ?: "fade",
     )
     val maxWordScale get() = activeScalePercent / 100f + (activeScalePercent / 100f - .5f) * .10f
@@ -84,7 +100,16 @@ internal object PopLyricsPrefs {
             prefs.getBoolean(KEY + "adaptive_timing", defaults.adaptiveTiming),
             prefs.getInt(KEY + "text_hold", defaults.textHoldMs), prefs.getInt(KEY + "passed_opacity", defaults.passedOpacityPercent),
             prefs.getBoolean(KEY + "paginate", defaults.paginate), prefs.getInt(KEY + "page_length", defaults.pageLength),
-            prefs.getInt(KEY + "sustain_shake", defaults.sustainShakePercent)).normalized()
+            prefs.getInt(KEY + "sustain_shake", defaults.sustainShakePercent),
+            presentation = string("presentation", defaults.presentation),
+            stackGapDp = prefs.getInt(KEY + "stack_gap", defaults.stackGapDp),
+            stackAnchorPercent = prefs.getInt(KEY + "stack_anchor", defaults.stackAnchorPercent),
+            stackScrollMs = prefs.getInt(KEY + "stack_scroll_ms", defaults.stackScrollMs),
+            stackDirection = string("stack_direction", defaults.stackDirection),
+            stackEdgeFadeDp = prefs.getInt(KEY + "stack_edge_fade", defaults.stackEdgeFadeDp),
+            stackHistoryOpacityPercent = prefs.getInt(KEY + "stack_history_opacity", defaults.stackHistoryOpacityPercent),
+            stackRows = prefs.getInt(KEY + "stack_rows", defaults.stackRows),
+            stackTranslations = prefs.getBoolean(KEY + "stack_translations", defaults.stackTranslations)).normalized()
     }
     fun save(context: Context, value: PopLyricsStyle) {
         val style = value.normalized()
@@ -104,6 +129,11 @@ internal object PopLyricsPrefs {
             .putInt(KEY + "camera_speed", style.cameraSpeedPercent).putBoolean(KEY + "adaptive_timing", style.adaptiveTiming)
             .putInt(KEY + "text_hold", style.textHoldMs).putInt(KEY + "passed_opacity", style.passedOpacityPercent)
             .putBoolean(KEY + "paginate", style.paginate).putInt(KEY + "page_length", style.pageLength)
-            .putInt(KEY + "sustain_shake", style.sustainShakePercent).apply()
+            .putInt(KEY + "sustain_shake", style.sustainShakePercent)
+            .putString(KEY + "presentation", style.presentation).putInt(KEY + "stack_gap", style.stackGapDp)
+            .putInt(KEY + "stack_anchor", style.stackAnchorPercent).putInt(KEY + "stack_scroll_ms", style.stackScrollMs)
+            .putString(KEY + "stack_direction", style.stackDirection).putInt(KEY + "stack_edge_fade", style.stackEdgeFadeDp)
+            .putInt(KEY + "stack_history_opacity", style.stackHistoryOpacityPercent).putInt(KEY + "stack_rows", style.stackRows)
+            .putBoolean(KEY + "stack_translations", style.stackTranslations).apply()
     }
 }

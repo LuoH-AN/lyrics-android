@@ -19,7 +19,10 @@ class PopLyricsStyleTest {
             cameraPercent = -10, rotationDegrees = 90, groupGapDp = 999, innerGapDp = -5,
             rowGapPercent = 999, lineWidthPercent = 999, staggerPercent = -5, rowMotionPercent = 999,
             cameraSpeedPercent = 999, textHoldMs = 9999, passedOpacityPercent = -5, semanticGrouping = false,
-            dynamicSpacing = false, adaptiveTiming = false, paginate = false, pageLength = 999, sustainShakePercent = 999)
+            dynamicSpacing = false, adaptiveTiming = false, paginate = false, pageLength = 999, sustainShakePercent = 999,
+            presentation = "stack", stackGapDp = 999, stackAnchorPercent = -1, stackScrollMs = 9999,
+            stackDirection = "down", stackEdgeFadeDp = 999, stackHistoryOpacityPercent = 999, stackRows = 999,
+            stackTranslations = false)
         PopLyricsPrefs.save(context, style)
         val saved = PopLyricsPrefs.style(context)
         assertEquals("character", saved.reveal)
@@ -35,9 +38,33 @@ class PopLyricsStyleTest {
         assertFalse(saved.paginate)
         assertEquals(24, saved.pageLength)
         assertEquals(200, saved.sustainShakePercent)
+        assertEquals("stack", saved.presentation)
+        assertEquals(64, saved.stackGapDp)
+        assertEquals(10, saved.stackAnchorPercent)
+        assertEquals(1200, saved.stackScrollMs)
+        assertEquals(80, saved.stackEdgeFadeDp)
+        assertEquals(100, saved.stackHistoryOpacityPercent)
+        assertEquals(4, saved.stackRows)
+        assertFalse(saved.stackTranslations)
         assertEquals(HomeLyricsPrefs.POP, HomeLyricsPrefs.displayMode(context))
         PopLyricsPrefs.save(context, PopLyricsStyle())
         assertEquals(PopLyricsStyle(), PopLyricsPrefs.style(context))
+    }
+
+    @Test fun savedSchemesKeepTheStackModeAndAllItsSettingsWithoutChangingTheSnapshot() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+        val style = PopLyricsStyle(presentation = "stack", stackGapDp = 22, stackAnchorPercent = 35,
+            stackScrollMs = 650, stackDirection = "down", stackEdgeFadeDp = 18,
+            stackHistoryOpacityPercent = 55, stackRows = 3, stackTranslations = false)
+        PopLyricsPrefs.save(context, style)
+        assertTrue(PopLyricSchemes.save(context, "我的堆叠"))
+        val saved = PopLyricSchemes.saved(context).single()
+        assertEquals(style, saved.motion)
+        PopLyricsPrefs.save(context, style.copy(stackGapDp = 0))
+        assertEquals(style, PopLyricSchemes.saved(context).single().motion)
+        PopLyricSchemes.apply(context, saved)
+        assertEquals(style, PopLyricsPrefs.style(context))
     }
 
     @Test fun characterChoreographyKeepsRealWordTimestampsAndComplexTextIntact() {
