@@ -351,6 +351,7 @@ private fun DesktopAccessSettings(context: Context) {
         }
     }
     val running = remember(revision) { LyricsOverlayService.isRunning }
+    val positionLocked = remember(revision) { LyricsOverlayService.instance?.isPositionLocked() == true }
     val notificationAllowed = remember(revision) {
         NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
     }
@@ -358,14 +359,14 @@ private fun DesktopAccessSettings(context: Context) {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(context)
     }
     val scope = rememberSettingsBusinessScope()
-    SettingsGroup(title = "桌面歌词", items = listOf(
-        {
+    SettingsGroup(title = "桌面歌词", items = buildList<@Composable () -> Unit> {
+        add {
             SettingsNavigationItem("添加快捷开关", "在系统快捷设置中显示", Icons.Default.Lyrics) {
                 UsageAnalytics.feature(UsageAnalytics.Feature.ADD_TILE)
                 LyricsTileService.requestAdd(context)
             }
-        },
-        {
+        }
+        add {
             SettingsSwitchItem("桌面歌词", "在其他应用上显示歌词", Icons.Default.Lyrics, running) {
                 UsageAnalytics.feature(if (running) UsageAnalytics.Feature.OVERLAY_STOP else UsageAnalytics.Feature.OVERLAY_START)
                 when {
@@ -382,20 +383,29 @@ private fun DesktopAccessSettings(context: Context) {
                 }
                 scope.launch { delay(250); revision++ }
             }
-        },
-        {
+        }
+        if (running) add {
+            SettingsNavigationItem(
+                if (positionLocked) "解锁并移动歌词" else "锁定并点击穿透",
+                if (positionLocked) "恢复拖动，也可在通知栏解锁" else "锁定后可直接操作歌词下方的应用",
+                Icons.Default.Lock,
+            ) {
+                settingsOverlayAction(context, if (positionLocked) LyricsOverlayService.ACTION_UNLOCK else LyricsOverlayService.ACTION_LOCK)
+            }
+        }
+        add {
             SettingsNavigationItem("通知使用权", if (notificationAllowed) "已授权" else "未授权", Icons.Default.Notifications) {
                 settingsOpenIntent(context, Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
             }
-        },
-        {
+        }
+        add {
             SettingsNavigationItem("悬浮窗权限", if (overlayAllowed) "已授权" else "未授权", Icons.Default.Layers) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     settingsOpenIntent(context, Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
                 }
             }
-        },
-    ))
+        }
+    })
 }
 
 @Composable

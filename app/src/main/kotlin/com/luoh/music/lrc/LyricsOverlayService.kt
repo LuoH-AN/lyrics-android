@@ -2,6 +2,7 @@ package com.luoh.music.lrc
 
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
+import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
@@ -16,6 +17,7 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
+import android.hardware.input.InputManager
 import android.media.AudioManager
 import android.media.MediaMetadata
 import android.media.session.MediaController
@@ -219,6 +221,11 @@ class LyricsOverlayService : Service() {
         if (intent?.action == ACTION_STOP) {
             stopSelf()
             return START_NOT_STICKY
+        }
+
+        if (intent?.action == ACTION_LOCK || intent?.action == ACTION_UNLOCK) {
+            setPositionLocked(intent.action == ACTION_LOCK)
+            if (overlayRoot != null) return START_STICKY
         }
 
         if (intent?.action == ACTION_SET_CONTEXT) {
@@ -731,6 +738,19 @@ class LyricsOverlayService : Service() {
     }
 
     private fun startAsForeground() {
+        val notification = foregroundNotification()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+    }
+
+    private fun foregroundNotification(): Notification {
         val openIntent = Intent(this, MainActivity::class.java)
         val openPendingIntent = PendingIntent.getActivity(
             this,
@@ -746,26 +766,24 @@ class LyricsOverlayService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        val movementPendingIntent = PendingIntent.getService(
+            this,
+            if (positionLocked) 2 else 3,
+            Intent(this, LyricsOverlayService::class.java).setAction(if (positionLocked) ACTION_UNLOCK else ACTION_LOCK),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("桌面歌词已开启")
-            .setContentText("正在显示歌词，点击返回应用")
+            .setContentTitle(if (positionLocked) "桌面歌词已锁定 · 点击穿透" else "桌面歌词可移动")
+            .setContentText(if (positionLocked) "触摸可穿透歌词，调整位置请点「解锁并移动」" else "拖动歌词调整位置，锁定后可点击下方应用")
             .setContentIntent(openPendingIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .addAction(0, if (positionLocked) "解锁并移动" else "锁定并穿透", movementPendingIntent)
             .addAction(0, "关闭桌面歌词", stopPendingIntent)
             .build()
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
-        }
     }
 
     private fun createNotificationChannel() {
@@ -896,10 +914,8 @@ class LyricsOverlayService : Service() {
         dragTouchArea = dragArea
 
         closeButton = chromeButton(R.drawable.ic_overlay_close, "关闭桌面歌词") { stopSelf() }
-        lockButton = chromeButton(R.drawable.ic_overlay_unlocked, "锁定桌面歌词位置") {
-            positionLocked = !positionLocked
-            prefs.edit().putBoolean(PREF_POSITION_LOCKED, positionLocked).apply()
-            updateLockControl()
+        lockButton = chromeButton(R.drawable.ic_overlay_unlocked, "锁定歌词并开启点击穿透") {
+            setPositionLocked(true)
         }
         updateLockControl()
 
@@ -1000,6 +1016,7 @@ class LyricsOverlayService : Service() {
         OverlayControls.attachFloating(root, dragArea, chrome)
         updateControlLayout()
 
+        applyTouchMode()
         windowManager.addView(root, params)
         UsageAnalytics.setActive(UsageAnalytics.Surface.OVERLAY, true)
         revealChrome()
@@ -1179,6 +1196,10 @@ class LyricsOverlayService : Service() {
 
     /** 控制条默认淡出，避免长期占用歌词宽度；触摸小窗时再出现。 */
     private fun revealChrome(retainMs: Long = 3500L) {
+        if (positionLocked) {
+            hideChrome(immediate = true)
+            return
+        }
         val chrome = chromeBar ?: return
         chromeHideTask?.let(mainHandler::removeCallbacks)
         chrome.animate().cancel()
@@ -1372,6 +1393,32 @@ class LyricsOverlayService : Service() {
 
     fun isPositionLocked(): Boolean = positionLocked
 
+    private fun setPositionLocked(locked: Boolean) {
+        positionLocked = locked
+        prefs.edit().putBoolean(PREF_POSITION_LOCKED, locked).apply()
+        applyTouchMode()
+        updateLockControl()
+        if (overlayRoot != null) {
+            (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+                .notify(NOTIFICATION_ID, foregroundNotification())
+        }
+        announceOverlayState()
+    }
+
+    private fun applyTouchMode() {
+        val lp = windowParams ?: return
+        // Android 12+ blocks touches through opaque application overlays even when
+        // NOT_TOUCHABLE is set. Window alpha, rather than background alpha, must
+        // respect the system's maximum obscuring opacity.
+        val maximumOpacity = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            getSystemService(InputManager::class.java).maximumObscuringOpacityForTouch
+        } else null
+        applyOverlayTouchMode(lp, positionLocked, maximumOpacity)
+        overlayRoot?.takeIf { it.isAttachedToWindow }?.let {
+            windowManager.updateViewLayout(it, lp)
+        }
+    }
+
     private fun applyTranslationMode() {
         applyNativeAppearance()
         val encoded = JSONObject.quote(translationMode)
@@ -1405,7 +1452,7 @@ class LyricsOverlayService : Service() {
 
     private fun updateLockControl() {
         lockButton?.let { button ->
-            button.contentDescription = if (positionLocked) "位置已锁定，点按解锁" else "锁定桌面歌词位置"
+            button.contentDescription = if (positionLocked) "歌词已锁定，可从通知栏解锁" else "锁定歌词并开启点击穿透"
             button.isChecked = positionLocked
             button.isSelected = positionLocked
             setChromeIcon(button, if (positionLocked) R.drawable.ic_overlay_locked else R.drawable.ic_overlay_unlocked)
@@ -1740,6 +1787,8 @@ class LyricsOverlayService : Service() {
             private set
         const val ACTION_START = "com.luoh.music.lrc.action.START_LYRICS_OVERLAY"
         const val ACTION_STOP = "com.luoh.music.lrc.action.STOP_LYRICS_OVERLAY"
+        const val ACTION_LOCK = "com.luoh.music.lrc.action.LOCK_LYRICS_OVERLAY"
+        const val ACTION_UNLOCK = "com.luoh.music.lrc.action.UNLOCK_LYRICS_OVERLAY"
         const val ACTION_STATE_CHANGED = "com.luoh.music.lrc.action.LYRICS_OVERLAY_STATE_CHANGED"
         const val ACTION_SET_BACKGROUND = "com.luoh.music.lrc.action.SET_LYRICS_BACKGROUND"
         const val ACTION_SET_FONT_SCALE = "com.luoh.music.lrc.action.SET_LYRICS_FONT_SCALE"
