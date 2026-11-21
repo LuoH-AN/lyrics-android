@@ -55,8 +55,8 @@ object UpdateChecker {
     }
 
     fun isNewer(remote: String, current: String): Boolean {
-        val left = versionParts(remote) ?: return false
-        val right = versionParts(current) ?: return false
+        val left = comparisonParts(remote) ?: return false
+        val right = comparisonParts(current) ?: return false
         val length = maxOf(left.size, right.size)
         repeat(length) { index ->
             val comparison = left.getOrElse(index) { 0 }.compareTo(right.getOrElse(index) { 0 })
@@ -66,6 +66,12 @@ object UpdateChecker {
     }
 
     fun stableVersion(value: String): String? = versionParts(value)?.joinToString(".")
+
+    private fun comparisonParts(value: String): List<Int>? {
+        val parts = versionParts(value) ?: return null
+        // 1.4.31 是 1.4.3 的补丁版，发布顺序介于 1.4.3 和 1.4.4 之间。
+        return if (parts == listOf(1, 4, 31)) listOf(1, 4, 3, 1) else parts
+    }
 
     private fun versionParts(value: String): List<Int>? {
         val match = Regex("^[vV]?(\\d+)\\.(\\d+)\\.(\\d+)(?:-[0-9A-Za-z.-]+)?$")
