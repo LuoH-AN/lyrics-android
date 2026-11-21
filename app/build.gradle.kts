@@ -102,8 +102,6 @@ android {
         unitTests.all {
             // The repo1 endpoint can return stale 404s for Robolectric's runtime artifacts.
             it.systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
-            // Documentation screenshot generation is not part of app verification.
-            it.exclude("**/ReadmeScreenshotsTest.class")
             it.timeout.set(Duration.ofMinutes(5))
             it.testLogging {
                 events("started", "passed", "skipped", "failed")

@@ -1,7 +1,0 @@
-{
-  "name": "lyrics-showcase-video",
-  "private": true,
-  "type": "module",
-  "scripts": { "render": "node render.mjs" },
-  "dependencies": { "@napi-rs/canvas": "0.1.80" }
-}

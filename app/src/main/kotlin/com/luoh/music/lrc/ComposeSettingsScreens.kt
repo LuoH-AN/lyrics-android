@@ -158,7 +158,7 @@ internal fun SettingsCategoryContent(
             "LYRICS" -> "歌词与翻译"
             "APPEARANCE" -> "应用外观"
             "HOME" -> "主页歌词"
-            "MOTION" -> "主页歌词动效"
+            "MOTION" -> "滚动动画"
             "ABOUT" -> "关于应用"
             else -> "设置"
         }
@@ -169,7 +169,7 @@ internal fun SettingsCategoryContent(
             Column {
                 Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("实时预览", style = MaterialTheme.typography.titleMedium)
+                    Text("预览", style = MaterialTheme.typography.titleMedium)
                     TextButton(onClick = { previewPinned = false }) { Text("收起") }
                 }
                 PopLyricPreview(PopLyricsPrefs.style(context), HomeLyricsPrefs.appearance(context), compact = true)
@@ -810,18 +810,18 @@ private fun HomeAlignmentSettings(context: Context, revision: Int, previewPinned
         HomeLyricsPrefs.saveAppearance(context, change(HomeLyricsPrefs.appearance(context)))
     }
     SettingsGroup(title = "显示模式", items = listOf({
-        SettingsChoiceItem("歌词显示模式", displayMode,
-            listOf(HomeLyricsPrefs.SCROLL to "滚动", HomeLyricsPrefs.POP to "逐词跃动"), Icons.Default.Lyrics) {
+        SettingsChoiceItem("显示方式", displayMode,
+            listOf(HomeLyricsPrefs.SCROLL to "滚动", HomeLyricsPrefs.POP to "动态"), Icons.Default.Lyrics) {
             HomeLyricsPrefs.saveDisplayMode(context, it)
         }
     }))
     if (displayMode == HomeLyricsPrefs.POP) PopLyricSettings(context, revision, previewPinned, onPinPreview)
-    SettingsGroup(title = "沉浸观赏", items = listOf({
+    SettingsGroup(title = "屏幕", items = listOf({
         SettingsSwitchItem("播放时保持亮屏", null,
             Icons.Default.SettingsBrightness, keepAwake) { HomeLyricsPrefs.saveImmersiveKeepAwake(context, it) }
     }))
     SettingsGroup(title = "背景", items = listOf({
-        SettingsSwitchItem("封面模糊背景", "使用模糊专辑封面", Icons.Default.BlurOn, albumBackground) {
+        SettingsSwitchItem("封面背景", "模糊显示专辑封面", Icons.Default.BlurOn, albumBackground) {
             HomeLyricsPrefs.saveAlbumBackground(context, it)
         }
     }))
@@ -836,11 +836,11 @@ private fun HomeAlignmentSettings(context: Context, revision: Int, previewPinned
         { SettingsSliderItem("译文字号", appearance.translationSize, 12..32, unit = "sp", icon = Icons.Default.Translate) {
             value -> saveStyle { it.copy(translationSize = value) }
         } },
-        { SettingsChoiceItem("歌词字重", appearance.fontWeight.toString(), listOf("300" to "细体", "400" to "常规",
+        { SettingsChoiceItem("字重", appearance.fontWeight.toString(), listOf("300" to "细体", "400" to "常规",
             "500" to "中等", "600" to "半粗", "700" to "粗体", "800" to "特粗"), Icons.Default.TextFields) {
             value -> saveStyle { it.copy(fontWeight = value.toInt()) }
         } },
-        { SettingsSliderItem("歌词行间距", appearance.lineSpacing, 0..28, step = 2, unit = "dp", icon = Icons.Default.FormatAlignLeft) {
+        { SettingsSliderItem("行间距", appearance.lineSpacing, 0..28, step = 2, unit = "dp", icon = Icons.Default.FormatAlignLeft) {
             value -> saveStyle { it.copy(lineSpacing = value) }
         } },
     ))
@@ -861,34 +861,34 @@ private fun PopLyricSettings(context: Context, revision: Int, previewPinned: Boo
     fun save(change: (PopLyricsStyle) -> PopLyricsStyle) {
         PopLyricsPrefs.save(context, change(PopLyricsPrefs.style(context)).copy(preset = "custom"))
     }
-    if (!previewPinned) SettingsGroup(title = "实时预览", items = listOf({ PopLyricPreview(style, appearance, onPin = onPinPreview) }))
+    if (!previewPinned) SettingsGroup(title = "预览", items = listOf({ PopLyricPreview(style, appearance, onPin = onPinPreview) }))
     PopSchemeSettings(context, revision, style, appearance)
     SettingsGroup(title = "显示与排版", items = listOf(
-        { SettingsChoiceItem("跃动模式", style.sizingMode,
-            listOf("focus" to "聚焦放大", "classic" to "经典跃动"), Icons.Default.FormatSize) {
+        { SettingsChoiceItem("字号模式", style.sizingMode,
+            listOf("focus" to "自适应", "classic" to "固定"), Icons.Default.FormatSize) {
             value -> save { it.copy(sizingMode = value) }
         } },
         { if (style.sizingMode == "classic") SettingsSliderItem("字号倍率", style.classicScalePercent,
             80..200, 5, "%", Icons.Default.FormatSize) {
             value -> save { it.copy(classicScalePercent = value) }
         } },
-        { SettingsChoiceItem("入场单位", style.reveal, listOf("word" to "逐词", "character" to "逐字"), Icons.Default.TextFields) {
+        { SettingsChoiceItem("显示单位", style.reveal, listOf("word" to "逐词", "character" to "逐字"), Icons.Default.TextFields) {
             value -> save { it.copy(reveal = value) }
         } },
-        { SettingsChoiceItem("舞台排版", style.layout,
+        { SettingsChoiceItem("排版", style.layout,
             listOf("staggered" to "错落", "centered" to "居中", "stairs" to "阶梯", "wave" to "波浪", "random" to "随机"), Icons.Default.FormatAlignLeft) {
             value -> save { it.copy(layout = value) }
         } },
     ))
     SettingsGroup(title = "歌词分段", items = listOf(
-        { SettingsSwitchItem("短语切换", "分段显示，前段淡出", Icons.Default.Lyrics, style.paginate) {
+        { SettingsSwitchItem("分段显示", "换段时前段淡出", Icons.Default.Lyrics, style.paginate) {
             value -> save { it.copy(paginate = value) }
         } },
-        { SettingsSliderItem("短语长度", style.pageLength, 4..24, 1, "字", Icons.Default.TextFields,
+        { SettingsSliderItem("每段字数", style.pageLength, 4..24, 1, "字", Icons.Default.TextFields,
             style.paginate) { value -> save { it.copy(pageLength = value) } } },
     ))
     SettingsGroup(title = "排版间距", items = listOf(
-        { SettingsSwitchItem("语义分组", "按词组与停顿分段", Icons.Default.TextFields, style.semanticGrouping) {
+        { SettingsSwitchItem("词组分段", "按词组和停顿划分", Icons.Default.TextFields, style.semanticGrouping) {
             value -> save { it.copy(semanticGrouping = value) }
         } },
         { SettingsSwitchItem("动态间距", "减少文字重叠", Icons.Default.FormatSize, style.dynamicSpacing) {
@@ -909,22 +909,22 @@ private fun PopLyricSettings(context: Context, revision: Int, previewPinned: Boo
         { SettingsSliderItem("错落幅度", style.staggerPercent, 0..200, 10, "%", Icons.Default.Layers,
             style.layout != "centered") { value -> save { it.copy(staggerPercent = value) } } },
     ))
-    SettingsGroup(title = "动效协调", items = listOf(
-        { SettingsChoiceItem("强调力度", style.motionStrength,
-            listOf("gentle" to "轻柔", "balanced" to "均衡", "strong" to "强烈"), Icons.Default.Speed) {
+    SettingsGroup(title = "动画控制", items = listOf(
+        { SettingsChoiceItem("动画强度", style.motionStrength,
+            listOf("gentle" to "低", "balanced" to "中", "strong" to "高"), Icons.Default.Speed) {
             value -> save { it.copy(motionStrength = value) }
         } },
-        { SettingsSwitchItem("节奏自适应", "按词速调整强调幅度", Icons.Default.Timeline, style.adaptiveEmphasis) {
+        { SettingsSwitchItem("强度自适应", "快句减小动画幅度", Icons.Default.Timeline, style.adaptiveEmphasis) {
             value -> save { it.copy(adaptiveEmphasis = value) }
         } },
-        { SettingsSwitchItem("动效协调", "抑制叠加运动，保持可读", Icons.Default.Layers, style.coordinateMotion) {
+        { SettingsSwitchItem("限制叠加", "减小叠加动画幅度", Icons.Default.Layers, style.coordinateMotion) {
             value -> save { it.copy(coordinateMotion = value) }
         } },
-        { SettingsSwitchItem("转场联动", "转场衔接镜头方向", Icons.Default.Sync, style.flowTransitions) {
+        { SettingsSwitchItem("方向联动", "切换沿用镜头方向", Icons.Default.Sync, style.flowTransitions) {
             value -> save { it.copy(flowTransitions = value) }
         } },
     ))
-    SettingsGroup(title = "舞台留白", items = listOf(
+    SettingsGroup(title = "显示范围", items = listOf(
         { SettingsSliderItem("画面占比", style.stageFillPercent, 65..100, 1, "%", Icons.Default.FormatSize,
             style.sizingMode == "focus") {
             value -> save { it.copy(stageFillPercent = value) }
@@ -935,26 +935,26 @@ private fun PopLyricSettings(context: Context, revision: Int, previewPinned: Boo
         { SettingsSliderItem("译文间距", style.translationGapDp, 4..28, 2, "dp", Icons.Default.Translate) {
             value -> save { it.copy(translationGapDp = value) }
         } },
-        { SettingsSliderItem("译文行数上限", style.translationMaxLines, 1..4, 1, "行", Icons.Default.Translate) {
+        { SettingsSliderItem("译文最多行数", style.translationMaxLines, 1..4, 1, "行", Icons.Default.Translate) {
             value -> save { it.copy(translationMaxLines = value) }
         } },
     ))
     SettingsGroup(title = "文字入场", items = listOf(
         { SettingsChoiceItem("入场方式", style.entrance,
-            listOf("scatter" to "多向移入", "rise" to "向上移入", "zoom" to "缩放入场",
-                "converge" to "四向聚合", "disperse" to "中心扩散", "random" to "随机"), Icons.Default.Layers) {
+            listOf("scatter" to "多向", "rise" to "上移", "zoom" to "缩放",
+                "converge" to "聚合", "disperse" to "扩散", "random" to "随机"), Icons.Default.Layers) {
             value -> save { it.copy(entrance = value) }
         } },
         { SettingsSliderItem("入场时长", style.entranceMs, 200..1000, 50, "ms", Icons.Default.Speed) {
             value -> save { it.copy(entranceMs = value) }
         } },
-        { SettingsSliderItem("入场提前量", style.lookaheadMs, 0..250, 10, "ms", Icons.Default.Timeline) {
+        { SettingsSliderItem("提前入场", style.lookaheadMs, 0..250, 10, "ms", Icons.Default.Timeline) {
             value -> save { it.copy(lookaheadMs = value) }
         } },
         { SettingsSliderItem("入场位移", style.travelPercent, 0..200, 10, "%", Icons.Default.Layers) {
             value -> save { it.copy(travelPercent = value) }
         } },
-        { SettingsSliderItem("当前词缩放", style.activeScalePercent, 100..180, 5, "%", Icons.Default.FormatSize) {
+        { SettingsSliderItem("当前字词放大", style.activeScalePercent, 100..180, 5, "%", Icons.Default.FormatSize) {
             value -> save { it.copy(activeScalePercent = value) }
         } },
         { SettingsSliderItem("文字旋转", style.rotationDegrees, 0..30, 1, "°", Icons.Default.Sync) {
@@ -964,39 +964,39 @@ private fun PopLyricSettings(context: Context, revision: Int, previewPinned: Boo
             value -> save { it.copy(sustainShakePercent = value) }
         } },
     ))
-    SettingsGroup(title = "舞台与镜头", items = listOf(
+    SettingsGroup(title = "镜头", items = listOf(
         { SettingsChoiceItem("镜头运动", style.camera,
-            listOf("off" to "固定", "drift" to "漂移", "follow" to "跟随文字", "orbit" to "环绕跟随"), Icons.Default.MotionPhotosOff) {
+            listOf("off" to "固定", "drift" to "漂移", "follow" to "跟随", "orbit" to "环绕"), Icons.Default.MotionPhotosOff) {
             value -> save { it.copy(camera = value) }
         } },
         { SettingsSliderItem("镜头幅度", style.cameraPercent, 0..200, 10, "%", Icons.Default.Speed,
             style.camera != "off") { value -> save { it.copy(cameraPercent = value) } } },
-        { SettingsSwitchItem("呼吸缩放", null, Icons.Default.Sync, style.breathing) {
+        { SettingsSwitchItem("循环缩放", null, Icons.Default.Sync, style.breathing) {
             value -> save { it.copy(breathing = value) }
         } },
         { SettingsSliderItem("跟随速度", style.cameraSpeedPercent, 50..180, 5, "%", Icons.Default.Speed,
             style.camera in listOf("follow", "orbit")) { value -> save { it.copy(cameraSpeedPercent = value) } } },
     ))
-    SettingsGroup(title = "节奏与强调", items = listOf(
-        { SettingsSliderItem("整行动效", style.rowMotionPercent, 0..100, 5, "%", Icons.Default.Layers) {
+    SettingsGroup(title = "高亮与切换", items = listOf(
+        { SettingsSliderItem("整行运动", style.rowMotionPercent, 0..100, 5, "%", Icons.Default.Layers) {
             value -> save { it.copy(rowMotionPercent = value) }
         } },
-        { SettingsSliderItem("高亮保持", style.textHoldMs, 0..800, 50, "ms", Icons.Default.Timeline) {
+        { SettingsSliderItem("高亮延时", style.textHoldMs, 0..800, 50, "ms", Icons.Default.Timeline) {
             value -> save { it.copy(textHoldMs = value) }
         } },
         { SettingsSliderItem("已唱不透明度", style.passedOpacityPercent, 0..100, 5, "%", Icons.Default.Contrast) {
             value -> save { it.copy(passedOpacityPercent = value) }
         } },
-        { SettingsSwitchItem("时长自适应", "短时内容缩短入场", Icons.Default.Speed, style.adaptiveTiming) {
+        { SettingsSwitchItem("时长自适应", "快句缩短入场时间", Icons.Default.Speed, style.adaptiveTiming) {
             value -> save { it.copy(adaptiveTiming = value) }
         } },
         { SettingsChoiceItem("整句切换", style.transition,
-            listOf("fade" to "淡入淡出", "slide" to "滑动切换", "zoom" to "缩放切换",
-                "converge" to "四向聚合", "disperse" to "四向扩散", "random" to "随机"), Icons.Default.Layers) {
+            listOf("fade" to "淡入淡出", "slide" to "滑动", "zoom" to "缩放",
+                "converge" to "聚合", "disperse" to "扩散", "random" to "随机"), Icons.Default.Layers) {
             value -> save { it.copy(transition = value) }
         } },
         { if (style.transition in listOf("slide", "random"))
-            SettingsChoiceItem("推移方向", style.pushDirection,
+            SettingsChoiceItem("滑动方向", style.pushDirection,
                 listOf("left" to "向左", "right" to "向右", "up" to "向上", "down" to "向下",
                     "horizontal" to "左右随机", "vertical" to "上下随机", "random" to "四向随机"), Icons.Default.Layers) {
                 value -> save { it.copy(pushDirection = value) }
@@ -1018,12 +1018,12 @@ private fun PopSchemeSettings(context: Context, revision: Int, style: PopLyricsS
             modifier = Modifier.clickable { PopLyricSchemes.apply(context, scheme) },
             trailingContent = { TextButton(onClick = { PopLyricSchemes.delete(context, scheme.id) }) { Text("删除") } })
     } }
-    SettingsGroup(title = "动效方案", items = listOf<@Composable () -> Unit>(
-        { SettingsChoiceItem("应用方案", selected, listOf("custom" to "自定义") + schemes.map {
-            it.id to if (it.id == PopLyricSchemes.RECOMMENDED_ID) "${it.name} · 推荐" else it.name },
+    SettingsGroup(title = "方案", items = listOf<@Composable () -> Unit>(
+        { SettingsChoiceItem("选择方案", selected, listOf("custom" to "自定义") + schemes.map {
+            it.id to it.name },
             Icons.Default.Style, showSummary = false, summary = selectedScheme?.description) {
             id -> schemes.firstOrNull { it.id == id }?.let { PopLyricSchemes.apply(context, it) } } },
-        { SettingsNavigationItem("恢复推荐方案", "重置动效与文字样式", Icons.Default.Sync) {
+        { SettingsNavigationItem("恢复默认", "重置动画和文字设置", Icons.Default.Sync) {
             PopLyricSchemes.apply(context, PopLyricSchemes.recommended)
         } },
         { SettingsNavigationItem("保存方案", icon = Icons.Default.Add) {
@@ -1052,12 +1052,12 @@ private fun HomeMotionSettings(context: Context, revision: Int) {
     val appPrefs = remember(context) { context.getSharedPreferences(ThemePrefs.PREFS, Context.MODE_PRIVATE) }
     val reduceMotion = remember(revision) { appPrefs.getBoolean("reduce_motion", false) }
     fun save(transform: (MotionStyle) -> MotionStyle) { HomeMotionPrefs.save(context, transform(HomeMotionPrefs.style(context))) }
-    SettingsGroup(title = "应用动效", items = listOf({
+    SettingsGroup(title = "页面动画", items = listOf({
         SettingsSwitchItem("减少动效", "减少页面与面板动画", Icons.Default.MotionPhotosOff, reduceMotion) {
             appPrefs.edit().putBoolean("reduce_motion", it).apply()
         }
     }))
-    SettingsGroup(title = "动效预览", items = listOf({ ComposeMotionPreview(style) }))
+    SettingsGroup(title = "预览", items = listOf({ ComposeMotionPreview(style) }))
     SettingsGroup(title = "滚动与错位", items = listOf(
         { SettingsSwitchItem("缓动滚动", "平滑切换歌词行", Icons.Default.Speed, style.easedScroll) { value -> save { it.copy(easedScroll = value) } } },
         { SettingsSliderItem("切行时长", style.scrollDurationMs, MotionStyle.DURATION_MIN..MotionStyle.DURATION_MAX, MotionStyle.DURATION_STEP,
@@ -1070,7 +1070,7 @@ private fun HomeMotionSettings(context: Context, revision: Int) {
         { SettingsSwitchItem("行间缩放", "缩小非当前行", Icons.Default.FormatSize, style.scale) { value -> save { it.copy(scale = value) } } },
         { SettingsSliderItem("缩放强度", style.scalePercent, MotionStyle.PERCENT_MIN..MotionStyle.PERCENT_MAX, MotionStyle.PERCENT_STEP,
             "%", Icons.Default.FormatSize, style.scale) { value -> save { it.copy(scalePercent = value) } } },
-        { SettingsSwitchItem("远景模糊", "模糊远离当前行的歌词", Icons.Default.BlurOn, style.depthBlur) { value -> save { it.copy(depthBlur = value) } } },
+        { SettingsSwitchItem("非当前行模糊", "距离越远越模糊", Icons.Default.BlurOn, style.depthBlur) { value -> save { it.copy(depthBlur = value) } } },
         { SettingsSliderItem("模糊强度", style.blurPercent, MotionStyle.PERCENT_MIN..MotionStyle.PERCENT_MAX, MotionStyle.PERCENT_STEP,
             "%", Icons.Default.BlurOn, style.depthBlur) { value -> save { it.copy(blurPercent = value) } } },
     ))

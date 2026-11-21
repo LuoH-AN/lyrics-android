@@ -51,7 +51,7 @@ internal fun PopLyricPreview(style: PopLyricsStyle, appearance: HomeLyricAppeara
         val quick = line(requireNotNull(first.endMs), "跟着节奏向前奔跑不要停下脚步", 120, 120)
         val last = line(requireNotNull(quick.endMs), "把这一刻留下", 320, 1600)
         HomePresentationState().apply {
-            setSnapshot(HomePresentationState.Snapshot(track = "跃动预览", durationMs = requireNotNull(last.endMs) + 400))
+            setSnapshot(HomePresentationState.Snapshot(track = "歌词预览", durationMs = requireNotNull(last.endMs) + 400))
             setLyrics(LyricDocument(listOf(first, quick, last), true))
             setTranslationMode(LyricsOverlayService.TRANSLATION_ORIGINAL)
         }
