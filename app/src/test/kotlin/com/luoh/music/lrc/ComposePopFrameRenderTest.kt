@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import org.junit.Assert.*
@@ -20,6 +21,47 @@ import kotlin.math.abs
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ComposePopFrameRenderTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
+
+    @Test fun classicKeepsWordSizeStableAndFocusRemainsAvailableWhenSwitchingModes() {
+        val classic = PopLyricsStyle(sizingMode = "classic", layout = "centered", activeScalePercent = 100,
+            rotationDegrees = 0, camera = "off", breathing = false, rowMotionPercent = 0,
+            sustainShakePercent = 0, paginate = false)
+        val selected = mutableStateOf(classic)
+        val timeline = PopLyricTimeline("晚风轻拂".mapIndexed { index, char ->
+            PopLyricToken(char.toString(), 1000 + index * 500L, 1500 + index * 500L)
+        }, true, 1000, 4000)
+        lateinit var buffer: PopFrameBuffer
+        compose.setContent {
+            MaterialTheme {
+                val cache = remember { PopRenderCache() }
+                val style = selected.value
+                val builder = rememberPopSceneBuilder(cache, HomeLyricAppearance(), style,
+                    Color.Black, Color.Blue, 400f, 600f)
+                val scenes = builder.build(timeline, popLyricRenderTiming(timeline, style))
+                val frame = PopFrameBuffer(scenes, style, true, 400f, 600f, 1f, scenes.cameraPath,
+                    PopTransitionPlan("fade", PopVector(0f, 0f)), 1000L, 0, true)
+                SideEffect { buffer = frame }
+            }
+        }
+        compose.waitForIdle()
+        fun scaleAt(now: Long): Float {
+            val frame = buffer.prepare(now)
+            assertTrue(frame.glyphs[0][0][4] > 0f)
+            return frame.glyphs[0][0][2] * frame.fits[0]
+        }
+        val original = scaleAt(1600L)
+        assertEquals("New words do not shrink the first classic glyph", original, scaleAt(2600L), .001f)
+        assertEquals("Completing a classic phrase does not magnify it", original, scaleAt(3400L), .001f)
+        compose.runOnIdle { selected.value = classic.copy(sizingMode = "focus") }
+        compose.waitForIdle()
+        assertTrue("Focus still gives sparse words substantially larger type", scaleAt(1600L) > original * 2f)
+        compose.runOnIdle { selected.value = classic.copy(classicScalePercent = 100) }
+        compose.waitForIdle()
+        assertTrue("Classic font multiplier changes the actual rendered size", scaleAt(1600L) < original * .8f)
+        compose.runOnIdle { selected.value = classic }
+        compose.waitForIdle()
+        assertEquals("Switching back restores the same classic geometry", original, scaleAt(1600L), .001f)
+    }
 
     @Test fun newlySungWordsEnterWithoutDroppingEarlierVisibleWordsWithinThePhrase() {
         val timeline = PopLyricTimeline(listOf(PopLyricToken("让", 1000, 2000),

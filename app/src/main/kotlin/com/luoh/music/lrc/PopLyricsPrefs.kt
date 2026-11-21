@@ -49,6 +49,8 @@ internal object PopLyricsPrefs {
             translationGapDp = prefs.getInt(KEY + "translation_gap", defaults.translationGapDp),
             translationMaxLines = prefs.getInt(KEY + "translation_max_lines", defaults.translationMaxLines),
             stageFillPercent = prefs.getInt(KEY + "stage_fill", defaults.stageFillPercent),
+            sizingMode = string("sizing_mode", defaults.sizingMode),
+            classicScalePercent = prefs.getInt(KEY + "classic_scale", defaults.classicScalePercent),
         ).normalized()
     }
     fun save(context: Context, value: PopLyricsStyle) {
@@ -83,7 +85,9 @@ internal object PopLyricsPrefs {
             .putInt(KEY + "short_phrase_scale", style.shortPhraseScalePercent)
             .putInt(KEY + "translation_gap", style.translationGapDp)
             .putInt(KEY + "translation_max_lines", style.translationMaxLines)
-            .putInt(KEY + "stage_fill", style.stageFillPercent).apply()
+            .putInt(KEY + "stage_fill", style.stageFillPercent)
+            .putString(KEY + "sizing_mode", style.sizingMode)
+            .putInt(KEY + "classic_scale", style.classicScalePercent).apply()
     }
 
     private fun removeLegacyPresentation(prefs: SharedPreferences) {

@@ -208,8 +208,9 @@ internal class PopSceneBuilder(private val cache: PopRenderCache, private val me
                     layoutMode, reservedScale, reservedRotation, measured.groups.penalties.copyOfRange(page.from, page.until + 1),
                     extents.subList(page.from, page.until), gaps.copyOfRange(page.from, page.until + 1),
                     gap * style.rowGapPercent / 100f, style.staggerPercent, style.lineWidthPercent, 0f,
-                    maxFitScale = 16f, horizontalMotionReach = 0f,
-                    layoutSeed = sceneSeed, fillViewport = true,
+                    maxFitScale = if (style.sizingMode == "classic") style.classicScalePercent / 100f else 16f,
+                    horizontalMotionReach = 0f,
+                    layoutSeed = sceneSeed, fillViewport = style.sizingMode != "classic",
                     maxRows = if (style.paginate && renderTimeline.wordTimed) 2 else 4)
                 val travelX = 72f * density.density * style.travelPercent / 100f
                 val travelY = 48f * density.density * style.travelPercent / 100f

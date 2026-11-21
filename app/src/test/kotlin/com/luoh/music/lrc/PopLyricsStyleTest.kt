@@ -13,6 +13,32 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
 class PopLyricsStyleTest {
+    @Test fun sizingModesPersistInPreferencesAndSchemesWithCompatibleOldDefaults() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE)
+        prefs.edit().clear().commit()
+        val classic = PopLyricsStyle(sizingMode = "classic", classicScalePercent = 125,
+            entranceMs = 700, stageFillPercent = 88)
+        PopLyricsPrefs.save(context, classic)
+        assertEquals(classic, PopLyricsPrefs.style(context))
+        assertTrue(PopLyricSchemes.save(context, "经典方案"))
+        assertEquals(classic, PopLyricSchemes.saved(context).single().motion)
+        PopLyricsPrefs.save(context, classic.copy(sizingMode = "focus"))
+        assertEquals("classic", PopLyricSchemes.saved(context).single().motion.sizingMode)
+        PopLyricSchemes.apply(context, PopLyricSchemes.saved(context).single())
+        assertEquals(classic, PopLyricsPrefs.style(context))
+        val snapshots = JSONArray(prefs.getString("pop_saved_schemes", "[]"))
+        snapshots.getJSONObject(0).getJSONObject("motion").remove("sizingMode")
+        snapshots.getJSONObject(0).getJSONObject("motion").remove("classicScalePercent")
+        prefs.edit().remove("pop_sizing_mode").remove("pop_classic_scale")
+            .putString("pop_saved_schemes", snapshots.toString()).commit()
+        val compatible = classic.copy(sizingMode = "focus", classicScalePercent = 140)
+        assertEquals(compatible, PopLyricsPrefs.style(context))
+        assertEquals(compatible, PopLyricSchemes.saved(context).single().motion)
+        assertEquals("focus", classic.copy(sizingMode = "unknown").normalized().sizingMode)
+        assertEquals(80, classic.copy(classicScalePercent = -1).normalized().classicScalePercent)
+        assertEquals(200, classic.copy(classicScalePercent = 999).normalized().classicScalePercent)
+    }
     @Test fun previousPhraseDefaultIsShortenedOnceWithoutResettingOtherSettings() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE)

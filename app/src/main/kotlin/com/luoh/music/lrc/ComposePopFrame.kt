@@ -178,7 +178,9 @@ internal class PopFrameBuffer(private val scenes: PopScenes, private val style: 
         // New resting bounds blend with visibility; animated poses remain separate from the fit.
         val firstElapsed = now - (timeline.tokens[0].startMs - timing.lookaheadMs[0] + timeline.tokens[0].visualDelayMs)
         val grow = if (animated) PopVisualMotion.travel(firstElapsed.toFloat() / timing.entranceMs[0].coerceAtLeast(300L)) else 1f
-        val fit = minOf(hardFit, if (fillFit > 1f) 1f + (fillFit - 1f) * grow else fillFit)
+        // Classic keeps the page's measured font size as words arrive; focus enlarges visible ink.
+        val fit = if (style.sizingMode == "classic") minOf(1f, hardFit)
+            else minOf(hardFit, if (fillFit > 1f) 1f + (fillFit - 1f) * grow else fillFit)
         centersX[pageIndex] = centerX
         centersY[pageIndex] = centerY
         fits[pageIndex] = fit

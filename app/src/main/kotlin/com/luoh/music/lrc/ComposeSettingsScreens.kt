@@ -864,6 +864,14 @@ private fun PopLyricSettings(context: Context, revision: Int, previewPinned: Boo
     if (!previewPinned) SettingsGroup(title = "实时预览", items = listOf({ PopLyricPreview(style, appearance, onPin = onPinPreview) }))
     PopSchemeSettings(context, revision, style, appearance)
     SettingsGroup(title = "显示与排版", items = listOf(
+        { SettingsChoiceItem("跃动模式", style.sizingMode,
+            listOf("focus" to "聚焦放大", "classic" to "经典跃动"), Icons.Default.FormatSize) {
+            value -> save { it.copy(sizingMode = value) }
+        } },
+        { if (style.sizingMode == "classic") SettingsSliderItem("字号倍率", style.classicScalePercent,
+            80..200, 5, "%", Icons.Default.FormatSize) {
+            value -> save { it.copy(classicScalePercent = value) }
+        } },
         { SettingsChoiceItem("入场单位", style.reveal, listOf("word" to "逐词", "character" to "逐字"), Icons.Default.TextFields) {
             value -> save { it.copy(reveal = value) }
         } },
@@ -917,7 +925,8 @@ private fun PopLyricSettings(context: Context, revision: Int, previewPinned: Boo
         } },
     ))
     SettingsGroup(title = "舞台留白", items = listOf(
-        { SettingsSliderItem("画面占比", style.stageFillPercent, 65..100, 1, "%", Icons.Default.FormatSize) {
+        { SettingsSliderItem("画面占比", style.stageFillPercent, 65..100, 1, "%", Icons.Default.FormatSize,
+            style.sizingMode == "focus") {
             value -> save { it.copy(stageFillPercent = value) }
         } },
         { SettingsSliderItem("水平留白", style.stagePaddingDp, 8..40, 2, "dp", Icons.Default.FormatAlignLeft) {

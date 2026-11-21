@@ -127,7 +127,7 @@ class ComposePopOrchestrationRenderTest {
     @Config(qualifiers = "w800dp-h320dp-mdpi")
     fun builtInSchemesKeepBilingualTextVisibleInLandscape() = reviewBuiltIns(800, 320, "landscape")
 
-    private fun reviewShortPhraseRhythm(width: Int, height: Int, orientation: String) {
+    private fun reviewShortPhraseRhythm(width: Int, height: Int, orientation: String, sizingMode: String = "focus") {
         val text = "晚风轻拂山海星光照亮远方"
         val state = HomePresentationState(LyricClock { 0L }).apply {
             setSnapshot(HomePresentationState.Snapshot(track = "短语切换示例", durationMs = 8000))
@@ -137,7 +137,7 @@ class ComposePopOrchestrationRenderTest {
             setProgress(1500, false)
             setActive(true)
         }
-        show(state, PopLyricsStyle(), width, height)
+        show(state, PopLyricsStyle(sizingMode = sizingMode), width, height)
         val seen = ArrayList<String>()
         for (time in listOf(1500L, 3300L, 4500L, 6500L)) {
             compose.runOnIdle { state.setProgress(time, false) }
@@ -145,7 +145,7 @@ class ComposePopOrchestrationRenderTest {
             val phrase = compose.onNodeWithTag("home_pop_canvas", useUnmergedTree = true)
                 .fetchSemanticsNode().config[SemanticsProperties.Text].single().text
             assertTrue("$orientation at $time: screen shows a short phrase", phrase.length <= 6)
-            save(bitmap, "phrase-rhythm-$orientation-$time")
+            save(bitmap, "phrase-${if (sizingMode == "classic") "classic" else "rhythm"}-$orientation-$time")
             if (time == 1500L || time == 4500L) {
                 val stage = compose.onNodeWithTag("home_pop_stage", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
                 val caption = compose.onNodeWithTag("home_pop_translation", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
@@ -158,10 +158,16 @@ class ComposePopOrchestrationRenderTest {
                         abs(android.graphics.Color.blue(pixel) - android.graphics.Color.blue(background))
                     if (contrast > 300) { left = minOf(left, x); right = maxOf(right, x); top = minOf(top, y); bottom = maxOf(bottom, y) }
                 }
-                assertTrue("$orientation at $time: few visible words retain large type", right - left >= width *
-                    (if (orientation == "portrait") .55f else .25f))
-                assertTrue("$orientation at $time: glyph height remains substantial", bottom - top >= height *
-                    (if (orientation == "portrait") .10f else .25f))
+                if (sizingMode == "focus") {
+                    assertTrue("$orientation at $time: few visible words retain large type", right - left >= width *
+                        (if (orientation == "portrait") .55f else .25f))
+                    assertTrue("$orientation at $time: glyph height remains substantial", bottom - top >= height *
+                        (if (orientation == "portrait") .10f else .25f))
+                } else {
+                    assertTrue("$orientation at $time: classic words remain readable", right - left >= width * .12f)
+                    assertTrue("$orientation at $time: classic words do not magnify to fill the stage", right - left < width * .55f)
+                    assertTrue("$orientation at $time: classic glyphs leave vertical space", bottom - top < height * .35f)
+                }
             }
             seen += phrase
             bitmap.recycle()
@@ -177,6 +183,14 @@ class ComposePopOrchestrationRenderTest {
     @Test
     @Config(qualifiers = "w800dp-h320dp-mdpi")
     fun shortPhrasesReplaceOldTextInsteadOfFillingTheLandscapeStage() = reviewShortPhraseRhythm(800, 320, "landscape")
+
+    @Test fun classicModeRevealsModerateTypeAndReplacesPhrasesInPortrait() =
+        reviewShortPhraseRhythm(400, 760, "portrait", "classic")
+
+    @Test
+    @Config(qualifiers = "w800dp-h320dp-mdpi")
+    fun classicModeRevealsModerateTypeAndReplacesPhrasesInLandscape() =
+        reviewShortPhraseRhythm(800, 320, "landscape", "classic")
 
     private fun reviewSparseTypography(width: Int, height: Int, orientation: String) {
         val selected = mutableStateOf(PopLyricSchemes.recommended)

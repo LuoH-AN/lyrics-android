@@ -41,6 +41,8 @@ internal data class PopLyricsStyle(
     val translationGapDp: Int = 10,
     val translationMaxLines: Int = 3,
     val stageFillPercent: Int = 94,
+    val sizingMode: String = "focus",
+    val classicScalePercent: Int = 140,
 ) {
     fun normalized() = copy(
         preset = preset.takeIf { it in listOf("calm", "flow", "dynamic", "custom") } ?: "custom",
@@ -67,6 +69,8 @@ internal data class PopLyricsStyle(
         translationGapDp = translationGapDp.coerceIn(4, 28),
         translationMaxLines = translationMaxLines.coerceIn(1, 4),
         stageFillPercent = stageFillPercent.coerceIn(65, 100),
+        sizingMode = sizingMode.takeIf { it in listOf("focus", "classic") } ?: "focus",
+        classicScalePercent = classicScalePercent.coerceIn(80, 200),
         transition = transition.takeIf { it in listOf("fade", "slide", "zoom", "converge", "disperse", "random") } ?: "fade",
     )
     val maxWordScale get() = (1f + (activeScalePercent / 100f - 1f) * PopMotionOrchestration.strength(this) * 1.10f).coerceAtMost(1.94f) * 1.05f
