@@ -80,5 +80,13 @@ class LyricsOverlayLockTest {
         staleUnlock.send()
         service.onStartCommand(shadowOf(service.application).nextStartedService, 0, 3)
         assertFalse(service.isPositionLocked())
+
+        manager.cancelAll()
+        assertTrue(shadowOf(manager).allNotifications.isEmpty())
+        service.onStartCommand(Intent(service, LyricsOverlayService::class.java)
+            .setAction(LyricsOverlayService.ACTION_REFRESH_NOTIFICATION), 0, 4)
+        assertEquals("锁定并穿透", NotificationCompat.getAction(shadowOf(manager).allNotifications.single(), 0)!!.title.toString())
+        assertFalse(service.isPositionLocked())
+        assertEquals(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, params.flags)
     }
 }

@@ -206,6 +206,11 @@ class LyricsOverlayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_REFRESH_NOTIFICATION && overlayRoot != null) {
+            (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+                .notify(NOTIFICATION_ID, foregroundNotification())
+            return START_STICKY
+        }
         if (intent?.action == ACTION_REFRESH_ACCENT) {
             updateChromeTint()
             return START_STICKY
@@ -1789,6 +1794,7 @@ class LyricsOverlayService : Service() {
         const val ACTION_STOP = "com.luoh.music.lrc.action.STOP_LYRICS_OVERLAY"
         const val ACTION_LOCK = "com.luoh.music.lrc.action.LOCK_LYRICS_OVERLAY"
         const val ACTION_UNLOCK = "com.luoh.music.lrc.action.UNLOCK_LYRICS_OVERLAY"
+        const val ACTION_REFRESH_NOTIFICATION = "com.luoh.music.lrc.action.REFRESH_LYRICS_NOTIFICATION"
         const val ACTION_STATE_CHANGED = "com.luoh.music.lrc.action.LYRICS_OVERLAY_STATE_CHANGED"
         const val ACTION_SET_BACKGROUND = "com.luoh.music.lrc.action.SET_LYRICS_BACKGROUND"
         const val ACTION_SET_FONT_SCALE = "com.luoh.music.lrc.action.SET_LYRICS_FONT_SCALE"
@@ -1801,7 +1807,7 @@ class LyricsOverlayService : Service() {
         const val ACTION_REFRESH_APPEARANCE = "com.luoh.music.lrc.action.REFRESH_OVERLAY_APPEARANCE"
         const val PREF_CONTEXT_BEFORE = "context_before"
         const val PREF_CONTEXT_AFTER = "context_after"
-        private const val PREF_POSITION_LOCKED = "position_locked"
+        const val PREF_POSITION_LOCKED = "position_locked"
         const val ACTION_SET_TRANSLATION_MODE = "com.luoh.music.lrc.action.SET_TRANSLATION_MODE"
         const val ACTION_REFRESH_MATCHES = "com.luoh.music.lrc.action.REFRESH_MATCHES"
         const val ACTION_REFRESH_ACCENT = "com.luoh.music.lrc.action.REFRESH_ACCENT"
@@ -1936,7 +1942,7 @@ class LyricsOverlayService : Service() {
             editor.apply()
         }
         private const val LOG_TAG = "DesktopLyrics"
-        private const val CHANNEL_ID = "lobsta_lyrics_overlay"
+        internal const val CHANNEL_ID = "lobsta_lyrics_overlay"
         private const val DISPLAY_EDGE_MARGIN_DP = 8
         private const val NOTIFICATION_ID = 4202
 

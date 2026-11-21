@@ -1,5 +1,6 @@
 package com.luoh.music.lrc
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -9,6 +10,8 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -328,7 +331,7 @@ private fun SettingsSliderItem(
 }
 
 @Composable
-private fun DesktopAccessSettings(context: Context) {
+private fun overlaySettingsRevision(context: Context): Int {
     val owner = LocalLifecycleOwner.current
     val active = LocalSettingsScrollRetentionActive.current
     var revision by remember { mutableIntStateOf(0) }
@@ -350,8 +353,53 @@ private fun DesktopAccessSettings(context: Context) {
             context.unregisterReceiver(receiver)
         }
     }
+    return revision
+}
+
+@Composable
+private fun DesktopPositionSettingsItem(context: Context, prefs: SharedPreferences) {
+    val revision = overlaySettingsRevision(context) + settingsPreferenceRevision(prefs)
     val running = remember(revision) { LyricsOverlayService.isRunning }
-    val positionLocked = remember(revision) { LyricsOverlayService.instance?.isPositionLocked() == true }
+    val locked = remember(revision) { prefs.getBoolean(LyricsOverlayService.PREF_POSITION_LOCKED, false) }
+    SettingsNavigationItem(
+        if (locked) "解锁并移动歌词" else "锁定并点击穿透",
+        if (locked) "点按取消固定，恢复拖动" else "锁定后可直接操作歌词下方的应用",
+        Icons.Default.Lock,
+        enabled = running || locked,
+    ) {
+        if (LyricsOverlayService.isRunning) {
+            settingsOverlayAction(context, if (locked) LyricsOverlayService.ACTION_UNLOCK else LyricsOverlayService.ACTION_LOCK)
+        } else {
+            prefs.edit().putBoolean(LyricsOverlayService.PREF_POSITION_LOCKED, false).apply()
+        }
+    }
+}
+
+@Composable
+private fun DesktopNotificationSettingsItem(context: Context) {
+    val revision = overlaySettingsRevision(context)
+    val allowed = remember(revision) { OverlayNotificationAccess.isEnabled(context) }
+    SettingsNavigationItem(
+        "桌面歌词通知",
+        if (allowed) "已允许，点按恢复通知栏的操作按钮" else "未允许，点按开启通知以在通知栏解锁",
+        Icons.Default.Notifications,
+    ) {
+        if (allowed && LyricsOverlayService.isRunning) {
+            settingsOverlayAction(context, LyricsOverlayService.ACTION_REFRESH_NOTIFICATION)
+        } else {
+            settingsOpenIntent(context, OverlayNotificationAccess.settingsIntent(context))
+        }
+    }
+}
+
+@Composable
+private fun DesktopAccessSettings(context: Context) {
+    val revision = overlaySettingsRevision(context)
+    val running = remember(revision) { LyricsOverlayService.isRunning }
+    val prefs = remember(context) { context.getSharedPreferences(LyricsOverlayService.PREFS_NAME, Context.MODE_PRIVATE) }
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) settingsOverlayAction(context, LyricsOverlayService.ACTION_REFRESH_NOTIFICATION)
+    }
     val notificationAllowed = remember(revision) {
         NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
     }
@@ -379,20 +427,16 @@ private fun DesktopAccessSettings(context: Context) {
                         settingsToast(context, "请先授予悬浮窗权限")
                         settingsOpenIntent(context, Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
                     }
-                    else -> ContextCompat.startForegroundService(context, Intent(context, LyricsOverlayService::class.java).setAction(LyricsOverlayService.ACTION_START))
+                    else -> {
+                        ContextCompat.startForegroundService(context, Intent(context, LyricsOverlayService::class.java).setAction(LyricsOverlayService.ACTION_START))
+                        if (OverlayNotificationAccess.needsPermission(context)) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
                 }
                 scope.launch { delay(250); revision++ }
             }
         }
-        if (running) add {
-            SettingsNavigationItem(
-                if (positionLocked) "解锁并移动歌词" else "锁定并点击穿透",
-                if (positionLocked) "恢复拖动，也可在通知栏解锁" else "锁定后可直接操作歌词下方的应用",
-                Icons.Default.Lock,
-            ) {
-                settingsOverlayAction(context, if (positionLocked) LyricsOverlayService.ACTION_UNLOCK else LyricsOverlayService.ACTION_LOCK)
-            }
-        }
+        add { DesktopPositionSettingsItem(context, prefs) }
+        add { DesktopNotificationSettingsItem(context) }
         add {
             SettingsNavigationItem("通知使用权", if (notificationAllowed) "已授权" else "未授权", Icons.Default.Notifications) {
                 settingsOpenIntent(context, Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
@@ -455,6 +499,10 @@ private fun DesktopAppearanceSettings(context: Context, prefs: SharedPreferences
             putExtra(LyricsOverlayService.EXTRA_TARGET_COMPACT, true)
         }
     }
+    SettingsGroup(title = "位置与操作", items = listOf(
+        { DesktopPositionSettingsItem(context, prefs) },
+        { DesktopNotificationSettingsItem(context) },
+    ))
     SettingsGroup(title = "歌词预览", items = listOf({
         val foreground = OverlayAppearance.parseColor(color)
         val backgroundColor = Color(OverlayAppearance.backgroundColor(background, foreground, opacity))

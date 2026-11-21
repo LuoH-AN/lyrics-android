@@ -4,7 +4,9 @@ Android 歌词应用，支持悬浮歌词、逐字动画、翻译和本地歌词
 
 支持 Android 8.0+、arm64-v8a。需要通知使用权读取播放器信息，悬浮歌词另需悬浮窗权限。
 
-桌面歌词解锁时可直接拖动；点锁定后，整个歌词区域支持点击穿透。需要调整位置时，在通知栏点「解锁并移动」，或在应用的桌面歌词设置中解锁。Android 12 及以上锁定时会按系统要求降低窗口不透明度，以允许触摸穿透。
+桌面歌词解锁时可直接拖动；点锁定后，整个歌词区域支持点击穿透。需要调整位置时，在通知栏点「解锁并移动」，或进入「设置 → 桌面歌词外观 → 解锁并移动歌词」。Android 12 及以上锁定时会按系统要求降低窗口不透明度，以允许触摸穿透。
+
+Android 13 及以上开启桌面歌词时会请求发送通知权限；通知被关闭或划掉时，可在「桌面歌词外观」或「权限与开关」中点「桌面歌词通知」开启或恢复通知。通知使用权与发送通知权限相互独立，未允许发送通知时仍可从应用内解锁歌词。
 
 [正式版](https://github.com/LuoH-AN/lyrics-android/releases/latest) · [Nightly](https://github.com/LuoH-AN/lyrics-android/actions/workflows/build.yml) · [反馈](https://github.com/LuoH-AN/lyrics-android/issues)
 

@@ -1,5 +1,6 @@
 package com.luoh.music.lrc
 
+import android.Manifest
 import android.content.ComponentName
 import android.content.BroadcastReceiver
 import android.content.IntentFilter
@@ -106,6 +107,11 @@ class MainActivity : ComponentActivity() {
     private var currentLrcText = ""
     private var currentLrcTranslated = ""
     private var pendingLrcExport = ""
+    private val overlayNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted && LyricsOverlayService.isRunning) {
+            startService(Intent(this, LyricsOverlayService::class.java).setAction(LyricsOverlayService.ACTION_REFRESH_NOTIFICATION))
+        }
+    }
     private val exportLrcLauncher = registerForActivityResult(
         ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri ->
@@ -272,6 +278,9 @@ class MainActivity : ComponentActivity() {
                 action = LyricsOverlayService.ACTION_START
             }
         )
+        if (OverlayNotificationAccess.needsPermission(this)) {
+            overlayNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
         updateGate()
     }
 
