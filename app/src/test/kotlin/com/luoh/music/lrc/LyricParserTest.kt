@@ -33,11 +33,23 @@ class LyricParserTest {
         assertEquals(.5f, LyricTiming.sungCharacters(line, 1500L), .001f)
     }
 
-    @Test fun sparseWordTrackFallsBackToWholeLineLyrics() {
+    @Test fun sparseWordTrackRetainsTimingForMatchedLines() {
         val result = LyricParser.parse("[00:01.00]first\n[00:03.00]second\n[00:05.00]third",
             wordLrc = "[1000,1000](1000,1000)first")
         assertEquals(3, result.lines.size)
-        assertTrue(result.lines.all { it.words.isEmpty() })
+        assertEquals(listOf("first"), result.lines.first().words.map { it.text })
+        assertTrue(result.lines.drop(1).all { it.words.isEmpty() })
+    }
+
+    @Test fun repeatedPhrasesKeepTheirOwnTimingWhenAnotherRowIsCloser() {
+        val result = LyricParser.parse(
+            "[00:01.00]摇啊摇  摇啊摇\n[00:07.00]摇啊摇  摇啊摇\n[00:07.30]找啊找",
+            wordLrc = "[1100,900](1100,450)摇啊摇(1550,450)摇啊摇\n" +
+                "[7200,900](7200,450)摇啊摇(7650,450)摇啊摇")
+        assertEquals(listOf(1100L, 1550L), result.lines[0].words.map { it.startMs })
+        assertEquals(listOf(7200L, 7650L), result.lines[1].words.map { it.startMs })
+        assertEquals(0f, LyricTiming.sungCharacters(result.lines[1], 2000L), .001f)
+        assertTrue(result.lines[2].words.isEmpty())
     }
 
     @Test fun seventyPercentWordCoverageIsAccepted() {

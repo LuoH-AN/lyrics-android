@@ -10,6 +10,7 @@ object LyricParser {
     private val credit = Regex("^(作词|作曲|编曲|制作人|混音|母带|录音|和声|监制|出品|发行|词|曲)\\s*[：:]", RegexOption.IGNORE_CASE)
     private val wordLine = Regex("^\\[(\\d+),(\\d+)](.*)$")
     private val wordStamp = Regex("\\((\\d+),(\\d+)(?:,\\d+)?\\)")
+    private val whitespace = Regex("\\s+")
 
     fun parse(lrc: String, translated: String = "", wordLrc: String = "", allowPartialWords: Boolean = false): LyricDocument {
         val lines = parseLines(lrc).toMutableList()
@@ -28,31 +29,37 @@ object LyricParser {
             lines[index] = lines[index].copy(translation = translations[bucket(lines[index].startMs)].orEmpty())
         }
         val attached = mutableSetOf<Int>()
-        var nearestIndex = 0
-        var nextIndex = 1
-        // Both timelines are sorted. Advance once through the lines, keeping the
-        // first line for equal timestamps or equal distances, as the full scan did.
+        val identities = lines.map { it.text.replace(whitespace, "") }
+        var windowStart = 0
+        // Search only nearby timestamps, then require matching text. Each occurrence
+        // owns its timing even when a chorus repeats or a neighbouring row is closer.
         for (word in words) {
-            while (nextIndex < lines.size) {
-                if (lines[nextIndex].startMs == lines[nearestIndex].startMs) {
-                    nextIndex++
-                    continue
-                }
-                if (abs(lines[nextIndex].startMs - word.startMs) >=
-                    abs(lines[nearestIndex].startMs - word.startMs)) break
-                nearestIndex = nextIndex++
+            while (windowStart < lines.size && lines[windowStart].startMs <= word.startMs - 1200L) {
+                windowStart++
             }
-            val index = nearestIndex
-            // Corrections contain timing only for exact, unchanged lines.
-            if (allowPartialWords && (lines[index].startMs != word.startMs || lines[index].text != word.text.trim())) continue
-            if (abs(lines[index].startMs - word.startMs) < 1200L) {
+            val identity = word.text.replace(whitespace, "")
+            var index = -1
+            var nearestDistance = 1200L
+            var candidate = windowStart
+            while (candidate < lines.size && lines[candidate].startMs < word.startMs + 1200L) {
+                val line = lines[candidate]
+                val matches = if (allowPartialWords) {
+                    // Edited lyrics retain timing only for exact, unchanged rows.
+                    line.startMs == word.startMs && line.text == word.text.trim()
+                } else identities[candidate] == identity
+                val distance = abs(line.startMs - word.startMs)
+                if (candidate !in attached && matches && distance < nearestDistance) {
+                    index = candidate
+                    nearestDistance = distance
+                }
+                candidate++
+            }
+            if (index >= 0) {
                 lines[index] = lines[index].copy(words = word.words, endMs = word.endMs)
                 attached += index
             }
         }
-        if (!allowPartialWords && words.isNotEmpty() && attached.size.toDouble() / lines.size < .7) {
-            for (index in lines.indices) lines[index] = lines[index].copy(words = emptyList())
-        }
+        // Missing timing elsewhere must not erase accurate timing on these rows.
         return LyricDocument(lines, true)
     }
 

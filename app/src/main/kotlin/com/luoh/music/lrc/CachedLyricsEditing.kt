@@ -11,7 +11,7 @@ internal fun correctedWordLyrics(original: DirectLyricsRepository.Result?, lyric
     val unchanged = edited.lines.groupBy { it.startMs }.values.filter { it.size == 1 }
         .map { it.single().let { line -> line.startMs to line.text } }.toSet()
     val source = LyricParser.parse(CustomLyricsStore.parse(original.lyrics, "").lyrics)
-    // Parse the word track alone so previously saved partial timing isn't discarded by the coverage threshold.
+    // Parse the word track alone before retaining exact rows from the edited lyrics.
     val words = LyricParser.parse("", wordLrc = original.wordLyrics)
     val retained = words.lines.mapNotNull { wordLine ->
         val line = source.lines.minByOrNull { abs(it.startMs - wordLine.startMs) } ?: return@mapNotNull null
