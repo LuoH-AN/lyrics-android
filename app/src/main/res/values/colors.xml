@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <color name="notification_foreground">#FF1C1B1F</color>
     <!-- Agora FOREST seed #2E7D32, Material Tonal Spot, contrast 0. -->
     <color name="app_bg">#F7FBF1</color>
     <color name="app_surface">#F1F5EB</color>

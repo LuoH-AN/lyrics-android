@@ -36,7 +36,8 @@ for (const name of ['HomeLyricsView.kt', 'HomeLyricMotion.kt', 'HomeMotionPrevie
   assert.ok(!fs.existsSync(path.join(base, name)), `${name} must be removed after migration`);
 }
 const layout = 'app/src/main/res/layout';
-assert.ok(!fs.existsSync(layout) || !fs.readdirSync(layout).some(name => name.endsWith('.xml')),
+// System notifications require RemoteViews; application pages and dialogs remain Compose-only.
+assert.ok(!fs.existsSync(layout) || !fs.readdirSync(layout).some(name => name.endsWith('.xml') && name !== 'notification_lyrics.xml'),
   'application pages and dialogs must not retain XML layouts');
 
 const originalComponents = ['SettingsOverlayHost.kt', 'SettingsAnimations.kt', 'SettingsScrollRetention.kt',

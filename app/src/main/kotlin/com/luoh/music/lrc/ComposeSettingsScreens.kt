@@ -362,9 +362,8 @@ private fun DesktopPositionSettingsItem(context: Context, prefs: SharedPreferenc
     val running = remember(revision) { LyricsOverlayService.isRunning }
     val locked = remember(revision) { prefs.getBoolean(LyricsOverlayService.PREF_POSITION_LOCKED, false) }
     SettingsNavigationItem(
-        if (locked) "解锁并移动歌词" else "锁定并点击穿透",
-        if (locked) "点按取消固定，恢复拖动" else "锁定后可直接操作歌词下方的应用",
-        Icons.Default.Lock,
+        if (locked) "解锁" else "锁定",
+        icon = Icons.Default.Lock,
         enabled = running || locked,
     ) {
         if (LyricsOverlayService.isRunning) {

@@ -57,7 +57,7 @@ class ComposeOverlayControlsTest {
 
     @Test fun lockedLyricsCanBeUnlockedFromTheTopOfAppearanceSettingsWithoutNotifications() {
         show()
-        compose.onNodeWithText("解锁并移动歌词").assertIsDisplayed().performTouchInput { click() }
+        compose.onNodeWithText("解锁").assertIsDisplayed().performTouchInput { click() }
         compose.runOnIdle { assertEquals(LyricsOverlayService.ACTION_UNLOCK, shadowOf(application).nextStartedService.action) }
     }
 
@@ -74,17 +74,17 @@ class ComposeOverlayControlsTest {
     @Test fun savedLockCanBeClearedEvenWhenTheServiceHasStopped() {
         ReflectionHelpers.setStaticField(LyricsOverlayService::class.java, "isRunning", false)
         show()
-        compose.onNodeWithText("解锁并移动歌词").performTouchInput { click() }
+        compose.onNodeWithText("解锁").performTouchInput { click() }
         compose.runOnIdle {
             assertFalse(prefs.getBoolean(LyricsOverlayService.PREF_POSITION_LOCKED, true))
             assertNull(shadowOf(application).nextStartedService)
         }
-        compose.onNodeWithText("锁定并点击穿透").assertIsNotEnabled()
+        compose.onNodeWithText("锁定").assertIsNotEnabled()
     }
 
     @Test fun theSameUnlockControlRemainsAvailableInAccessSettings() {
         show("access")
-        compose.onNodeWithText("解锁并移动歌词").assertIsDisplayed().performTouchInput { click() }
+        compose.onNodeWithText("解锁").assertIsDisplayed().performTouchInput { click() }
         compose.runOnIdle { assertEquals(LyricsOverlayService.ACTION_UNLOCK, shadowOf(application).nextStartedService.action) }
     }
 }

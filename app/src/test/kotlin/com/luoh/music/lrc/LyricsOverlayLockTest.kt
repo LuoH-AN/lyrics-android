@@ -1,6 +1,7 @@
 package com.luoh.music.lrc
 
 import android.app.Application
+import android.app.Notification
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
@@ -8,7 +9,6 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.*
 import org.junit.Before
@@ -55,11 +55,15 @@ class LyricsOverlayLockTest {
         assertEquals("Locked controls must stay hidden", View.INVISIBLE, chrome.visibility)
 
         val manager = service.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        fun controls(notification: Notification): View = requireNotNull(notification.contentView)
+            .apply(service, FrameLayout(service))
         val notification = shadowOf(manager).allNotifications.single()
-        val unlock = NotificationCompat.getAction(notification, 0)!!
-        assertEquals("解锁并移动", unlock.title.toString())
-        val staleUnlock = requireNotNull(unlock.actionIntent)
-        staleUnlock.send()
+        assertEquals("桌面歌词", notification.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+        assertEquals("已锁定", notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
+        assertEquals(0, notification.actions?.size ?: 0)
+        val staleUnlock = controls(notification).findViewById<View>(R.id.notification_lyrics_lock)
+        assertEquals("解锁", staleUnlock.contentDescription.toString())
+        staleUnlock.performClick()
         val started = shadowOf(service.application).nextStartedService
         assertEquals(LyricsOverlayService.ACTION_UNLOCK, started.action)
         service.onStartCommand(started, 0, 2)
@@ -71,13 +75,18 @@ class LyricsOverlayLockTest {
             .getBoolean("position_locked", true))
 
         val updated = shadowOf(manager).allNotifications.single()
-        val lock = NotificationCompat.getAction(updated, 0)!!
-        assertEquals("锁定并穿透", lock.title.toString())
-        requireNotNull(lock.actionIntent).send()
+        val updatedControls = controls(updated)
+        val lock = updatedControls.findViewById<View>(R.id.notification_lyrics_lock)
+        assertEquals("锁定", lock.contentDescription.toString())
+        assertEquals("可拖动", updated.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
+        lock.performClick()
         assertEquals(LyricsOverlayService.ACTION_LOCK, shadowOf(service.application).nextStartedService.action)
-        assertEquals("关闭桌面歌词", NotificationCompat.getAction(updated, 1)!!.title.toString())
+        val close = updatedControls.findViewById<View>(R.id.notification_lyrics_close)
+        assertEquals("关闭", close.contentDescription.toString())
+        close.performClick()
+        assertEquals(LyricsOverlayService.ACTION_STOP, shadowOf(service.application).nextStartedService.action)
         // An older unlock PendingIntent remains an unlock, rather than toggling the state.
-        staleUnlock.send()
+        staleUnlock.performClick()
         service.onStartCommand(shadowOf(service.application).nextStartedService, 0, 3)
         assertFalse(service.isPositionLocked())
 
@@ -85,7 +94,8 @@ class LyricsOverlayLockTest {
         assertTrue(shadowOf(manager).allNotifications.isEmpty())
         service.onStartCommand(Intent(service, LyricsOverlayService::class.java)
             .setAction(LyricsOverlayService.ACTION_REFRESH_NOTIFICATION), 0, 4)
-        assertEquals("锁定并穿透", NotificationCompat.getAction(shadowOf(manager).allNotifications.single(), 0)!!.title.toString())
+        assertEquals("锁定", controls(shadowOf(manager).allNotifications.single())
+            .findViewById<View>(R.id.notification_lyrics_lock).contentDescription.toString())
         assertFalse(service.isPositionLocked())
         assertEquals(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, params.flags)
     }

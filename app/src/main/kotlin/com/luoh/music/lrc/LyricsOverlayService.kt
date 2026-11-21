@@ -45,6 +45,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.RemoteViews
 import com.google.android.material.button.MaterialButton
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
@@ -778,16 +779,26 @@ class LyricsOverlayService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val controls = RemoteViews(packageName, R.layout.notification_lyrics).apply {
+            setTextViewText(R.id.notification_lyrics_state, if (positionLocked) "已锁定" else "可拖动")
+            setImageViewResource(R.id.notification_lyrics_lock,
+                if (positionLocked) R.drawable.ic_overlay_locked else R.drawable.ic_overlay_unlocked)
+            setContentDescription(R.id.notification_lyrics_lock, if (positionLocked) "解锁" else "锁定")
+            setOnClickPendingIntent(R.id.notification_lyrics_lock, movementPendingIntent)
+            setOnClickPendingIntent(R.id.notification_lyrics_close, stopPendingIntent)
+        }
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(if (positionLocked) "桌面歌词已锁定 · 点击穿透" else "桌面歌词可移动")
-            .setContentText(if (positionLocked) "触摸可穿透歌词，调整位置请点「解锁并移动」" else "拖动歌词调整位置，锁定后可点击下方应用")
+            .setContentTitle("桌面歌词")
+            .setContentText(if (positionLocked) "已锁定" else "可拖动")
             .setContentIntent(openPendingIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .addAction(0, if (positionLocked) "解锁并移动" else "锁定并穿透", movementPendingIntent)
-            .addAction(0, "关闭桌面歌词", stopPendingIntent)
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+            .setCustomContentView(controls)
+            .setCustomBigContentView(controls)
             .build()
     }
 
@@ -919,7 +930,7 @@ class LyricsOverlayService : Service() {
         dragTouchArea = dragArea
 
         closeButton = chromeButton(R.drawable.ic_overlay_close, "关闭桌面歌词") { stopSelf() }
-        lockButton = chromeButton(R.drawable.ic_overlay_unlocked, "锁定歌词并开启点击穿透") {
+        lockButton = chromeButton(R.drawable.ic_overlay_unlocked, "锁定") {
             setPositionLocked(true)
         }
         updateLockControl()
@@ -1457,7 +1468,7 @@ class LyricsOverlayService : Service() {
 
     private fun updateLockControl() {
         lockButton?.let { button ->
-            button.contentDescription = if (positionLocked) "歌词已锁定，可从通知栏解锁" else "锁定歌词并开启点击穿透"
+            button.contentDescription = if (positionLocked) "解锁" else "锁定"
             button.isChecked = positionLocked
             button.isSelected = positionLocked
             setChromeIcon(button, if (positionLocked) R.drawable.ic_overlay_locked else R.drawable.ic_overlay_unlocked)
