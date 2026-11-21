@@ -58,7 +58,7 @@ class LyricsOverlayLockTest {
         val notification = shadowOf(manager).allNotifications.single()
         val unlock = NotificationCompat.getAction(notification, 0)!!
         assertEquals("解锁并移动", unlock.title.toString())
-        val staleUnlock = unlock.actionIntent
+        val staleUnlock = requireNotNull(unlock.actionIntent)
         staleUnlock.send()
         val started = shadowOf(service.application).nextStartedService
         assertEquals(LyricsOverlayService.ACTION_UNLOCK, started.action)
@@ -73,7 +73,7 @@ class LyricsOverlayLockTest {
         val updated = shadowOf(manager).allNotifications.single()
         val lock = NotificationCompat.getAction(updated, 0)!!
         assertEquals("锁定并穿透", lock.title.toString())
-        lock.actionIntent.send()
+        requireNotNull(lock.actionIntent).send()
         assertEquals(LyricsOverlayService.ACTION_LOCK, shadowOf(service.application).nextStartedService.action)
         assertEquals("关闭桌面歌词", NotificationCompat.getAction(updated, 1)!!.title.toString())
         // An older unlock PendingIntent remains an unlock, rather than toggling the state.
