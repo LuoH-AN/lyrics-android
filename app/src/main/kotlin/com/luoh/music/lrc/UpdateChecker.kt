@@ -1,5 +1,6 @@
 package com.luoh.music.lrc
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -8,6 +9,7 @@ import java.net.URL
 
 object UpdateChecker {
     const val RELEASES_LATEST_URL = "https://github.com/LuoH-AN/lyrics-android/releases/latest"
+    const val NIGHTLY_BUILDS_URL = "https://github.com/LuoH-AN/lyrics-android/actions/workflows/build.yml"
     private const val LATEST_API_URL =
         "https://api.github.com/repos/LuoH-AN/lyrics-android/releases/latest"
 
@@ -40,8 +42,7 @@ object UpdateChecker {
                 val payload = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
                 val json = JSONObject(payload)
                 val tag = json.optString("tag_name").trim()
-                val version = normalizedVersion(tag)
-                if (version.isBlank()) error("Release version is missing")
+                val version = stableVersion(tag) ?: error("Release version is invalid")
                 val apiUrl = json.optString("html_url")
                 val pageUrl = apiUrl.takeIf {
                     it.startsWith("https://github.com/LuoH-AN/lyrics-android/releases/")
@@ -50,12 +51,12 @@ object UpdateChecker {
             } finally {
                 connection.disconnect()
             }
-        }
+        }.onFailure { if (it is CancellationException) throw it }
     }
 
     fun isNewer(remote: String, current: String): Boolean {
-        val left = versionParts(remote)
-        val right = versionParts(current)
+        val left = versionParts(remote) ?: return false
+        val right = versionParts(current) ?: return false
         val length = maxOf(left.size, right.size)
         repeat(length) { index ->
             val comparison = left.getOrElse(index) { 0 }.compareTo(right.getOrElse(index) { 0 })
@@ -64,18 +65,13 @@ object UpdateChecker {
         return false
     }
 
-    private fun versionParts(value: String): List<Int> = normalizedVersion(value)
-        .split('.')
-        .mapNotNull { it.toIntOrNull() }
-        .ifEmpty { listOf(0) }
+    fun stableVersion(value: String): String? = versionParts(value)?.joinToString(".")
 
-    private fun normalizedVersion(value: String): String = value
-        .trim()
-        .removePrefix("v")
-        .removePrefix("V")
-        .substringBefore('-')
-        .takeWhile { it.isDigit() || it == '.' }
-        .trim('.')
+    private fun versionParts(value: String): List<Int>? {
+        val match = Regex("^[vV]?(\\d+)\\.(\\d+)\\.(\\d+)(?:-[0-9A-Za-z.-]+)?$")
+            .matchEntire(value.trim()) ?: return null
+        return (1..3).map { match.groupValues[it].toIntOrNull() ?: return null }
+    }
 
     private fun summarize(markdown: String): String {
         val text = markdown.lineSequence()

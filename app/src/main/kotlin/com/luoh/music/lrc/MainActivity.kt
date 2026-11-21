@@ -150,20 +150,22 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             LyricsComposeTheme {
-                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    Box(Modifier.fillMaxSize().preferredFrameRate(FrameRateCategory.High)) {
-                        ComposeHomeScreen(home,
-                            onListenerPermission = {
-                                UsageAnalytics.permissionRequested(UsageAnalytics.Permission.NOTIFICATION)
-                                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                            },
-                            onOverlayPermission = {
-                                UsageAnalytics.permissionRequested(UsageAnalytics.Permission.OVERLAY)
-                                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName")))
-                            },
-                            onStartOverlay = ::tryStartOverlay)
-                        SettingsOverlayHost(pageNavigator.isOpen, pageNavigator::dismiss,
-                            onExitFinished = pageNavigator::onExitFinished) { pageNavigator.Content() }
+                AppUpdateHost {
+                    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                        Box(Modifier.fillMaxSize().preferredFrameRate(FrameRateCategory.High)) {
+                            ComposeHomeScreen(home,
+                                onListenerPermission = {
+                                    UsageAnalytics.permissionRequested(UsageAnalytics.Permission.NOTIFICATION)
+                                    startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                                },
+                                onOverlayPermission = {
+                                    UsageAnalytics.permissionRequested(UsageAnalytics.Permission.OVERLAY)
+                                    startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName")))
+                                },
+                                onStartOverlay = ::tryStartOverlay)
+                            SettingsOverlayHost(pageNavigator.isOpen, pageNavigator::dismiss,
+                                onExitFinished = pageNavigator::onExitFinished) { pageNavigator.Content() }
+                        }
                     }
                 }
             }

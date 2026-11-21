@@ -1112,27 +1112,24 @@ private fun ComposeMotionPreview(style: MotionStyle) {
 
 @Composable
 private fun AboutSettings(context: Context, onNavigate: (ComposeRoute) -> Unit) {
-    val version = remember(context) {
-        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty().substringBefore('-').ifBlank { "1.0" } }
-            .getOrDefault("1.0")
-    }
-    var checking by remember { mutableStateOf(false) }
+    val sharedUpdates = LocalAppUpdates.current
+    val updates = sharedUpdates ?: rememberAppUpdateModel()
+    val version = updates.currentVersion
     var clearingCache by remember { mutableStateOf(false) }
-    var release by remember { mutableStateOf<UpdateChecker.Release?>(null) }
-    val active = LocalSettingsScrollRetentionActive.current
-    LaunchedEffect(active) { if (!active) { checking = false; release = null } }
     val scope = rememberSettingsBusinessScope()
     SettingsGroup(title = "应用", items = listOf(
         {
-            SettingsNavigationItem("检查更新", if (checking) "检查中…" else version, Icons.Default.Update, !checking) {
-                checking = true
-                scope.launch {
-                    val result = UpdateChecker.fetchLatest(version)
-                    checking = false
-                    result.onSuccess {
-                        if (UpdateChecker.isNewer(it.version, version)) release = it else settingsToast(context, "当前已是最新版")
-                    }.onFailure {
-                        settingsToast(context, if (it is UpdateChecker.NoReleaseException) "暂无已发布版本" else "更新检查失败，请稍后重试")
+            SettingsNavigationItem(if (updates.stable) "检查更新" else "Nightly 构建",
+                if (updates.checking) "检查中…" else version, Icons.Default.Update, !updates.checking) {
+                if (!updates.stable) {
+                    settingsOpenUrl(context, UpdateChecker.NIGHTLY_BUILDS_URL)
+                } else {
+                    scope.launch {
+                        updates.checkManually().onSuccess {
+                            if (!UpdateChecker.isNewer(it.version, version)) settingsToast(context, "当前已是最新版")
+                        }.onFailure {
+                            settingsToast(context, if (it is UpdateChecker.NoReleaseException) "暂无已发布版本" else "更新检查失败，请稍后重试")
+                        }
                     }
                 }
             }
@@ -1155,15 +1152,7 @@ private fun AboutSettings(context: Context, onNavigate: (ComposeRoute) -> Unit) 
             }
         }
     }))
-    release?.let { update ->
-        AlertDialog(
-            onDismissRequest = { release = null },
-            title = { Text("发现新版本 ${update.version}") },
-            text = { Text(update.summary) },
-            confirmButton = { TextButton(onClick = { release = null; settingsOpenUrl(context, update.pageUrl) }) { Text("前往下载") } },
-            dismissButton = { TextButton(onClick = { release = null }) { Text("稍后") } },
-        )
-    }
+    if (sharedUpdates == null) AppUpdateDialog(updates)
 }
 
 private fun settingsOverlayAction(context: Context, action: String, extras: Intent.() -> Unit = {}) {

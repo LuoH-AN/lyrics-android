@@ -263,8 +263,10 @@ open class ComposeNavigationActivity : ComponentActivity() {
         navigator=ComposeNavigator(savedInstanceState?.getBundle("navigation"),routeForIntent(intent) ?: ComposeRoute("settings"))
         setContent {
             LyricsComposeTheme {
-                Surface(Modifier.fillMaxSize().preferredFrameRate(FrameRateCategory.High),color=MaterialTheme.colorScheme.background) {
-                    SettingsOverlayHost(navigator.isOpen,navigator::dismiss,onExitFinished={navigator.onExitFinished();if(!navigator.isOpen) finish()}) { navigator.Content() }
+                AppUpdateHost {
+                    Surface(Modifier.fillMaxSize().preferredFrameRate(FrameRateCategory.High),color=MaterialTheme.colorScheme.background) {
+                        SettingsOverlayHost(navigator.isOpen,navigator::dismiss,onExitFinished={navigator.onExitFinished();if(!navigator.isOpen) finish()}) { navigator.Content() }
+                    }
                 }
             }
         }

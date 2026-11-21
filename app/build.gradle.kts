@@ -33,8 +33,8 @@ android {
         applicationId = "com.luoh.music.lrc"
         minSdk = 26
         targetSdk = 34
-        versionCode = 44
-        versionName = "1.4.2"
+        versionCode = 45
+        versionName = "1.4.3"
 
         // Public APK targets modern Android phones. Keeping only 64-bit ARM
         // avoids packaging three unused copies of ML Kit's native translator.
@@ -140,6 +140,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.activity:activity-compose:1.12.4")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.10.0")
     implementation("com.materialkolor:material-color-utilities:4.1.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
