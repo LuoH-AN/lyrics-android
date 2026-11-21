@@ -20,6 +20,12 @@ internal fun popStageLayout(width: Float, height: Float, density: Float, fontSca
         (innerHeight * .28f / lineHeight.coerceAtLeast(1f)).toInt().coerceAtLeast(1)) else 0
     val capacity = if (bilingual) min(innerHeight * .42f, lineHeight * lines + captionGap) else 0f
     val captionScale = if (bilingual) ((capacity - captionGap) / (lineHeight * lines).coerceAtLeast(1f)).coerceIn(0f, 1f) else 1f
+    if (style.sizingMode == "classic") {
+        // Legacy stage reserves a stable subtitle area below the phrase rather than both sides.
+        return PopStageLayout(insetX, insetY, bodyWidth, (innerHeight - capacity).coerceAtLeast(1f),
+            min(bodyWidth, appearance.translationSize * fontScale * density * captionScale * 36f), captionGap, lines,
+            capacity, .5f, captionScale, 0f)
+    }
     val reserve = if (captionHeight == null) capacity else if (bilingual && captionHeight > 0f)
         min(capacity, captionHeight + captionGap) else 0f
     // Equal clearance above and below puts the primary lyric at the viewport center.

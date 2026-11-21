@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.LineBreak
@@ -272,6 +273,7 @@ private fun PopSentenceContent(scenes: PopScenes, builder: PopSceneBuilder, posi
     startMs: Long, durationMs: Int, entering: Boolean, cameraPath: MutableState<PopCameraPath?>? = null,
     phraseMotionUntil: MutableState<Long?>? = null, connectCamera: Boolean = false) {
     val density = LocalDensity.current
+    val classic = style.sizingMode == "classic"
     val translationStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = (appearance.translationSize * composition.captionScale).sp,
         lineHeight = (appearance.translationSize * composition.captionScale * 1.4f).sp, color = foreground.copy(alpha = .75f),
         textAlign = TextAlign.Center, lineBreak = LineBreak.Paragraph, hyphens = Hyphens.Auto)
@@ -286,7 +288,7 @@ private fun PopSentenceContent(scenes: PopScenes, builder: PopSceneBuilder, posi
         if (connectCamera) PopStageMotion.connect(scenes.cameraPath, cameraPath?.value, position.value) else scenes.cameraPath
     }
     val buffer = remember(scenes, style, allowMotion, density, joinedCamera, plan, startMs, durationMs, entering) {
-        PopFrameBuffer(scenes, style, allowMotion, builder.width, builder.height, density.density,
+        if (classic) null else PopFrameBuffer(scenes, style, allowMotion, builder.width, builder.height, density.density,
             joinedCamera, plan, startMs, durationMs, entering)
     }
     val window by remember(scenes, position, allowMotion) { derivedStateOf {
@@ -300,24 +302,38 @@ private fun PopSentenceContent(scenes: PopScenes, builder: PopSceneBuilder, posi
     Box(Modifier.fillMaxSize().graphicsLayer {
         val fraction = if (durationMs > 0) ((position.value - startMs).toFloat() / durationMs).coerceIn(0f, 1f) else 1f
         val pose = PopMotionOrchestration.pose(plan, fraction, entering, builder.width, builder.height)
+        translationX = if (classic) pose.x else 0f
+        translationY = if (classic) pose.y else 0f
+        scaleX = if (classic) pose.scale else 1f
+        scaleY = if (classic) pose.scale else 1f
+        transformOrigin = if (classic)
+            TransformOrigin(.5f, composition.bodyHeight * composition.anchor / size.height.coerceAtLeast(1f))
+            else TransformOrigin.Center
         alpha = pose.alpha
     }.then(if (entering) Modifier else Modifier.clearAndSetSemantics {})) {
-        PopLyricCanvas(scenes, position, allowMotion, foreground, activeColor,
+        if (classic) ClassicPopLyricCanvas(scenes, builder, position, style, allowMotion, foreground, activeColor,
+            Modifier.fillMaxWidth().height(with(density) { composition.bodyHeight.toDp() }),
+            startMs, if (entering) durationMs else 0, entering)
+        else PopLyricCanvas(scenes, position, allowMotion, foreground, activeColor,
             Modifier.fillMaxWidth().height(with(density) { composition.bodyHeight.toDp() })
-                .offset(y = with(density) { composition.bodyTop.toDp() }), buffer, entering)
+                .offset(y = with(density) { composition.bodyTop.toDp() }), requireNotNull(buffer), entering)
         if (caption != null) {
             Text(translation, style = translationStyle, maxLines = composition.captionLines, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.width(with(density) { composition.captionWidth.toDp() })
                     .height(with(density) { caption.size.height.toDp() }).align(Alignment.TopCenter)
                     .offset {
-                        val prepared = buffer.prepare(position.value)
-                        val window = prepared.window
+                        val prepared = buffer?.prepare(position.value)
+                        val window = prepared?.window ?: popPhraseWindow(scenes.ranges, scenes.timeline,
+                            scenes.handoffs, position.value, allowMotion)
                         val handoff = scenes.handoffs[window.current]
                         val progress = if (window.retiring != null && handoff.durationMs > 0L)
                             (position.value - handoff.startMs).toFloat() / handoff.durationMs else 1f
-                        IntOffset(0, popCaptionTop(prepared.bottoms[window.current] + composition.bodyTop,
-                            window.retiring?.let { prepared.bottoms[it] + composition.bodyTop }, progress, composition.captionGap,
-                            composition.bodyHeight + composition.bodyTop * 2f - caption.size.height).roundToInt())
+                        fun bottom(index: Int) = if (classic) scenes.pages[index].bottom
+                            else requireNotNull(prepared).bottoms[index] + composition.bodyTop
+                        val maxTop = if (classic) composition.bodyHeight + composition.captionReserve - caption.size.height
+                            else composition.bodyHeight + composition.bodyTop * 2f - caption.size.height
+                        IntOffset(0, popCaptionTop(bottom(window.current), window.retiring?.let { bottom(it) },
+                            progress, composition.captionGap, maxTop).roundToInt())
                     }.testTag(if (entering) "home_pop_translation" else "home_pop_retiring_translation"))
         }
     }
