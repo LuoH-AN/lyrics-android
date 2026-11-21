@@ -394,7 +394,8 @@ private fun DesktopNotificationSettingsItem(context: Context) {
 
 @Composable
 private fun DesktopAccessSettings(context: Context) {
-    val revision = overlaySettingsRevision(context)
+    var toggleRevision by remember { mutableIntStateOf(0) }
+    val revision = overlaySettingsRevision(context) + toggleRevision
     val running = remember(revision) { LyricsOverlayService.isRunning }
     val prefs = remember(context) { context.getSharedPreferences(LyricsOverlayService.PREFS_NAME, Context.MODE_PRIVATE) }
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -432,7 +433,7 @@ private fun DesktopAccessSettings(context: Context) {
                         if (OverlayNotificationAccess.needsPermission(context)) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                     }
                 }
-                scope.launch { delay(250); revision++ }
+                scope.launch { delay(250); toggleRevision++ }
             }
         }
         add { DesktopPositionSettingsItem(context, prefs) }
