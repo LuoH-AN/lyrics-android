@@ -8,9 +8,9 @@ Android 歌词应用，支持悬浮歌词、逐字动画、翻译和本地歌词
 
 Android 13 及以上开启桌面歌词时会请求发送通知权限；通知被关闭或划掉时，可在「桌面歌词外观」或「权限与开关」中点「桌面歌词通知」开启或恢复通知。通知使用权与发送通知权限相互独立，未允许发送通知时仍可从应用内解锁歌词。
 
-[正式版](https://github.com/LuoH-AN/lyrics-android/releases/latest) · [Nightly](https://github.com/LuoH-AN/lyrics-android/actions/workflows/build.yml) · [反馈](https://github.com/LuoH-AN/lyrics-android/issues)
+[正式版](https://github.com/LuoH-AN/lyrics-android/releases/latest) · [Nightly](https://github.com/LuoH-AN/lyrics-android/releases/tag/nightly) · [反馈](https://github.com/LuoH-AN/lyrics-android/issues)
 
-Nightly 在每次提交后构建，以短 commit 作为版本号，签名与 Debug 相同。在成功构建的 Artifacts 中下载 APK。
+默认分支的最新提交构建成功后会更新 Nightly 预发布版，可以直接在 Release 页面下载 APK。Nightly 以短提交哈希作为版本号，签名与 Debug 相同。
 
 ## 构建
 

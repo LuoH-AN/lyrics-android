@@ -32,6 +32,8 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    outputs:
+      version: ${{ steps.nightly.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -111,3 +113,57 @@ jobs:
           path: app/build/outputs/mapping/nightly/mapping.txt
           if-no-files-found: error
           retention-days: 90
+
+  publish:
+    if: github.event_name != 'pull_request' && github.ref_type == 'branch' && github.ref_name == github.event.repository.default_branch
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    concurrency:
+      group: nightly-release
+      cancel-in-progress: false
+    steps:
+      - name: Download verified Nightly APK
+        uses: actions/download-artifact@v4
+        with:
+          name: lyrics-android-nightly-${{ needs.build.outputs.version }}
+          path: dist
+
+      - name: Publish Nightly prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NIGHTLY_VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          head_sha=$(gh api "repos/$GH_REPO/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')
+          if [[ "$head_sha" != "$GITHUB_SHA" ]]; then
+            echo "A newer commit is available on $GITHUB_REF_NAME."
+            exit 0
+          fi
+
+          apk_name="lyrics-android-nightly-${NIGHTLY_VERSION}-arm64-v8a.apk"
+          mv dist/app-nightly.apk "dist/$apk_name"
+          title="桌面歌词 Nightly ${NIGHTLY_VERSION}"
+          printf '默认分支的 Nightly 构建。\n\n- 源码提交：[%s](%s/%s/commit/%s)\n- 下载：[%s](%s/%s/releases/download/nightly/%s)\n- 签名与 Debug 版相同。\n' \
+            "$NIGHTLY_VERSION" "$GITHUB_SERVER_URL" "$GH_REPO" "$GITHUB_SHA" \
+            "$apk_name" "$GITHUB_SERVER_URL" "$GH_REPO" "$apk_name" > dist/notes.md
+
+          if assets=$(gh release view nightly --json assets --jq '.assets[] | select(.state == "uploaded") | .name'); then
+            if ! grep -Fxq "$apk_name" <<< "$assets"; then
+              gh release upload nightly "dist/$apk_name" --clobber
+            fi
+            gh api --method PATCH "repos/$GH_REPO/git/refs/tags/nightly" \
+              -f sha="$GITHUB_SHA" -F force=true --silent
+            gh release edit nightly --prerelease --latest=false --draft=false --title "$title" --notes-file dist/notes.md
+            while IFS= read -r asset; do
+              if [[ "$asset" == lyrics-android-nightly-*-arm64-v8a.apk && "$asset" != "$apk_name" ]]; then
+                gh release delete-asset nightly "$asset" --yes
+              fi
+            done <<< "$assets"
+          else
+            gh release create nightly "dist/$apk_name" --target "$GITHUB_SHA" \
+              --prerelease --latest=false --title "$title" --notes-file dist/notes.md
+          fi
+
+          printf '[下载 Nightly APK](%s/%s/releases/tag/nightly)\n' "$GITHUB_SERVER_URL" "$GH_REPO" >> "$GITHUB_STEP_SUMMARY"

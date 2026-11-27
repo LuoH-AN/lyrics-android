@@ -9,7 +9,7 @@ import java.net.URL
 
 object UpdateChecker {
     const val RELEASES_LATEST_URL = "https://github.com/LuoH-AN/lyrics-android/releases/latest"
-    const val NIGHTLY_BUILDS_URL = "https://github.com/LuoH-AN/lyrics-android/actions/workflows/build.yml"
+    const val NIGHTLY_BUILDS_URL = "https://github.com/LuoH-AN/lyrics-android/releases/tag/nightly"
     private const val LATEST_API_URL =
         "https://api.github.com/repos/LuoH-AN/lyrics-android/releases/latest"
 

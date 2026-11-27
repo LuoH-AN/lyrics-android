@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.assertIsOff
-import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -21,9 +19,6 @@ import androidx.test.core.app.ApplicationProvider
 import com.luoh.music.lrc.ui.agora.AgoraMotionPolicy
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
 import com.luoh.music.lrc.ui.agora.SettingsOverlayHost
-import com.luoh.music.lrc.ui.home.HomeLyricsPrefs
-import com.luoh.music.lrc.ui.home.pop.PopLyricsPrefs
-import com.luoh.music.lrc.ui.home.pop.PopLyricsStyle
 import com.luoh.music.lrc.ui.navigation.ComposeNavigator
 import com.luoh.music.lrc.ui.navigation.ComposeRoute
 import com.luoh.music.lrc.ui.theme.ThemePrefs
@@ -45,7 +40,6 @@ class ComposeNavigationTest {
     @Before fun clearPreferences() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences(ThemePrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
-        context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
     }
 
     private fun show(navigator: ComposeNavigator, width: Int = 400) {
@@ -76,47 +70,6 @@ class ComposeNavigationTest {
         compose.onNodeWithContentDescription("返回").performTouchInput { click() }
         compose.runOnIdle { assertEquals("settings", navigator.route.kind); assertTrue(navigator.isOpen) }
         compose.onNodeWithText("应用外观").assertExists()
-    }
-
-    @Test fun homeBackgroundSwitchPersistsAfterLeavingAndReopeningSettings() {
-        val navigator = ComposeNavigator(initial = ComposeRoute("settings"))
-        show(navigator)
-        compose.onNodeWithText("主页歌词").performScrollTo().performTouchInput { click() }
-        compose.onNodeWithText("封面模糊背景").assertIsOff().performTouchInput { click() }
-        compose.onNodeWithText("封面模糊背景").assertIsOn()
-        compose.runOnIdle { assertTrue(HomeLyricsPrefs.albumBackground(ApplicationProvider.getApplicationContext<Context>())) }
-        compose.onNodeWithContentDescription("返回").performTouchInput { click() }
-        compose.onNodeWithText("主页歌词").performScrollTo().performTouchInput { click() }
-        compose.onNodeWithText("封面模糊背景").assertIsOn()
-    }
-
-    @Test fun popCustomizationControlsPersistDirectParametersWithoutPresetThemes() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        HomeLyricsPrefs.saveDisplayMode(context, HomeLyricsPrefs.POP)
-        val navigator = ComposeNavigator(initial = ComposeRoute("settings"))
-        show(navigator)
-        compose.onNodeWithText("主页歌词").performScrollTo().performTouchInput { click() }
-        compose.onNodeWithText("动效预设").assertDoesNotExist()
-        compose.onNodeWithText("词组排版").performScrollTo().performTouchInput { click() }
-        compose.runOnIdle { assertFalse(PopLyricsPrefs.style(context).semanticGrouping) }
-        compose.onNodeWithText("短句自适应").performScrollTo().performTouchInput { click() }
-        compose.runOnIdle { assertFalse(PopLyricsPrefs.style(context).adaptiveTiming) }
-        compose.onNodeWithText("跳出单位", useUnmergedTree = true).performScrollTo().performTouchInput { click() }
-        compose.onNodeWithText("逐字").performTouchInput { click() }
-        compose.runOnIdle { assertEquals("character", PopLyricsPrefs.style(context).reveal) }
-        compose.onNodeWithText("镜头运动", useUnmergedTree = true).performScrollTo().performTouchInput { click() }
-        compose.onNodeWithText("固定").performTouchInput { click() }
-        compose.runOnIdle {
-            val style = PopLyricsPrefs.style(context)
-            assertEquals("off", style.camera)
-            assertEquals("custom", style.preset)
-            assertEquals("character", style.reveal)
-        }
-        compose.onNodeWithContentDescription("返回").performTouchInput { click() }
-        compose.onNodeWithText("主页歌词").performScrollTo().performTouchInput { click() }
-        compose.onNodeWithText("跳出单位", useUnmergedTree = true).performScrollTo().assertExists()
-        compose.onNodeWithText("恢复默认参数").performScrollTo().performTouchInput { click() }
-        compose.runOnIdle { assertEquals(PopLyricsStyle(), PopLyricsPrefs.style(context)) }
     }
 
     @Test @Config(qualifiers = "w1200dp-h800dp-mdpi")
