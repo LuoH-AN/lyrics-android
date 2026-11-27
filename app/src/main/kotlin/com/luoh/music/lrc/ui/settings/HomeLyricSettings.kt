@@ -65,6 +65,7 @@ internal fun HomeAlignmentSettings(context: Context, revision: Int, previewPinne
         }
     }))
     if (displayMode == HomeLyricsPrefs.POP) PopLyricSettings(context, revision, previewPinned, onPinPreview)
+    else ScrollingLyricSettings(context, revision, appearance)
     SettingsGroup(title = "屏幕", items = listOf({
         SettingsSwitchItem("播放时保持亮屏", null,
             Icons.Default.SettingsBrightness, keepAwake) { HomeLyricsPrefs.saveImmersiveKeepAwake(context, it) }

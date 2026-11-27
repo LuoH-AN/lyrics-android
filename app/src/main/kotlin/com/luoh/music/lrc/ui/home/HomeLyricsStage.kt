@@ -309,14 +309,12 @@ private fun HomeLyricRow(
     ) {
         val primary = if (translationMode == LyricsOverlayService.TRANSLATION_TRANSLATED && line.translation.isNotBlank()) line.translation else line.text
         val characterMotion = motion.characterMotion
-        val motionEndMs = if (allowMotion && timed && index == focused && characterMotion.visible) {
-            val lineEnd = LyricTiming.lineEnd(line)
-            minOf(lineEnd, nextLineMs ?: lineEnd)
-        } else line.startMs
+        val wordTiming = translationMode != LyricsOverlayService.TRANSLATION_TRANSLATED && line.words.isNotEmpty()
+        val floatCharacters = allowMotion && timed && wordTiming && index == focused && characterMotion.visible
         KaraokeLyricText(primary, line, position, index < focused, index == focused,
-            wordTiming = translationMode != LyricsOverlayService.TRANSLATION_TRANSLATED && line.words.isNotEmpty(),
-            color = color, textAlign = textAlignment, appearance = appearance,
-            characterMotion = characterMotion, motionEndMs = motionEndMs)
+            wordTiming = wordTiming, color = if (floatCharacters) foregroundColor else color,
+            textAlign = textAlignment, appearance = appearance,
+            characterMotion = characterMotion.takeIf { floatCharacters }, nextLineMs = nextLineMs)
         if (translationMode == LyricsOverlayService.TRANSLATION_BILINGUAL && line.translation.isNotBlank()) {
             Text(line.translation, modifier = Modifier.fillMaxWidth().padding(top = 6.dp), color = color,
                 fontSize = appearance.translationSize.sp, lineHeight = (appearance.translationSize * 1.4f).sp,

@@ -42,9 +42,9 @@ data class MotionStyle(
 
 data class ScrollingCharacterMotion(
     val enabled: Boolean = false,
-    val liftDp: Int = 5,
+    val liftDp: Int = 2,
     val glowPercent: Int = 65,
-    val durationMs: Int = 350,
+    val durationMs: Int = 800,
 ) {
     val visible: Boolean get() = enabled && (liftDp > 0 || glowPercent > 0)
 
@@ -57,7 +57,7 @@ data class ScrollingCharacterMotion(
     companion object {
         val LIFT_RANGE = 0..12
         val GLOW_RANGE = 0..100
-        val DURATION_RANGE = 150..800
+        val DURATION_RANGE = 150..1200
     }
 }
 
@@ -72,9 +72,9 @@ object HomeMotionPrefs {
     const val KEY_DEPTH_BLUR = "depth_blur"
     const val KEY_BLUR_PERCENT = "blur_percent"
     private const val KEY_CHARACTER_MOTION = "character_motion"
-    private const val KEY_CHARACTER_LIFT = "character_lift_dp"
+    private const val KEY_CHARACTER_LIFT = "character_float_height_dp"
     private const val KEY_CHARACTER_GLOW = "character_glow_percent"
-    private const val KEY_CHARACTER_DURATION = "character_duration_ms"
+    private const val KEY_CHARACTER_DURATION = "character_float_rise_ms"
 
     // 旧版三档模式，仅用于把已存的设置一次性迁移到独立开关。
     private const val LEGACY_KEY = "motion_mode"
@@ -90,6 +90,9 @@ object HomeMotionPrefs {
             return migrated
         }
         val characterDefaults = ScrollingCharacterMotion()
+        // Defaults from the old bounce become the new floating defaults; keep adjusted values.
+        val previousLift = prefs.getInt("character_lift_dp", 5).takeUnless { it == 5 }
+        val previousDuration = prefs.getInt("character_duration_ms", 350).takeUnless { it == 350 }
         return MotionStyle(
             easedScroll = prefs.getBoolean(KEY_EASED_SCROLL, true),
             scrollDurationMs = MotionStyle.snapDuration(
@@ -109,9 +112,9 @@ object HomeMotionPrefs {
             ),
             characterMotion = ScrollingCharacterMotion(
                 enabled = prefs.getBoolean(KEY_CHARACTER_MOTION, characterDefaults.enabled),
-                liftDp = prefs.getInt(KEY_CHARACTER_LIFT, characterDefaults.liftDp),
+                liftDp = prefs.getInt(KEY_CHARACTER_LIFT, previousLift ?: characterDefaults.liftDp),
                 glowPercent = prefs.getInt(KEY_CHARACTER_GLOW, characterDefaults.glowPercent),
-                durationMs = prefs.getInt(KEY_CHARACTER_DURATION, characterDefaults.durationMs),
+                durationMs = prefs.getInt(KEY_CHARACTER_DURATION, previousDuration ?: characterDefaults.durationMs),
             ).normalized(),
         )
     }
