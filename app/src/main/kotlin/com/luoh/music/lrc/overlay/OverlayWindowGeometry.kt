@@ -62,49 +62,18 @@ internal class OverlayWindowGeometry(
         }
     }
 
-    fun logicalToWindowSize(logicalSize: Pair<Int, Int>, rotated: Boolean): Pair<Int, Int> =
-        if (rotated) logicalSize.second to logicalSize.first else logicalSize
+    fun contentLayoutParams(width: Int, height: Int): FrameLayout.LayoutParams =
+        FrameLayout.LayoutParams(width, height, Gravity.CENTER)
 
-    fun windowToLogicalSize(width: Int, height: Int, rotated: Boolean): Pair<Int, Int> =
-        if (rotated) height to width else width to height
-
-    fun rotatedContentLayoutParams(
-        windowWidth: Int,
-        windowHeight: Int,
-        rotated: Boolean
-    ): FrameLayout.LayoutParams = FrameLayout.LayoutParams(
-        if (rotated) windowHeight else windowWidth,
-        if (rotated) windowWidth else windowHeight,
-        Gravity.CENTER
-    )
-
-    fun fittedLogicalOverlaySize(
+    fun fittedOverlaySize(
         desiredWidth: Int,
         desiredHeight: Int,
-        rotated: Boolean,
-        safeBounds: Rect
+        safeBounds: Rect,
     ): Pair<Int, Int> {
-        val logicalScreenWidth = if (rotated) safeBounds.height() else safeBounds.width()
-        val logicalScreenHeight = if (rotated) safeBounds.width() else safeBounds.height()
-        return fittedOverlaySize(
-            desiredWidth,
-            desiredHeight,
-            logicalScreenWidth,
-            logicalScreenHeight
-        )
-    }
-
-    fun minimumOverlayWidth(screenWidth: Int = currentDisplaySize().first): Int =
-        min(dp(120), max(1, screenWidth))
-
-    private fun fittedOverlaySize(
-        desiredWidth: Int,
-        desiredHeight: Int,
-        screenWidth: Int,
-        screenHeight: Int
-    ): Pair<Int, Int> {
+        val screenWidth = safeBounds.width()
+        val screenHeight = safeBounds.height()
         val maxWidth = max(1, screenWidth)
-        val minWidth = minimumOverlayWidth(screenWidth).coerceAtMost(maxWidth)
+        val minWidth = min(dp(120), maxWidth)
         val maxHeight = availableHeight(screenHeight)
         return desiredWidth.coerceIn(minWidth, maxWidth) to
             desiredHeight.coerceIn(min(dp(48), maxHeight), maxHeight)

@@ -10,6 +10,7 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import androidx.test.core.app.ApplicationProvider
+import com.luoh.music.lrc.overlay.OverlayWindow
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -35,13 +36,14 @@ class LyricsOverlayLockTest {
         // Inject a plain window so the test exercises service actions without starting
         // media monitoring, networking, or the offscreen lyric-matching WebView.
         val service = Robolectric.buildService(LyricsOverlayService::class.java).get()
+        val window = ReflectionHelpers.callInstanceMethod<OverlayWindow>(service, "getOverlayWindow")
         val params = WindowManager.LayoutParams().apply {
             flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
         }
         val chrome = LinearLayout(service)
-        ReflectionHelpers.setField(service, "windowParams", params)
-        ReflectionHelpers.setField(service, "overlayRoot", FrameLayout(service))
-        ReflectionHelpers.setField(service, "chromeBar", chrome)
+        ReflectionHelpers.setField(window, "windowParams", params)
+        ReflectionHelpers.setField(window, "overlayRoot", FrameLayout(service))
+        ReflectionHelpers.setField(window, "chromeBar", chrome)
 
         service.onStartCommand(Intent(service, LyricsOverlayService::class.java)
             .setAction(LyricsOverlayService.ACTION_LOCK), 0, 1)
@@ -50,7 +52,7 @@ class LyricsOverlayLockTest {
             .getBoolean("position_locked", false))
         assertTrue(params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
         assertEquals(View.INVISIBLE, chrome.visibility)
-        ReflectionHelpers.callInstanceMethod<Void>(service, "revealChrome",
+        ReflectionHelpers.callInstanceMethod<Void>(window, "revealChrome",
             ClassParameter.from(Long::class.javaPrimitiveType!!, 3500L))
         assertEquals("Locked controls must stay hidden", View.INVISIBLE, chrome.visibility)
 
