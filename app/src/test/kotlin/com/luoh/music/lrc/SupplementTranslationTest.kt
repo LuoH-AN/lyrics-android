@@ -2,6 +2,8 @@ package com.luoh.music.lrc
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.luoh.music.lrc.data.translation.SupplementOutcome
+import com.luoh.music.lrc.data.translation.SupplementTranslation
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject

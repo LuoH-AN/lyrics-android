@@ -1,5 +1,11 @@
 package com.luoh.music.lrc
 
+import com.luoh.music.lrc.ui.home.pop.POP_LYRIC_SETTLE_MS
+import com.luoh.music.lrc.ui.home.pop.PopLyricCache
+import com.luoh.music.lrc.ui.home.pop.PopLyricTimeline
+import com.luoh.music.lrc.ui.home.pop.PopLyricToken
+import com.luoh.music.lrc.ui.home.pop.PopLyricsStyle
+import com.luoh.music.lrc.ui.home.pop.popLyricRenderTiming
 import org.junit.Assert.*
 import org.junit.Test
 

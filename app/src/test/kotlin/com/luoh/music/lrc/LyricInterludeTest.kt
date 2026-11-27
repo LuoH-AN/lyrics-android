@@ -1,5 +1,9 @@
 package com.luoh.music.lrc
 
+import com.luoh.music.lrc.lyrics.LyricDocument
+import com.luoh.music.lrc.lyrics.LyricInterlude
+import com.luoh.music.lrc.lyrics.LyricLine
+import com.luoh.music.lrc.lyrics.LyricParser
 import org.junit.Assert.*
 import org.junit.Test
 

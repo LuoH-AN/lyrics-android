@@ -1,8 +1,14 @@
 package com.luoh.music.lrc
 
+import com.luoh.music.lrc.ui.home.pop.PopGlyphExtent
+import com.luoh.music.lrc.ui.home.pop.PopLyricToken
+import com.luoh.music.lrc.ui.home.pop.packPopLyrics
+import com.luoh.music.lrc.ui.home.pop.popGlyphExtent
+import com.luoh.music.lrc.ui.home.pop.popLyricBreakPenalties
+import com.luoh.music.lrc.ui.home.pop.popLyricRowLimit
+import kotlin.math.abs
 import org.junit.Assert.*
 import org.junit.Test
-import kotlin.math.abs
 
 class PopLyricPackingTest {
     @Test fun viewportFitEnlargesShortPhrasesAndCentersEveryComposedLayout() {

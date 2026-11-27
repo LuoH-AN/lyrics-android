@@ -15,8 +15,13 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
+import com.luoh.music.lrc.lyrics.LyricDocument
+import com.luoh.music.lrc.lyrics.LyricLine
 import com.luoh.music.lrc.ui.agora.AgoraMotionPolicy
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
+import com.luoh.music.lrc.ui.home.ComposeHomeScreen
+import com.luoh.music.lrc.ui.home.HomeLyricsPrefs
+import com.luoh.music.lrc.ui.home.HomePresentationState
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule

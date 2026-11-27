@@ -7,6 +7,13 @@ import android.graphics.Color
 import android.view.View
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.test.core.app.ApplicationProvider
+import com.luoh.music.lrc.lyrics.LyricDocument
+import com.luoh.music.lrc.lyrics.LyricLine
+import com.luoh.music.lrc.lyrics.LyricWord
+import com.luoh.music.lrc.overlay.CompactLyricsView
+import com.luoh.music.lrc.overlay.LyricLineView
+import com.luoh.music.lrc.overlay.OverlayAppearance
+import com.luoh.music.lrc.overlay.OverlayTextStyle
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith

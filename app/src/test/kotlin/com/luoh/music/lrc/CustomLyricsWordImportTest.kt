@@ -1,5 +1,7 @@
 package com.luoh.music.lrc
 
+import com.luoh.music.lrc.data.lyrics.CustomLyricsStore
+import com.luoh.music.lrc.lyrics.LyricParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

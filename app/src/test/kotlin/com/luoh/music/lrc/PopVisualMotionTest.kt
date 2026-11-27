@@ -1,5 +1,9 @@
 package com.luoh.music.lrc
 
+import com.luoh.music.lrc.ui.home.pop.PopLyricMotion
+import com.luoh.music.lrc.ui.home.pop.PopVector
+import com.luoh.music.lrc.ui.home.pop.PopVisualMotion
+import com.luoh.music.lrc.ui.home.pop.PopVisualPose
 import org.junit.Assert.*
 import org.junit.Test
 

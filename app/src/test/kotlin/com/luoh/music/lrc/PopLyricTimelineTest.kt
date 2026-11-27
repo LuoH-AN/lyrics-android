@@ -1,8 +1,14 @@
 package com.luoh.music.lrc
 
+import com.luoh.music.lrc.lyrics.LyricLine
+import com.luoh.music.lrc.lyrics.LyricWord
+import com.luoh.music.lrc.ui.home.pop.PopLyricMotion
+import com.luoh.music.lrc.ui.home.pop.PopLyricTimeline
+import com.luoh.music.lrc.ui.home.pop.packPopLyrics
+import com.luoh.music.lrc.ui.home.pop.popLyricPreview
+import kotlin.math.abs
 import org.junit.Assert.*
 import org.junit.Test
-import kotlin.math.abs
 
 class PopLyricTimelineTest {
     private val line = LyricLine(1000, "让音乐陪你", endMs = 7000, words = listOf(

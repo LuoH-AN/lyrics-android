@@ -3,6 +3,9 @@ package com.luoh.music.lrc
 import android.content.Context
 import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
+import com.luoh.music.lrc.overlay.OverlayAppearance
+import com.luoh.music.lrc.overlay.OverlayTextStyle
+import com.luoh.music.lrc.ui.home.HomeMotionPrefs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

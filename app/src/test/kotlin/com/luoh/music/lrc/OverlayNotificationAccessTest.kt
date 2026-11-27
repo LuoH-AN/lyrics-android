@@ -7,6 +7,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.provider.Settings
 import androidx.test.core.app.ApplicationProvider
+import com.luoh.music.lrc.overlay.OverlayNotificationAccess
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test

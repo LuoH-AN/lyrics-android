@@ -22,6 +22,22 @@ Nightly 在每次提交后构建，以短 commit 作为版本号，签名与 Deb
 
 安装包：`app/build/outputs/apk/nightly/app-nightly.apk`。
 
+## 代码结构
+
+Android 入口在 `com.luoh.music.lrc`，功能代码按包组织。
+
+| 包 | 职责 |
+| --- | --- |
+| `lyrics` | 歌词模型、解析、时间轴和 LRC 导出 |
+| `data.lyrics` | 歌词源查询、歌曲匹配、缓存和自定义歌词 |
+| `data.translation` | 补充翻译、API 配置及密钥存储 |
+| `playback`、`overlay` | 媒体会话、悬浮窗布局、歌词渲染和通知 |
+| `ui.home`、`ui.home.pop` | 首页播放状态、播放控件、歌词列表和逐字动画 |
+| `ui.navigation`、`ui.settings`、`ui.library` | Compose 路由、设置页、歌词管理和翻译配置 |
+| `ui.theme`、`ui.share`、`update`、`diagnostics` | 主题、歌词分享、应用更新和诊断 |
+
+运行回归检查可使用 `node tests/run.cjs` 和 `sh gradlew testDebugUnitTest`。
+
 ## 来源与许可
 
 源自 [Tcrrrry/desktop-lyrics](https://github.com/tcrrry/desktop-lyrics)，由 [LuoH-AN](https://github.com/LuoH-AN) 继续开发。

@@ -9,8 +9,8 @@ assert.match(version, /^\d+\.\d+\.\d+$/, 'stable version must be x.y.z');
 assert.ok(code > 13, 'versionCode must upgrade the published 1.0.2 build');
 assert.ok(gradle.includes('applicationId = "com.luoh.music.lrc"'));
 
-const activity = read(base + 'ComposeSettingsScreens.kt');
-const library = read(base + 'ComposeLibraryScreens.kt');
+const activity = read(base + 'ui/settings/AboutSettings.kt');
+const library = read(base + 'ui/library/PrivacyScreen.kt');
 assert.ok(activity.includes('维护者 · LuoH-AN'));
 assert.ok(activity.includes('"https://github.com/LuoH-AN"'));
 assert.ok(activity.includes('"https://github.com/LuoH-AN/lyrics-android"'));
@@ -19,12 +19,12 @@ assert.match(activity, /ComposeRoute\("privacy"\)/, 'settings must open the offl
 assert.ok(read('app/src/main/res/values/strings.xml').includes('name="privacy_summary"'));
 assert.doesNotMatch(activity, /PRIVACY\.md|LuoH-AN\/desktop-lyrics/);
 
-const updater = read(base + 'UpdateChecker.kt');
+const updater = read(base + 'update/UpdateChecker.kt');
 assert.ok(updater.includes('https://github.com/LuoH-AN/lyrics-android/releases/latest'));
 assert.ok(updater.includes('https://api.github.com/repos/LuoH-AN/lyrics-android/releases/latest'));
 assert.ok(updater.includes('it.startsWith("https://github.com/LuoH-AN/lyrics-android/releases/")'));
 assert.doesNotMatch(updater, /LuoH-AN\/desktop-lyrics/);
-assert.ok(read(base + 'DirectLyricsRepository.kt').includes('https://github.com/LuoH-AN/lyrics-android'));
+assert.ok(read(base + 'data/lyrics/LrcLibProvider.kt').includes('https://github.com/LuoH-AN/lyrics-android'));
 
 const workflow = read('.github/workflows/release.yml');
 assert.ok(workflow.includes('assembleRelease') && workflow.includes('apksigner'));

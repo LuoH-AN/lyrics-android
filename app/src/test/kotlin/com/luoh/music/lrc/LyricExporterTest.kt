@@ -1,5 +1,6 @@
 package com.luoh.music.lrc
 
+import com.luoh.music.lrc.lyrics.LyricExporter
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

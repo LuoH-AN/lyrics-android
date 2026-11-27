@@ -1,11 +1,12 @@
 package com.luoh.music.lrc
 
 import android.Manifest
-import android.content.ComponentName
 import android.content.BroadcastReceiver
-import android.content.IntentFilter
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.graphics.Bitmap
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
@@ -16,22 +17,46 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
-import android.graphics.Bitmap
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.FrameRateCategory
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.preferredFrameRate
-import com.luoh.music.lrc.ui.agora.SettingsOverlayHost
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.luoh.music.lrc.data.lyrics.CustomLyricsStore
+import com.luoh.music.lrc.data.lyrics.HomeLyricsLoader
+import com.luoh.music.lrc.data.lyrics.LyricMatchMemory
+import com.luoh.music.lrc.data.lyrics.LyricOffsetMemory
+import com.luoh.music.lrc.data.lyrics.LyricPayload
+import com.luoh.music.lrc.data.lyrics.SongSearchCorrections
+import com.luoh.music.lrc.data.lyrics.TemporaryCache
+import com.luoh.music.lrc.data.lyrics.parseLyricPayload
+import com.luoh.music.lrc.data.translation.SupplementTranslation
+import com.luoh.music.lrc.data.translation.translationPrefs
+import com.luoh.music.lrc.diagnostics.UsageAnalytics
+import com.luoh.music.lrc.lyrics.LyricDocument
+import com.luoh.music.lrc.lyrics.LyricExporter
+import com.luoh.music.lrc.overlay.OverlayNotificationAccess
+import com.luoh.music.lrc.playback.NowPlaying
+import com.luoh.music.lrc.playback.firstMetadataString
+import com.luoh.music.lrc.playback.playbackPositionMs
+import com.luoh.music.lrc.ui.agora.SettingsOverlayHost
+import com.luoh.music.lrc.ui.home.ComposeHomeScreen
+import com.luoh.music.lrc.ui.home.HomeLyricsPrefs
+import com.luoh.music.lrc.ui.home.HomeMotionPrefs
+import com.luoh.music.lrc.ui.home.HomePresentationState
+import com.luoh.music.lrc.ui.home.HomeTranslationController
+import com.luoh.music.lrc.ui.navigation.ComposeNavigator
+import com.luoh.music.lrc.ui.theme.LyricsComposeTheme
+import com.luoh.music.lrc.update.AppUpdateHost
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -51,6 +76,8 @@ class MainActivity : ComponentActivity() {
         getSharedPreferences(LyricsOverlayService.PREFS_NAME, Context.MODE_PRIVATE)
     }
 
+    private val offsetMemory by lazy { LyricOffsetMemory(overlayPrefs) }
+
     private val sessionManager by lazy {
         getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
     }
@@ -58,7 +85,8 @@ class MainActivity : ComponentActivity() {
         ComponentName(this, MediaListenerService::class.java)
     }
 
-    private val repository = DirectLyricsRepository()
+    private val lyricsLoader = HomeLyricsLoader(this)
+    private val matchMemory by lazy { LyricMatchMemory(overlayPrefs) }
     private val mainHandler = Handler(Looper.getMainLooper())
     private val ioScope = CoroutineScope(Dispatchers.IO + Job())
     private val translationScope = CoroutineScope(Dispatchers.Main.immediate + Job())
@@ -80,7 +108,7 @@ class MainActivity : ComponentActivity() {
             HomeTranslationController.Result(translated, outcome)
         }, { document -> home.setLyrics(document, currentLyricsCustom) }, { status ->
             home.setTranslationStatus(status)
-            getSharedPreferences("supplement_translation", Context.MODE_PRIVATE).edit()
+            translationPrefs().edit()
                 .putString("last_status", status).putString("last_track", currentTrack).apply()
         })
     }
@@ -96,11 +124,7 @@ class MainActivity : ComponentActivity() {
     private var trackChangedAtElapsed = 0L
     // 刚开始监听（onResume / 切换会话）后的第一帧快照，此时的“换歌”其实是恢复现场，不该当作切歌卡住位置。
     private var firstSnapshotSinceMonitor = true
-    // 当前这首歌用于 per-song 偏移的身份信息（歌词就绪后填），供设置页在悬浮窗未运行时对齐偏移记忆。
-    private var currentLyricIdentity = ""
-    private var currentLyricSource = ""
-    private var currentLyricTitle = ""
-    private var currentLyricArtist = ""
+    private var activeLyric: LyricOffsetMemory.Song? = null
     // 当前生效的歌词负载签名，refreshLyricsSettings 用它判断本地来源（自定义/缓存）是否变化。
     private var currentPayloadSignature = ""
     // 当前生效的原始歌词文本（导出 .lrc 用）：applyLyricPayload 填充，切歌清空。
@@ -231,7 +255,7 @@ class MainActivity : ComponentActivity() {
         homeTranslation.cancel()
         translationScope.coroutineContext[Job]?.cancel()
         ioScope.coroutineContext[Job]?.cancel()
-        repository.close()
+        lyricsLoader.close()
         super.onDestroy()
     }
 
@@ -318,7 +342,7 @@ class MainActivity : ComponentActivity() {
         } catch (_: SecurityException) { emptyList() }
             .asSequence()
             .filter { it.packageName != packageName }
-            .maxByOrNull { score(it) }
+            .maxByOrNull(NowPlaying::score)
 
         if (best?.sessionToken == controller?.sessionToken) { pushSnapshot(); return }
         controller?.unregisterCallback(controllerCallback)
@@ -327,20 +351,8 @@ class MainActivity : ComponentActivity() {
         pushSnapshot()
     }
 
-    private fun score(c: MediaController): Int {
-        val s = when (c.playbackState?.state) {
-            PlaybackState.STATE_PLAYING -> 1000
-            PlaybackState.STATE_BUFFERING, PlaybackState.STATE_CONNECTING -> 800
-            PlaybackState.STATE_PAUSED -> 600
-            else -> 100
-        }
-        val hasTitle = !c.metadata?.getString(MediaMetadata.METADATA_KEY_TITLE).isNullOrBlank()
-        return s + if (hasTitle) 100 else 0
-    }
-
     private fun positionOf(state: PlaybackState?, duration: Long): Long {
         if (state == null) return 0L
-        var pos = state.position.coerceAtLeast(0L)
         val now = SystemClock.elapsedRealtime()
         val updateTime = state.lastPositionUpdateTime
         // 切歌后短暂窗口内，若这份状态的位置更新还停留在切歌之前（旧歌残留），先按 0 处理，
@@ -348,17 +360,7 @@ class MainActivity : ComponentActivity() {
         if (updateTime < trackChangedAtElapsed && now - trackChangedAtElapsed < TRACK_CHANGE_SETTLE_MS) {
             return 0L
         }
-        if (state.state == PlaybackState.STATE_PLAYING && state.playbackSpeed > 0f && updateTime > 0L) {
-            val elapsed = (now - updateTime).coerceAtLeast(0L)
-            pos += (elapsed * state.playbackSpeed).toLong()
-        }
-        return if (duration > 0) pos.coerceAtMost(duration) else pos
-    }
-
-    private fun firstString(md: MediaMetadata?, vararg keys: String): String {
-        if (md == null) return ""
-        for (k in keys) md.getString(k)?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
-        return ""
+        return playbackPositionMs(state, duration, now)
     }
 
     private fun clearTrackState() {
@@ -374,10 +376,9 @@ class MainActivity : ComponentActivity() {
         currentPayloadSignature = ""
         currentLrcText = ""
         currentLrcTranslated = ""
-        currentLyricIdentity = ""
-        currentLyricSource = ""
+        activeLyric = null
         if (!LyricsOverlayService.isRunning) {
-            LyricsOverlayService.rememberActiveLyric(overlayPrefs, "", "", "", "")
+            offsetMemory.rememberActiveSong(null)
         }
     }
 
@@ -390,15 +391,15 @@ class MainActivity : ComponentActivity() {
         }
         val md = c.metadata
         val pb = c.playbackState
-        val title = firstString(md, MediaMetadata.METADATA_KEY_TITLE, MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
-        val artist = firstString(
+        val title = firstMetadataString(md, MediaMetadata.METADATA_KEY_TITLE, MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
+        val artist = firstMetadataString(
             md,
             MediaMetadata.METADATA_KEY_ARTIST,
             MediaMetadata.METADATA_KEY_ALBUM_ARTIST,
             MediaMetadata.METADATA_KEY_AUTHOR,
             MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE
         )
-        val album = firstString(md, MediaMetadata.METADATA_KEY_ALBUM)
+        val album = firstMetadataString(md, MediaMetadata.METADATA_KEY_ALBUM)
         val duration = md?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L
 
         // 先检测换歌（在算位置之前），以便正确设置 trackChangedAtElapsed
@@ -453,51 +454,15 @@ class MainActivity : ComponentActivity() {
             ?: md?.getBitmap(MediaMetadata.METADATA_KEY_ART)
             ?: md?.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
 
-    // ---------- 歌词拉取（自定义 → 本地缓存 → 联网） ----------
-    private val sharedLyricsCache by lazy { SharedLyricsCache(this) }
-
-    /** 一份可上屏的歌词负载，signature 用于判断本地来源是否变化（自定义被增删/改）。 */
-    private data class LyricPayload(
-        val lyrics: String,
-        val translated: String,
-        val word: String,
-        val source: String,
-        val recordId: String
-    ) {
-        val signature: String get() = "$source\u0000$recordId\u0000${lyrics.hashCode()}\u0000${translated.hashCode()}\u0000${word.hashCode()}"
-        val isBlank: Boolean get() = lyrics.isBlank()
-    }
-
-    /** 只查本地：先自定义歌词，再 14 天内的缓存。查不到返回 null（需要联网）。 */
-    private fun localPayload(track: String, artist: String, album: String, durationMs: Long): LyricPayload? {
-        CustomLyricsStore.find(this, track, artist)?.let { entry ->
-            val parsed = CustomLyricsStore.parse(entry)
-            if (parsed.lyrics.isNotBlank()) {
-                return LyricPayload(
-                    parsed.lyrics, parsed.translatedLyrics, entry.wordLyrics,
-                    CustomLyricsStore.SOURCE, entry.recordId
-                )
-            }
-        }
-        val search = SongSearchCorrections.resolve(this, track, artist)
-        val cached = sharedLyricsCache.read(search.title, search.artist, album, durationMs) ?: return null
-        return LyricPayload(cached.lyrics, cached.translatedLyrics, cached.wordLyrics, cached.source, cached.recordId)
-    }
-
-    private fun parsePayload(payload: LyricPayload): LyricDocument =
-        if (payload.isBlank) LyricDocument(emptyList(), true)
-        else LyricParser.parse(payload.lyrics, payload.translated, payload.word,
-            allowPartialWords = payload.source == CustomLyricsStore.SOURCE)
-
     private fun applyLyricPayload(payload: LyricPayload, document: LyricDocument) {
         currentPayloadSignature = payload.signature
         currentLrcText = payload.lyrics
         currentLrcTranslated = payload.translated
-        currentLyricSource = payload.source
-        // per-song 偏移身份：与悬浮窗一致 identity=(track\u0000artist).trim().lowercase
-        currentLyricTitle = currentTrack
-        currentLyricArtist = currentArtist
-        currentLyricIdentity = "$currentTrack\u0000$currentArtist".trim().lowercase(java.util.Locale.ROOT)
+        activeLyric = payload.source.takeIf { it.isNotBlank() }?.let { source ->
+            // Match the overlay's original playback identity, including the same lowercase normalization.
+            val identity = "$currentTrack\u0000$currentArtist".trim().lowercase(java.util.Locale.ROOT)
+            LyricOffsetMemory.Song(identity, source, currentTrack, currentArtist)
+        }
         currentLyricsCustom = payload.source == CustomLyricsStore.SOURCE
         baseLyricDocument = document
         home.setLyrics(baseLyricDocument, currentLyricsCustom)
@@ -506,16 +471,10 @@ class MainActivity : ComponentActivity() {
         applyLyricOffset()
     }
 
-    /** 读取该歌该源的 per-song 偏移并喂给页面；同时记录当前身份，让设置页也能对齐。 */
     private fun applyLyricOffset() {
-        if (currentLyricIdentity.isBlank() || currentLyricSource.isBlank()) return
-        LyricsOverlayService.rememberActiveLyric(
-            overlayPrefs, currentLyricIdentity, currentLyricSource, currentLyricTitle, currentLyricArtist
-        )
-        val key = LyricsOverlayService.lyricOffsetPreferenceKey(currentLyricIdentity, currentLyricSource)
-        val offset = overlayPrefs.getInt(key, 0)
-            .coerceIn(LyricsOverlayService.LYRIC_OFFSET_MIN_MS, LyricsOverlayService.LYRIC_OFFSET_MAX_MS)
-        home.setLyricOffset(offset)
+        val song = activeLyric ?: return
+        offsetMemory.rememberActiveSong(song)
+        home.setLyricOffset(offsetMemory.read(song))
     }
 
     private fun fetchLyrics(track: String, artist: String, album: String, durationMs: Long, forceNetwork: Boolean = false, refreshOverlay: Boolean = false) {
@@ -527,9 +486,9 @@ class MainActivity : ComponentActivity() {
         lyricFetchJob = ioScope.launch {
             // Local preference decoding, LRC parsing and cache bookkeeping never block navigation.
             if (!forceNetwork) {
-                val local = localPayload(track, artist, album, durationMs)
+                val local = lyricsLoader.readLocal(track, artist, album, durationMs)
                 if (local != null) {
-                    val document = parsePayload(local)
+                    val document = parseLyricPayload(local)
                     withContext(Dispatchers.Main) {
                         if (reqId == lyricRequestId) {
                             applyLyricPayload(local, document)
@@ -537,30 +496,16 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     if (reqId == lyricRequestId && local.source != CustomLyricsStore.SOURCE) {
-                        mirrorToMatchMemory(track, artist, album, durationMs,
-                            local.source, local.recordId, local.lyrics, local.translated, local.word)
+                        recordMatch(track, artist, album, durationMs, local)
                     }
                     return@launch
                 }
             }
             withContext(Dispatchers.Main) { if (reqId == lyricRequestId) home.showLoading() }
-            val result = runCatching {
-                sharedLyricsCache.resolve(search.title, search.artist, album, durationMs, forceNetwork) {
-                    repository.resolveLyrics(search.title, search.artist, album, durationMs)
-                }
-            }.getOrNull()
+            val payload = lyricsLoader.resolve(search, album, durationMs, forceNetwork)
             if (reqId != lyricRequestId) return@launch
-            val lrc = result?.lyrics.orEmpty()
-            val trans = result?.translatedLyrics.orEmpty()
-            val word = result?.wordLyrics.orEmpty()
-            val source = result?.source.orEmpty()
-            val recordId = result?.recordId.orEmpty()
-            if (lrc.isNotBlank()) {
-                // 镜像到歌词源管理记忆（与悬浮窗共用同一份 match_memory_v2）
-                mirrorToMatchMemory(track, artist, album, durationMs, source, recordId, lrc, trans, word)
-            }
-            val payload = LyricPayload(lrc, trans, word, source, recordId)
-            val document = parsePayload(payload)
+            recordMatch(track, artist, album, durationMs, payload)
+            val document = parseLyricPayload(payload)
             withContext(Dispatchers.Main) {
                 if (reqId != lyricRequestId) return@withContext
                 applyLyricPayload(payload, document)
@@ -598,16 +543,16 @@ class MainActivity : ComponentActivity() {
         val loadedDocument = baseLyricDocument
         settingsRefreshJob?.cancel()
         settingsRefreshJob = ioScope.launch {
-            val local = localPayload(track, artist, album, duration)
+            val local = lyricsLoader.readLocal(track, artist, album, duration)
             val document = local?.let {
-                if (it.signature == loadedSignature) loadedDocument else parsePayload(it)
+                if (it.signature == loadedSignature) loadedDocument else parseLyricPayload(it)
             }
             withContext(Dispatchers.Main) {
                 if (request != lyricRequestId || track != currentTrack || !homeForeground) return@withContext
                 when {
                     local != null && local.signature != currentPayloadSignature ->
                         applyLyricPayload(local, requireNotNull(document))
-                    local == null && currentLyricSource == CustomLyricsStore.SOURCE ->
+                    local == null && activeLyric?.source == CustomLyricsStore.SOURCE ->
                         fetchLyrics(currentTrack, currentArtist, currentAlbum, currentDurationMs)
                     else -> applyLyricOffset()
                 }
@@ -621,62 +566,22 @@ class MainActivity : ComponentActivity() {
         if (baseLyricDocument.lines.isNotEmpty()) UsageAnalytics.lyricsDisplayed(UsageAnalytics.Surface.APP)
         val display = overlayPrefs.getString(LyricsOverlayService.PREF_TRANSLATION_MODE,
             LyricsOverlayService.TRANSLATION_BILINGUAL).orEmpty()
-        val translationPrefs = getSharedPreferences("supplement_translation", Context.MODE_PRIVATE)
+        val translationPrefs = translationPrefs()
         homeTranslation.update(lastTrackKey, baseLyricDocument, display,
             translationPrefs.getString("mode", "off").orEmpty())
     }
 
-    /**
-     * 把主页拉到的歌词写进「歌词源管理」共用的 match_memory_v2（存于悬浮窗 prefs）。
-     * 仅在该歌+来源尚无记录时新增，绝不覆盖用户在悬浮窗里手动选过的版本。
-     * key 格式与悬浮窗 matchMemoryKey 完全一致：normalizedKey|durationSec|source。
-     */
-    private fun mirrorToMatchMemory(
-        track: String, artist: String, album: String, durationMs: Long,
-        source: String, recordId: String, lrc: String, trans: String, word: String
+    private fun recordMatch(
+        track: String,
+        artist: String,
+        album: String,
+        durationMs: Long,
+        payload: LyricPayload,
     ) {
-        if (track.isBlank() || source.isBlank() || lrc.isBlank()) return
+        if (track.isBlank() || payload.source.isBlank() || payload.lyrics.isBlank()) return
         runCatching {
-            val normKey = ("$track\u0000$artist").trim().lowercase(java.util.Locale.ROOT)
-            val durSec = Math.round(durationMs / 1000.0)
             val revision = SongSearchCorrections.resolve(this, track, artist).revision
-            val searchKey = normKey + if (revision > 0L) "\u0000search:$revision" else ""
-            val key = "$searchKey|$durSec|$source"
-
-            val arr = org.json.JSONArray(
-                overlayPrefs.getString("match_memory_v2", "[]").orEmpty().ifBlank { "[]" }
-            )
-            // 已存在同 key（含悬浮窗手动选择）则不动
-            for (i in 0 until arr.length()) {
-                if (arr.optJSONObject(i)?.optString("key") == key) return
-            }
-
-            val candidate = JSONObject()
-                .put("lyrics", lrc)
-                .put("translatedLyrics", trans)
-                .put("wordLyrics", word)
-                .put("duration", durationMs)
-                .put("cover", "")
-                .put("source", source)
-                .put("recordId", recordId)
-                .put("title", track)
-                .put("artist", artist)
-                .put("matchScore", 0)
-            val entry = JSONObject()
-                .put("key", key)
-                .put("at", System.currentTimeMillis())
-                .put("title", track)
-                .put("artist", artist)
-                .put("album", album)
-                .put("duration", durationMs)
-                .put("source", source)
-                .put("candidate", candidate)
-                .put("original", candidate)
-                .put("history", org.json.JSONArray().put(candidate))
-                .put("needsReview", false)
-                .put("auto", true)
-            arr.put(entry)
-            overlayPrefs.edit().putString("match_memory_v2", arr.toString()).apply()
+            matchMemory.recordAutomaticMatch(track, artist, album, durationMs, revision, payload)
         }
     }
 

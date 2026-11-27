@@ -1,5 +1,6 @@
 package com.luoh.music.lrc
 
+import com.luoh.music.lrc.ui.settings.PickerColor
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith

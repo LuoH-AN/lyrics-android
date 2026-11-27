@@ -11,6 +11,9 @@ import com.luoh.music.lrc.ui.agora.ThemeMode
 import com.luoh.music.lrc.ui.agora.colorSchemeForPreset
 import com.luoh.music.lrc.ui.agora.colorSchemeForSeed
 import com.luoh.music.lrc.ui.agora.withAmoledBackground
+import com.luoh.music.lrc.ui.theme.AccentPrefs
+import com.luoh.music.lrc.ui.theme.AppThemePreferences
+import com.luoh.music.lrc.ui.theme.ThemePrefs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals

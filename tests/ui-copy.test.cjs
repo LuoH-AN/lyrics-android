@@ -3,9 +3,13 @@ const assert = require('node:assert/strict');
 
 // Copy checks protect user feedback; interaction is tested through Compose semantics in CI.
 const base = 'app/src/main/kotlin/com/luoh/music/lrc/';
-const library = fs.readFileSync(base + 'ComposeLibraryScreens.kt', 'utf8');
-const settings = fs.readFileSync(base + 'ComposeSettingsScreens.kt', 'utf8');
-const picker = fs.readFileSync(base + 'SettingsColorDialog.kt', 'utf8');
+const readFeature = folder => fs.readdirSync(folder)
+  .filter(name => name.endsWith('.kt'))
+  .map(name => fs.readFileSync(folder + name, 'utf8'))
+  .join('\n');
+const library = readFeature(base + 'ui/library/');
+const settings = readFeature(base + 'ui/settings/');
+const picker = fs.readFileSync(base + 'ui/settings/SettingsColorDialog.kt', 'utf8');
 for (const text of [
   '添加自定义歌词', '编辑自定义歌词', '歌名（必填）', '歌手（留空匹配所有同名歌曲）',
   'LRC 时间轴歌词', '[00:12.30]第一句歌词', '导入 .lrc / .yrc', '粘贴歌词',
@@ -22,7 +26,7 @@ for (const text of [
 ]) assert.ok(library.includes(text), `Compose library must preserve actionable feedback: ${text}`);
 for (const text of [
   '歌词预览', '前文行数', '后文行数', '字重', '提前', '延后', '重置', '十六进制颜色', '输入 6 位颜色值',
-]) assert.ok((settings + picker).includes(text), `Compose settings must preserve control copy: ${text}`);
+]) assert.ok(settings.includes(text), `Compose settings must preserve control copy: ${text}`);
 for (const text of [
   '获取不到歌词时，手动指定一份标准 LRC 时间轴歌词。按歌名+歌手匹配，命中后主页和悬浮窗都直接使用这份。',
   '按歌曲整理尝试过的歌词版本，选择来源后可预览与切换。记录持续保留，可随时手动清理。',

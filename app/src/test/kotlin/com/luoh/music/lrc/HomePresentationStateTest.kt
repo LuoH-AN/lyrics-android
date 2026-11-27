@@ -1,5 +1,9 @@
 package com.luoh.music.lrc
 
+import com.luoh.music.lrc.lyrics.LyricDocument
+import com.luoh.music.lrc.lyrics.LyricLine
+import com.luoh.music.lrc.ui.home.HomeLyricScrollFollower
+import com.luoh.music.lrc.ui.home.HomePresentationState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

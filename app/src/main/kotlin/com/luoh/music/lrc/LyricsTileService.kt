@@ -7,14 +7,15 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.provider.Settings
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import android.graphics.drawable.Icon
 import android.widget.Toast
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.luoh.music.lrc.diagnostics.UsageAnalytics
 
 /** Reflects the overlay service, including stops from its floating close button. */
 class LyricsTileService : TileService() {

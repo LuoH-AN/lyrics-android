@@ -1,30 +1,21 @@
 package com.luoh.music.lrc
 
-import org.junit.After
+import com.luoh.music.lrc.data.lyrics.matchScore
+import com.luoh.music.lrc.data.lyrics.searchPlans
+import com.luoh.music.lrc.data.lyrics.versionTags
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import org.robolectric.util.ReflectionHelpers
-import java.util.concurrent.Callable
-import java.util.concurrent.Executors
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28, 35])
 class ChineseLyricsSearchTest {
-    private val repository = DirectLyricsRepository()
-
-    @After fun closeRepository() = repository.close()
-
-    private fun invoke(name: String, vararg args: Any): Any =
-        DirectLyricsRepository::class.java.declaredMethods.single { it.name == name && it.parameterCount == args.size }
-            .apply { isAccessible = true }.invoke(repository, *args)!!
-
     private fun queries(track: String, artist: String): List<String> =
-        (invoke("searchPlans", track, artist) as List<*>).map {
-            ReflectionHelpers.getField<String>(it, "query")
-        }
+        searchPlans(track, artist).map { it.query }
 
     @Test fun traditionalAndSimplifiedTitlesAndArtistsAreQueriedBeforeTitleOnlyFallbacks() {
         for ((title, singer) in listOf("愛與夢" to "陳奕迅", "爱与梦" to "陈奕迅")) {
@@ -48,14 +39,14 @@ class ChineseLyricsSearchTest {
     }
 
     @Test fun shortTitlesAndArtistsMatchAcrossScriptsWithoutDurationAndStillRejectWrongSongs() {
-        assertEquals(100, invoke("matchScore", "愛夢", "陳奕迅", "爱梦", "陈奕迅"))
-        assertEquals(100, invoke("matchScore", "爱梦", "陈奕迅", "愛夢", "陳奕迅"))
-        assertEquals(0, invoke("matchScore", "愛夢", "陳奕迅", "爱梦", "王菲"))
-        assertEquals(20, invoke("matchScore", "愛夢", "陳奕迅", "晴天", "陈奕迅"))
-        assertEquals(invoke("versionTags", "歌（现场版）"), invoke("versionTags", "歌（現場版）"))
-        assertNotEquals(invoke("versionTags", "歌"), invoke("versionTags", "歌（現場版）"))
-        assertEquals(setOf("instrumental"), invoke("versionTags", "歌（純音楽）"))
-        assertEquals(setOf("instrumental"), invoke("versionTags", "歌（純音樂）"))
+        assertEquals(100, matchScore("愛夢", "陳奕迅", "爱梦", "陈奕迅"))
+        assertEquals(100, matchScore("爱梦", "陈奕迅", "愛夢", "陳奕迅"))
+        assertEquals(0, matchScore("愛夢", "陳奕迅", "爱梦", "王菲"))
+        assertEquals(20, matchScore("愛夢", "陳奕迅", "晴天", "陈奕迅"))
+        assertEquals(versionTags("歌（现场版）"), versionTags("歌（現場版）"))
+        assertNotEquals(versionTags("歌"), versionTags("歌（現場版）"))
+        assertEquals(setOf("instrumental"), versionTags("歌（純音楽）"))
+        assertEquals(setOf("instrumental"), versionTags("歌（純音樂）"))
     }
 
     @Test fun concurrentProvidersKeepBothScriptQueriesStable() {

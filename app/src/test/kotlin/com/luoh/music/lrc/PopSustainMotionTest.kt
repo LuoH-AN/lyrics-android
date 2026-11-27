@@ -1,10 +1,17 @@
 package com.luoh.music.lrc
 
-import org.junit.Assert.*
-import org.junit.Test
+import com.luoh.music.lrc.ui.home.pop.PopLyricTimeline
+import com.luoh.music.lrc.ui.home.pop.PopLyricToken
+import com.luoh.music.lrc.ui.home.pop.PopLyricsStyle
+import com.luoh.music.lrc.ui.home.pop.PopSustainMotion
+import com.luoh.music.lrc.ui.home.pop.PopSustainPose
+import com.luoh.music.lrc.ui.home.pop.popGlyphExtent
+import com.luoh.music.lrc.ui.home.pop.popLyricRenderTiming
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
+import org.junit.Assert.*
+import org.junit.Test
 
 class PopSustainMotionTest {
     @Test fun realLongNotesTrembleAfterTheirEntranceAndSettleBeforeTheirEnd() {

@@ -3,7 +3,11 @@ const assert = require('node:assert/strict');
 
 const base = 'app/src/main/kotlin/com/luoh/music/lrc/';
 const main = fs.readFileSync(base + 'MainActivity.kt', 'utf8');
-const home = fs.readFileSync(base + 'ComposeHomeScreen.kt', 'utf8');
+const loader = fs.readFileSync(base + 'data/lyrics/HomeLyricsLoader.kt', 'utf8');
+const readHome = name => fs.readFileSync(base + 'ui/home/' + name, 'utf8');
+const player = readHome('HomePlayer.kt');
+const home = ['ComposeHomeScreen.kt', 'HomeLyricsStage.kt', 'HomeActions.kt', 'HomePresentationState.kt']
+  .map(readHome).join('\n') + player;
 assert.doesNotMatch(main + home, /\bWebView\b|JavascriptInterface|evaluateJavascript|home_lyrics\.html/);
 assert.match(home, /LazyColumn\(/, 'lyrics must be rendered in a real Compose scrolling list');
 assert.match(home, /Slider\(/, 'playback progress must remain adjustable');
@@ -14,15 +18,14 @@ assert.match(home, /state\.actions\?\.retryLyrics\(\)/);
 assert.match(home, /state\.actions\?\.editCustomLyrics\(\)/);
 assert.match(home, /state\.actions\?\.exportLrc\(\)/);
 assert.ok(home.includes('导出 LRC 歌词'));
-assert.match(main,
-  /LyricParser\.parse\(\s*payload\.lyrics,\s*payload\.translated,\s*payload\.word,\s*allowPartialWords\s*=\s*payload\.source\s*==\s*CustomLyricsStore\.SOURCE\s*\)/,
+assert.match(loader,
+  /LyricParser\.parse\(\s*payload\.lyrics,\s*payload\.translated,\s*payload\.word,\s*allowPartialWords\s*=\s*payload\.source\s*==\s*CustomLyricsStore\.SOURCE\s*,?\s*\)/,
   'home must parse lyrics, translations and word timing, allowing partial words only for custom lyrics');
 assert.match(main, /HomeTranslationController\(/);
 assert.match(main, /exportLrcLauncher/);
 assert.match(main, /LyricExporter\.buildLrc\(currentTrack, currentArtist, lrc, currentLrcTranslated\)/);
 assert.match(main, /home\.setOverlayState\(LyricsOverlayService\.isRunning\)/,
   'overlay feedback must follow the actual service state');
-const player = home.slice(home.indexOf('private fun HomePlayer('), home.indexOf('private fun HomeProgress('));
 assert.match(player, /state\.actions\?\.toggleOverlay\(\)/);
 assert.doesNotMatch(player, /overlayRunning\s*=|setOverlayState\(/, 'clicks must wait for service confirmation');
 assert.match(home, /collectIsDraggedAsState\(/, 'manual scrolling must pause automatic lyric travel');

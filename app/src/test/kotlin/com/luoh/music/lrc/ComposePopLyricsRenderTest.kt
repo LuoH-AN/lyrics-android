@@ -11,28 +11,37 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.test.longClick
-import androidx.compose.ui.test.click
-import androidx.compose.ui.test.swipe
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
 import androidx.compose.ui.unit.dp
+import com.luoh.music.lrc.lyrics.LyricDocument
+import com.luoh.music.lrc.lyrics.LyricLine
+import com.luoh.music.lrc.lyrics.LyricWord
 import com.luoh.music.lrc.ui.agora.AgoraMotionPolicy
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
-import org.junit.Assert.assertTrue
+import com.luoh.music.lrc.ui.home.ComposeHomeScreen
+import com.luoh.music.lrc.ui.home.HomeLyricAppearance
+import com.luoh.music.lrc.ui.home.HomeLyricsPrefs
+import com.luoh.music.lrc.ui.home.HomePresentationState
+import com.luoh.music.lrc.ui.home.pop.PopLyricsPrefs
+import com.luoh.music.lrc.ui.home.pop.PopLyricsStyle
+import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w400dp-h800dp-mdpi")

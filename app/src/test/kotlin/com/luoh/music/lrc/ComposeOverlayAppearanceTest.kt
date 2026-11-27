@@ -10,8 +10,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -24,8 +24,12 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
+import com.luoh.music.lrc.overlay.OverlayAppearance
 import com.luoh.music.lrc.ui.agora.AgoraMotionPolicy
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
+import com.luoh.music.lrc.ui.settings.PickerColor
+import com.luoh.music.lrc.ui.settings.SettingsCategoryContent
+import com.luoh.music.lrc.ui.settings.SettingsColorDialog
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule

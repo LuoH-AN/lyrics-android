@@ -1,8 +1,18 @@
 package com.luoh.music.lrc
 
+import com.luoh.music.lrc.ui.home.pop.PopLyricTimeline
+import com.luoh.music.lrc.ui.home.pop.PopLyricToken
+import com.luoh.music.lrc.ui.home.pop.PopLyricsStyle
+import com.luoh.music.lrc.ui.home.pop.PopMotionBalance
+import com.luoh.music.lrc.ui.home.pop.PopMotionOrchestration
+import com.luoh.music.lrc.ui.home.pop.PopSpatialBudget
+import com.luoh.music.lrc.ui.home.pop.PopVector
+import com.luoh.music.lrc.ui.home.pop.PopVisualMotion
+import com.luoh.music.lrc.ui.home.pop.PopVisualPose
+import com.luoh.music.lrc.ui.home.pop.popGlyphExtent
+import kotlin.math.abs
 import org.junit.Assert.*
 import org.junit.Test
-import kotlin.math.abs
 
 class PopMotionOrchestrationTest {
     @Test fun denseWordsYieldWhileHeldNotesStayExpressiveWithoutChangingTheClock() {

@@ -15,14 +15,28 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.font.FontFamily
+import com.luoh.music.lrc.lyrics.LyricClock
+import com.luoh.music.lrc.lyrics.LyricDocument
+import com.luoh.music.lrc.lyrics.LyricLine
+import com.luoh.music.lrc.lyrics.LyricWord
 import com.luoh.music.lrc.ui.agora.AgoraMotionPolicy
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
+import com.luoh.music.lrc.ui.home.HomeLyricAppearance
+import com.luoh.music.lrc.ui.home.HomePresentationState
+import com.luoh.music.lrc.ui.home.pop.PopLyricScheme
+import com.luoh.music.lrc.ui.home.pop.PopLyricSchemes
+import com.luoh.music.lrc.ui.home.pop.PopLyricsStage
+import com.luoh.music.lrc.ui.home.pop.PopLyricsStyle
+import com.luoh.music.lrc.ui.home.pop.popStageCamera
+import com.luoh.music.lrc.ui.home.pop.rememberPopPlayback
+import java.io.File
+import kotlin.math.abs
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -30,8 +44,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import java.io.File
-import kotlin.math.abs
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w400dp-h800dp-mdpi")

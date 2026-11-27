@@ -1,5 +1,11 @@
 package com.luoh.music.lrc
 
+import com.luoh.music.lrc.ui.home.pop.PopLyricGroups
+import com.luoh.music.lrc.ui.home.pop.PopLyricTimeline
+import com.luoh.music.lrc.ui.home.pop.PopLyricToken
+import com.luoh.music.lrc.ui.home.pop.groupPopLyrics
+import com.luoh.music.lrc.ui.home.pop.packPopLyrics
+import com.luoh.music.lrc.ui.home.pop.popLayoutTokens
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith

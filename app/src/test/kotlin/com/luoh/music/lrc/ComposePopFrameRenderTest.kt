@@ -7,6 +7,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import com.luoh.music.lrc.ui.home.HomeLyricAppearance
+import com.luoh.music.lrc.ui.home.pop.PopFrameBuffer
+import com.luoh.music.lrc.ui.home.pop.PopLyricTimeline
+import com.luoh.music.lrc.ui.home.pop.PopLyricToken
+import com.luoh.music.lrc.ui.home.pop.PopLyricsStyle
+import com.luoh.music.lrc.ui.home.pop.PopPhraseWindow
+import com.luoh.music.lrc.ui.home.pop.PopRenderCache
+import com.luoh.music.lrc.ui.home.pop.PopScenes
+import com.luoh.music.lrc.ui.home.pop.PopTransitionPlan
+import com.luoh.music.lrc.ui.home.pop.PopVector
+import com.luoh.music.lrc.ui.home.pop.popLyricRenderTiming
+import com.luoh.music.lrc.ui.home.pop.popPhraseWindow
+import com.luoh.music.lrc.ui.home.pop.rememberPopSceneBuilder
+import kotlin.math.abs
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -14,7 +28,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import kotlin.math.abs
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w400dp-h800dp-mdpi")

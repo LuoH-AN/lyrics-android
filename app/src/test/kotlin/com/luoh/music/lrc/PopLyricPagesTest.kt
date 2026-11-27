@@ -1,5 +1,15 @@
 package com.luoh.music.lrc
 
+import com.luoh.music.lrc.ui.home.pop.PopLyricPage
+import com.luoh.music.lrc.ui.home.pop.PopLyricTimeline
+import com.luoh.music.lrc.ui.home.pop.PopLyricToken
+import com.luoh.music.lrc.ui.home.pop.PopLyricsStyle
+import com.luoh.music.lrc.ui.home.pop.PopPhraseWindow
+import com.luoh.music.lrc.ui.home.pop.activePopLyricPage
+import com.luoh.music.lrc.ui.home.pop.paginatePopLyrics
+import com.luoh.music.lrc.ui.home.pop.popLyricBreakPenalties
+import com.luoh.music.lrc.ui.home.pop.popPhraseHandoffs
+import com.luoh.music.lrc.ui.home.pop.popPhraseWindow
 import org.junit.Assert.*
 import org.junit.Test
 

@@ -1,5 +1,15 @@
 package com.luoh.music.lrc
 
+import com.luoh.music.lrc.lyrics.LyricLine
+import com.luoh.music.lrc.lyrics.LyricWord
+import com.luoh.music.lrc.ui.home.pop.PopCameraBounds
+import com.luoh.music.lrc.ui.home.pop.PopCameraPath
+import com.luoh.music.lrc.ui.home.pop.PopCameraPoint
+import com.luoh.music.lrc.ui.home.pop.PopCameraWaypoint
+import com.luoh.music.lrc.ui.home.pop.PopLyricTimeline
+import com.luoh.music.lrc.ui.home.pop.PopLyricsStyle
+import com.luoh.music.lrc.ui.home.pop.PopStageMotion
+import com.luoh.music.lrc.ui.home.pop.PopStagePose
 import org.junit.Assert.*
 import org.junit.Test
 

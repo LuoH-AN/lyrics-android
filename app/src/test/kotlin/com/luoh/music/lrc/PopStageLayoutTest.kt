@@ -1,8 +1,13 @@
 package com.luoh.music.lrc
 
+import com.luoh.music.lrc.ui.home.HomeLyricAppearance
+import com.luoh.music.lrc.ui.home.pop.PopLyricsStyle
+import com.luoh.music.lrc.ui.home.pop.packPopLyrics
+import com.luoh.music.lrc.ui.home.pop.popCaptionTop
+import com.luoh.music.lrc.ui.home.pop.popStageLayout
+import kotlin.math.abs
 import org.junit.Assert.*
 import org.junit.Test
-import kotlin.math.abs
 
 class PopStageLayoutTest {
     @Test fun mainLyricsStayAtViewportCenterAndOnlyActualCaptionHeightIsReserved() {

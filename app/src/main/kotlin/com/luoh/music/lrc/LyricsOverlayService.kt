@@ -1,24 +1,17 @@
 package com.luoh.music.lrc
 
 import android.annotation.SuppressLint
-import android.app.NotificationChannel
-import android.app.Notification
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ServiceInfo
-import android.content.res.Configuration
 import android.content.res.ColorStateList
-import android.graphics.Bitmap
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
 import android.hardware.input.InputManager
-import android.media.AudioManager
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
@@ -30,24 +23,43 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
-import android.util.Base64
-import android.view.Gravity
 import android.view.ContextThemeWrapper
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
-import android.view.WindowInsets
 import android.view.WindowManager
-import android.webkit.WebResourceRequest
 import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.RemoteViews
 import com.google.android.material.button.MaterialButton
-import androidx.core.app.NotificationCompat
+import com.luoh.music.lrc.data.lyrics.CustomLyricsStore
+import com.luoh.music.lrc.data.lyrics.DirectLyricsRepository
+import com.luoh.music.lrc.data.lyrics.LyricMatchMemory
+import com.luoh.music.lrc.data.lyrics.LyricOffsetMemory
+import com.luoh.music.lrc.data.lyrics.SharedLyricsCache
+import com.luoh.music.lrc.data.lyrics.SongSearchCorrections
+import com.luoh.music.lrc.data.lyrics.TemporaryCache
+import com.luoh.music.lrc.data.translation.SupplementOutcome
+import com.luoh.music.lrc.data.translation.SupplementTranslation
+import com.luoh.music.lrc.data.translation.TranslationApiProfiles
+import com.luoh.music.lrc.data.translation.translationPrefs
+import com.luoh.music.lrc.diagnostics.UsageAnalytics
+import com.luoh.music.lrc.overlay.CompactLyricsView
+import com.luoh.music.lrc.overlay.OverlayAppearance
+import com.luoh.music.lrc.overlay.OverlayControls
+import com.luoh.music.lrc.overlay.OverlayNativeDocument
+import com.luoh.music.lrc.overlay.OverlayNotification
+import com.luoh.music.lrc.overlay.OverlayPlaybackSnapshot
+import com.luoh.music.lrc.overlay.OverlayWindowGeometry
+import com.luoh.music.lrc.overlay.applyOverlayTouchMode
+import com.luoh.music.lrc.overlay.overlayTrackTitle
+import com.luoh.music.lrc.playback.mediaSessionScore
+import com.luoh.music.lrc.ui.theme.AccentPrefs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -55,8 +67,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.json.JSONObject
-import java.io.ByteArrayOutputStream
-import java.security.MessageDigest
 import java.util.Locale
 import kotlin.math.max
 import kotlin.math.min
@@ -72,9 +82,13 @@ class LyricsOverlayService : Service() {
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val prefs by lazy { getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
+    private val matchMemory by lazy { LyricMatchMemory(prefs) }
+    private val offsetMemory by lazy { LyricOffsetMemory(prefs) }
     private val windowManager by lazy { getSystemService(Context.WINDOW_SERVICE) as WindowManager }
+    private val windowGeometry by lazy { OverlayWindowGeometry(this, windowManager) }
+    private val notification by lazy { OverlayNotification(this) }
     private val sessionManager by lazy { getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager }
-    private val audioManager by lazy { getSystemService(Context.AUDIO_SERVICE) as AudioManager }
+    private val playbackSnapshot = OverlayPlaybackSnapshot(this)
     private val listenerComponent by lazy { ComponentName(this, MediaListenerService::class.java) }
     private val lyricsRepository = DirectLyricsRepository()
     private val lyricsScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -113,10 +127,7 @@ class LyricsOverlayService : Service() {
     private var expandedLyricColor = LYRIC_COLOR_DEFAULT
     private var compactLyricColor = LYRIC_COLOR_DEFAULT
     private var lyricOffsetMs = 0
-    private var currentLyricIdentity = ""
-    private var currentLyricSource = ""
-    private var currentLyricTitle = ""
-    private var currentLyricArtist = ""
+    private var activeLyric: LyricOffsetMemory.Song? = null
     private var translationMode = TRANSLATION_BILINGUAL
     private var monitorStarted = false
     private var lastDisplayWidth = 0
@@ -124,8 +135,6 @@ class LyricsOverlayService : Service() {
     private var currentController: MediaController? = null
     private var pendingSnapshot: JSONObject? = null
     private val sharedLyricsCache by lazy { SharedLyricsCache(this) }
-    private var cachedArtworkKey = ""
-    private var cachedArtworkDataUrl = ""
     private var snapshotScheduled = false
     @Volatile private var latestLyricsRequestId = 0
     private var supplementJob: kotlinx.coroutines.Job? = null
@@ -196,20 +205,18 @@ class LyricsOverlayService : Service() {
         )
         fontWeight = OverlayAppearance.normalizeWeight(prefs.getInt(PREF_FONT_WEIGHT, OverlayAppearance.DEFAULT_FONT_WEIGHT))
         syncActiveVisualPreferences(true)
-        lyricOffsetMs = prefs.getInt(PREF_LYRIC_OFFSET_MS, 0)
-            .coerceIn(LYRIC_OFFSET_MIN_MS, LYRIC_OFFSET_MAX_MS)
+        lyricOffsetMs = offsetMemory.displayedOffset()
         translationMode = normalizedTranslationMode(
             prefs.getString(PREF_TRANSLATION_MODE, TRANSLATION_BILINGUAL)
         )
         positionLocked = prefs.getBoolean(PREF_POSITION_LOCKED, false)
         prefs.edit().putBoolean("compact", true).putBoolean(PREF_OVERLAY_ROTATED, false).apply()
-        createNotificationChannel()
+        notification.createChannel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_REFRESH_NOTIFICATION && overlayRoot != null) {
-            (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-                .notify(NOTIFICATION_ID, foregroundNotification())
+            notification.refresh(positionLocked)
             return START_STICKY
         }
         if (intent?.action == ACTION_REFRESH_ACCENT) {
@@ -304,47 +311,34 @@ class LyricsOverlayService : Service() {
 
         if (intent?.action == ACTION_SET_LYRIC_OFFSET) {
             val expectedKey = intent.getStringExtra(EXTRA_LYRIC_OFFSET_MEMORY_KEY)
-            if (expectedKey != null && expectedKey != activeLyricOffsetPreferenceKey()) {
+            if (expectedKey != null && expectedKey != activeLyric?.key) {
                 // 设置页已保存目标歌曲的记忆；切歌后不要把这条消息套到另一首歌上。
                 if (overlayRoot == null) stopSelf()
                 return if (overlayRoot == null) START_NOT_STICKY else START_STICKY
             }
             lyricOffsetMs = intent.getIntExtra(EXTRA_LYRIC_OFFSET_MS, 0)
-                .coerceIn(LYRIC_OFFSET_MIN_MS, LYRIC_OFFSET_MAX_MS)
-            val editor = prefs.edit().putInt(PREF_LYRIC_OFFSET_MS, lyricOffsetMs)
-            activeLyricOffsetPreferenceKey()?.let { key ->
-                if (lyricOffsetMs == 0) editor.remove(key) else editor.putInt(key, lyricOffsetMs)
-                updateLyricOffsetIndex(
-                    editor, key, currentLyricIdentity, currentLyricSource,
-                    currentLyricTitle, currentLyricArtist, lyricOffsetMs
-                )
-            }
-            editor.apply()
+                .coerceIn(LyricOffsetMemory.MIN_MS, LyricOffsetMemory.MAX_MS)
+            offsetMemory.save(activeLyric, lyricOffsetMs, updateDisplayedOffset = true)
             applyLyricOffset()
             if (overlayRoot != null) return START_STICKY
         }
 
         if (intent?.action == ACTION_DELETE_LYRIC_OFFSET_MEMORY) {
             val key = intent.getStringExtra(EXTRA_LYRIC_OFFSET_MEMORY_KEY).orEmpty()
-            if (key.startsWith(PREF_LYRIC_OFFSET_ENTRY_PREFIX)) {
-                val editor = prefs.edit().remove(key)
-                updateLyricOffsetIndex(editor, key, "", "", "", "", 0)
-                if (activeLyricOffsetPreferenceKey() == key) {
+            val isActiveLyric = activeLyric?.key == key
+            if (offsetMemory.delete(key, resetDisplayedOffset = isActiveLyric)) {
+                if (isActiveLyric) {
                     lyricOffsetMs = 0
-                    editor.putInt(PREF_LYRIC_OFFSET_MS, 0)
                     applyLyricOffset()
                 }
-                editor.apply()
                 announceOverlayState()
             }
             if (overlayRoot != null) return START_STICKY
         }
 
         if (intent?.action == ACTION_CLEAR_LYRIC_OFFSET_MEMORIES) {
-            val editor = prefs.edit()
-            prefs.all.keys.filter { it.startsWith(PREF_LYRIC_OFFSET_ENTRY_PREFIX) }.forEach(editor::remove)
             lyricOffsetMs = 0
-            editor.putInt(PREF_LYRIC_OFFSET_MS, 0).remove(PREF_LYRIC_OFFSET_INDEX).apply()
+            offsetMemory.clear()
             applyLyricOffset()
             announceOverlayState()
             if (overlayRoot != null) return START_STICKY
@@ -364,7 +358,7 @@ class LyricsOverlayService : Service() {
             return START_NOT_STICKY
         }
 
-        startAsForeground()
+        notification.start(positionLocked)
         if (overlayRoot == null) createOverlay()
         startMediaMonitor()
         return START_STICKY
@@ -453,7 +447,7 @@ class LyricsOverlayService : Service() {
                     "error" -> data.optString("message").take(180).ifBlank { "补充翻译失败，请检查配置" }
                     else -> return@post
                 }
-                getSharedPreferences("supplement_translation", Context.MODE_PRIVATE).edit()
+                translationPrefs().edit()
                     .putString("last_status", message).putString("last_track", nativeTrack).apply()
                 if (status == "error") android.widget.Toast.makeText(
                     this@LyricsOverlayService, message, android.widget.Toast.LENGTH_LONG
@@ -478,20 +472,14 @@ class LyricsOverlayService : Service() {
             val safeTitle = title.trim().take(300)
             val safeArtist = artist.trim().take(300)
             if (safeIdentity.isBlank() || safeSource.isBlank()) return 0
-            val preferenceKey = lyricOffsetPreferenceKey(safeIdentity, safeSource)
-            val remembered = prefs.getInt(preferenceKey, 0)
-                .coerceIn(LYRIC_OFFSET_MIN_MS, LYRIC_OFFSET_MAX_MS)
+            val song = LyricOffsetMemory.Song(safeIdentity, safeSource, safeTitle, safeArtist)
+            val remembered = offsetMemory.read(song)
             mainHandler.post {
                 if (safeTitle != nativeTrack || safeArtist != nativeArtist) return@post
-                currentLyricIdentity = safeIdentity
-                currentLyricSource = safeSource
-                currentLyricTitle = safeTitle
-                currentLyricArtist = safeArtist
+                activeLyric = song
                 lyricOffsetMs = remembered
                 nativeLyrics?.setOffset(remembered)
-                prefs.edit().putInt(PREF_LYRIC_OFFSET_MS, remembered).apply()
-                // 记录当前歌词身份，设置页在悬浮窗未运行时也能把偏移写到对的 per-song 键
-                rememberActiveLyric(prefs, safeIdentity, safeSource, safeTitle, safeArtist)
+                offsetMemory.rememberActiveSong(song, remembered)
                 announceOverlayState()
             }
             return remembered
@@ -505,7 +493,7 @@ class LyricsOverlayService : Service() {
 
         @JavascriptInterface
         fun supplementStrategy(): String {
-            val translationPrefs = getSharedPreferences("supplement_translation", Context.MODE_PRIVATE)
+            val translationPrefs = translationPrefs()
             val profile = TranslationApiProfiles.find(
                 this@LyricsOverlayService,
                 translationPrefs.getString("active_api_profile", null)
@@ -548,7 +536,7 @@ class LyricsOverlayService : Service() {
                 }
                 supplementJob = lyricsScope.launch {
                     try {
-                        val mode = getSharedPreferences("supplement_translation", Context.MODE_PRIVATE).getString("mode", "off")
+                        val mode = translationPrefs().getString("mode", "off")
                         if (mode == "off") { report(JSONObject().put("status", "off")); return@launch }
                         val outcome = supplements.translate(payload,
                             onTranslationRequired = { report(JSONObject().put("status", "working")) }) { report(it) }
@@ -635,7 +623,7 @@ class LyricsOverlayService : Service() {
         }
 
         @JavascriptInterface
-        fun readMatchMemory(): String = prefs.getString("match_memory_v2", "").orEmpty()
+        fun readMatchMemory(): String = matchMemory.readRaw()
 
         /** 悬浮窗解析歌曲时先同步问一次：这首歌有没有用户手动指定的自定义 LRC 歌词。 */
         @JavascriptInterface
@@ -669,11 +657,7 @@ class LyricsOverlayService : Service() {
         }
 
         @JavascriptInterface
-        fun writeMatchMemory(value: String) {
-            if (runCatching { org.json.JSONArray(value); true }.getOrDefault(false)) {
-                prefs.edit().putString("match_memory_v2", value).apply()
-            }
-        }
+        fun writeMatchMemory(value: String) = matchMemory.writeFromOverlay(value)
 
         @JavascriptInterface
         fun requestLyrics(
@@ -743,84 +727,10 @@ class LyricsOverlayService : Service() {
         }
     }
 
-    private fun startAsForeground() {
-        val notification = foregroundNotification()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
-        }
-    }
-
-    private fun foregroundNotification(): Notification {
-        val openIntent = Intent(this, MainActivity::class.java)
-        val openPendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            openIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        val stopIntent = Intent(this, LyricsOverlayService::class.java).apply { action = ACTION_STOP }
-        val stopPendingIntent = PendingIntent.getService(
-            this,
-            1,
-            stopIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val movementPendingIntent = PendingIntent.getService(
-            this,
-            if (positionLocked) 2 else 3,
-            Intent(this, LyricsOverlayService::class.java).setAction(if (positionLocked) ACTION_UNLOCK else ACTION_LOCK),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val controls = RemoteViews(packageName, R.layout.notification_lyrics).apply {
-            setTextViewText(R.id.notification_lyrics_state, if (positionLocked) "已锁定" else "可拖动")
-            setImageViewResource(R.id.notification_lyrics_lock,
-                if (positionLocked) R.drawable.ic_overlay_locked else R.drawable.ic_overlay_unlocked)
-            setContentDescription(R.id.notification_lyrics_lock, if (positionLocked) "解锁" else "锁定")
-            setOnClickPendingIntent(R.id.notification_lyrics_lock, movementPendingIntent)
-            setOnClickPendingIntent(R.id.notification_lyrics_close, stopPendingIntent)
-        }
-
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("桌面歌词")
-            .setContentText(if (positionLocked) "已锁定" else "可拖动")
-            .setContentIntent(openPendingIntent)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
-            .setCustomContentView(controls)
-            .setCustomBigContentView(controls)
-            .build()
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_ID,
-                "桌面歌词",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "保持桌面歌词与正在播放的音乐实时同步"
-                setShowBadge(false)
-            }
-        )
-    }
-
     @Suppress("SetJavaScriptEnabled")
     private fun createOverlay() {
-        val (screenWidth, screenHeight) = currentDisplaySize()
-        val safeBounds = currentSafeDisplayBounds()
+        val (screenWidth, screenHeight) = windowGeometry.currentDisplaySize()
+        val safeBounds = windowGeometry.currentSafeDisplayBounds(overlayRoot)
         lastDisplayWidth = screenWidth
         lastDisplayHeight = screenHeight
         val storedExpandedWidth = prefs.getInt(
@@ -829,8 +739,8 @@ class LyricsOverlayService : Service() {
         )
         val storedCompactWidth = preferredCompactWidth(safeBounds, prefs.getInt(PREF_COMPACT_WIDTH, storedExpandedWidth))
         syncActiveVisualPreferences(true)
-        val activeWindowSize = fittedLogicalOverlaySize(
-            storedCompactWidth, desiredCompactHeight(), isCompact = true,
+        val activeWindowSize = windowGeometry.fittedLogicalOverlaySize(
+            storedCompactWidth, desiredCompactHeight(),
             rotated = false, safeBounds = safeBounds
         )
 
@@ -849,7 +759,7 @@ class LyricsOverlayService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            preferredRefreshRate = highestOverlayRefreshRate()
+            preferredRefreshRate = windowGeometry.highestOverlayRefreshRate()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 setFitInsetsTypes(0)
                 layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
@@ -888,7 +798,7 @@ class LyricsOverlayService : Service() {
         root.setOnApplyWindowInsetsListener { _, insets ->
             mainHandler.post {
                 run {
-                    val safe = currentSafeDisplayBounds()
+                    val safe = windowGeometry.currentSafeDisplayBounds(overlayRoot)
                     windowParams?.let { lp ->
                         val x = lp.x.coerceIn(safe.left, max(safe.left, safe.right - lp.width))
                         val y = lp.y.coerceIn(safe.top, max(safe.top, safe.bottom - lp.height))
@@ -910,7 +820,7 @@ class LyricsOverlayService : Service() {
         overlayContent = content
         root.addView(
             content,
-            rotatedContentLayoutParams(params.width, params.height, overlayRotated)
+            windowGeometry.rotatedContentLayoutParams(params.width, params.height, overlayRotated)
         )
         content.rotation = if (overlayRotated) 90f else 0f
 
@@ -960,7 +870,7 @@ class LyricsOverlayService : Service() {
                         if (!moving && max(kotlin.math.abs(dx), kotlin.math.abs(dy)) <= touchSlop) return true
                         if (!moving) hideChrome(immediate = true)
                         moving = true
-                        val safe = currentSafeDisplayBounds()
+                        val safe = windowGeometry.currentSafeDisplayBounds(overlayRoot)
                         lp.x = (downX + dx).roundToInt().coerceIn(safe.left, max(safe.left, safe.right - lp.width))
                         lp.y = (downY + dy).roundToInt().coerceIn(safe.top, max(safe.top, safe.bottom - lp.height))
                         overlayRoot?.let { windowManager.updateViewLayout(it, lp) }
@@ -1038,138 +948,39 @@ class LyricsOverlayService : Service() {
         revealChrome()
     }
 
-    private fun currentDisplaySize(): Pair<Int, Int> {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val bounds = windowManager.currentWindowMetrics.bounds
-            if (bounds.width() > 0 && bounds.height() > 0) {
-                return bounds.width() to bounds.height()
-            }
-        }
-        return max(1, resources.displayMetrics.widthPixels) to
-            max(1, resources.displayMetrics.heightPixels)
-    }
-
-    /** Ask the overlay window for the fastest mode at its current resolution. */
-    @Suppress("DEPRECATION")
-    private fun highestOverlayRefreshRate(): Float {
-        val display = windowManager.defaultDisplay
-        val current = display.mode
-        val modes = display.supportedModes.map {
-            OverlayDisplayMode(it.modeId, it.physicalWidth, it.physicalHeight, it.refreshRate)
-        }
-        return preferredOverlayRefreshRate(
-            modes,
-            OverlayDisplayMode(current.modeId, current.physicalWidth, current.physicalHeight, current.refreshRate)
-        )
-    }
-
-    private fun currentSafeDisplayBounds(): Rect {
-        val (screenWidth, screenHeight) = currentDisplaySize()
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            return Rect(0, 0, screenWidth, screenHeight)
-        }
-        val metrics = windowManager.currentWindowMetrics
-        val insets = (overlayRoot?.rootWindowInsets ?: metrics.windowInsets)
-            .getInsets(WindowInsets.Type.systemBars())
-        val bounds = metrics.bounds
-        val safe = Rect(
-            bounds.left + insets.left,
-            bounds.top + insets.top,
-            bounds.right - insets.right,
-            bounds.bottom - insets.bottom
-        )
-        return if (safe.width() > 0 && safe.height() > 0) {
-            safe
-        } else {
-            Rect(0, 0, screenWidth, screenHeight)
-        }
-    }
-
-    private fun logicalToWindowSize(logicalSize: Pair<Int, Int>, rotated: Boolean): Pair<Int, Int> =
-        if (rotated) logicalSize.second to logicalSize.first else logicalSize
-
-    private fun windowToLogicalSize(width: Int, height: Int, rotated: Boolean): Pair<Int, Int> =
-        if (rotated) height to width else width to height
-
-    private fun rotatedContentLayoutParams(
-        windowWidth: Int,
-        windowHeight: Int,
-        rotated: Boolean
-    ): FrameLayout.LayoutParams = FrameLayout.LayoutParams(
-        if (rotated) windowHeight else windowWidth,
-        if (rotated) windowWidth else windowHeight,
-        Gravity.CENTER
-    )
-
     private fun applyOverlayRotationLayout() {
         val content = overlayContent ?: return
         val lp = windowParams ?: return
-        content.layoutParams = rotatedContentLayoutParams(lp.width, lp.height, overlayRotated)
+        content.layoutParams = windowGeometry.rotatedContentLayoutParams(lp.width, lp.height, overlayRotated)
         content.rotation = if (overlayRotated) 90f else 0f
         content.requestLayout()
     }
-
-    private fun fittedLogicalOverlaySize(
-        desiredWidth: Int,
-        desiredHeight: Int,
-        isCompact: Boolean,
-        rotated: Boolean,
-        safeBounds: Rect
-    ): Pair<Int, Int> {
-        val logicalScreenWidth = if (rotated) safeBounds.height() else safeBounds.width()
-        val logicalScreenHeight = if (rotated) safeBounds.width() else safeBounds.height()
-        return fittedOverlaySize(
-            desiredWidth,
-            desiredHeight,
-            isCompact,
-            logicalScreenWidth,
-            logicalScreenHeight
-        )
-    }
-
-    private fun minimumOverlayWidth(screenWidth: Int = currentDisplaySize().first): Int =
-        min(dp(120), max(1, screenWidth))
 
     private fun preferredCompactWidth(safe: Rect, fallback: Int): Int =
         if (prefs.contains(OverlayAppearance.PREF_WIDTH_PERCENT))
             (safe.width() * prefs.getInt(OverlayAppearance.PREF_WIDTH_PERCENT, 90).coerceIn(40, 100) / 100f).roundToInt()
         else fallback
 
-    private fun fittedOverlaySize(
-        desiredWidth: Int,
-        desiredHeight: Int,
-        isCompact: Boolean,
-        screenWidth: Int,
-        screenHeight: Int
-    ): Pair<Int, Int> {
-        val maxWidth = max(1, screenWidth)
-        val minWidth = minimumOverlayWidth(screenWidth).coerceAtMost(maxWidth)
-        val maxHeight = max(1, screenHeight - dp(DISPLAY_EDGE_MARGIN_DP))
-        return desiredWidth.coerceIn(minWidth, maxWidth) to
-            desiredHeight.coerceIn(min(dp(48), maxHeight), maxHeight)
-    }
-
     private fun adaptOverlayToDisplay() {
         val root = overlayRoot ?: return
         val lp = windowParams ?: return
-        val (screenWidth, screenHeight) = currentDisplaySize()
-        val safe = currentSafeDisplayBounds()
+        val (screenWidth, screenHeight) = windowGeometry.currentDisplaySize()
+        val safe = windowGeometry.currentSafeDisplayBounds(overlayRoot)
         val previousWidth = max(1, lastDisplayWidth)
         val previousHeight = max(1, lastDisplayHeight)
-        lp.preferredRefreshRate = highestOverlayRefreshRate()
+        lp.preferredRefreshRate = windowGeometry.highestOverlayRefreshRate()
         val centerX = (lp.x + lp.width / 2f) / previousWidth
         val centerY = (lp.y + lp.height / 2f) / previousHeight
-        val currentLogicalSize = windowToLogicalSize(lp.width, lp.height, overlayRotated)
+        val currentLogicalSize = windowGeometry.windowToLogicalSize(lp.width, lp.height, overlayRotated)
 
         val desiredSize = preferredCompactWidth(safe, prefs.getInt(PREF_COMPACT_WIDTH, currentLogicalSize.first)) to desiredCompactHeight()
-        val fittedLogicalSize = fittedLogicalOverlaySize(
+        val fittedLogicalSize = windowGeometry.fittedLogicalOverlaySize(
             desiredSize.first,
             desiredSize.second,
-            isCompact = compact,
             rotated = overlayRotated,
             safeBounds = safe
         )
-        val fittedWindowSize = logicalToWindowSize(fittedLogicalSize, overlayRotated)
+        val fittedWindowSize = windowGeometry.logicalToWindowSize(fittedLogicalSize, overlayRotated)
         lp.width = fittedWindowSize.first
         lp.height = fittedWindowSize.second
         lp.x = (centerX * screenWidth - lp.width / 2f).roundToInt()
@@ -1269,7 +1080,7 @@ class LyricsOverlayService : Service() {
             .putInt(positionYPreferenceKey(targetCompact), lp.y)
             .putBoolean("compact", targetCompact)
         if (saveSize) {
-            val logicalSize = windowToLogicalSize(lp.width, lp.height, overlayRotated)
+            val logicalSize = windowGeometry.windowToLogicalSize(lp.width, lp.height, overlayRotated)
             if (targetCompact) {
                 editor.putInt(PREF_COMPACT_WIDTH, logicalSize.first)
                     .putInt("compact_height_v3", logicalSize.second)
@@ -1325,8 +1136,8 @@ class LyricsOverlayService : Service() {
     private fun resizeCompactWindow() {
         val root = overlayRoot ?: return
         val lp = windowParams ?: return
-        val safe = currentSafeDisplayBounds()
-        val height = desiredCompactHeight().coerceAtMost(max(1, safe.height() - dp(DISPLAY_EDGE_MARGIN_DP)))
+        val safe = windowGeometry.currentSafeDisplayBounds(overlayRoot)
+        val height = desiredCompactHeight().coerceAtMost(windowGeometry.availableHeight(safe.height()))
         if (lp.height == height) return
         lp.height = height
         lp.y = lp.y.coerceIn(safe.top, max(safe.top, safe.bottom - lp.height))
@@ -1365,46 +1176,6 @@ class LyricsOverlayService : Service() {
         }
     }
 
-    private fun lyricOffsetPreferenceKey(identity: String, source: String): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-            .digest("$identity\u0000$source".toByteArray(Charsets.UTF_8))
-            .take(12)
-            .joinToString("") { "%02x".format(it) }
-        return PREF_LYRIC_OFFSET_ENTRY_PREFIX + digest
-    }
-
-    private fun activeLyricOffsetPreferenceKey(): String? =
-        if (currentLyricIdentity.isBlank() || currentLyricSource.isBlank()) null
-        else lyricOffsetPreferenceKey(currentLyricIdentity, currentLyricSource)
-
-    private fun updateLyricOffsetIndex(
-        editor: android.content.SharedPreferences.Editor,
-        preferenceKey: String,
-        identity: String,
-        source: String,
-        title: String,
-        artist: String,
-        offsetMs: Int
-    ) {
-        val entryId = preferenceKey.removePrefix(PREF_LYRIC_OFFSET_ENTRY_PREFIX)
-        val index = runCatching {
-            JSONObject(prefs.getString(PREF_LYRIC_OFFSET_INDEX, "{}").orEmpty().ifBlank { "{}" })
-        }
-            .getOrDefault(JSONObject())
-        if (offsetMs == 0) {
-            index.remove(entryId)
-        } else {
-            index.put(entryId, JSONObject()
-                .put("identity", identity)
-                .put("source", source)
-                .put("title", title)
-                .put("artist", artist)
-                .put("offsetMs", offsetMs)
-                .put("updatedAt", System.currentTimeMillis()))
-        }
-        editor.putString(PREF_LYRIC_OFFSET_INDEX, index.toString())
-    }
-
     fun currentLyricOffsetMs(): Int = lyricOffsetMs
 
     fun isPositionLocked(): Boolean = positionLocked
@@ -1415,8 +1186,7 @@ class LyricsOverlayService : Service() {
         applyTouchMode()
         updateLockControl()
         if (overlayRoot != null) {
-            (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-                .notify(NOTIFICATION_ID, foregroundNotification())
+            notification.refresh(positionLocked)
         }
         announceOverlayState()
     }
@@ -1541,7 +1311,7 @@ class LyricsOverlayService : Service() {
             .asSequence()
             .filter { it.packageName != packageName }
             .filter { isSupportedMusicPackage(it.packageName) }
-            .maxByOrNull { controllerScore(it) }
+            .maxByOrNull { mediaSessionScore(it, overlayTrackTitle(it.metadata).isNotBlank()) }
 
         if (best?.sessionToken == currentController?.sessionToken) {
             scheduleSnapshot()
@@ -1550,21 +1320,9 @@ class LyricsOverlayService : Service() {
 
         currentController?.unregisterCallback(controllerCallback)
         currentController = best
-        cachedArtworkKey = ""
-        cachedArtworkDataUrl = ""
+        playbackSnapshot.clearArtwork()
         best?.registerCallback(controllerCallback, mainHandler)
         scheduleSnapshot()
-    }
-
-    private fun controllerScore(controller: MediaController): Int {
-        val stateScore = when (controller.playbackState?.state) {
-            PlaybackState.STATE_PLAYING -> 1000
-            PlaybackState.STATE_BUFFERING, PlaybackState.STATE_CONNECTING -> 800
-            PlaybackState.STATE_PAUSED -> 600
-            else -> 100
-        }
-        val metadataScore = if (!mediaTitle(controller.metadata).isNullOrBlank()) 100 else 0
-        return stateScore + metadataScore
     }
 
     private fun isSupportedMusicPackage(packageName: String): Boolean {
@@ -1606,139 +1364,10 @@ class LyricsOverlayService : Service() {
         val snapshot = if (controller == null) {
             JSONObject().put("hasSession", false).put("permissionRequired", false)
         } else {
-            buildSnapshot(controller)
+            playbackSnapshot.build(controller)
         }
         pendingSnapshot = snapshot
         deliverToWeb(snapshot)
-    }
-
-    private fun buildSnapshot(controller: MediaController): JSONObject {
-        val metadata = controller.metadata
-        val playback = controller.playbackState
-        if (playback?.state == PlaybackState.STATE_PLAYING) UsageAnalytics.playerUsed(controller.packageName)
-        val title = mediaTitle(metadata).orEmpty()
-        val artist = firstMetadataString(
-            metadata,
-            MediaMetadata.METADATA_KEY_ARTIST,
-            MediaMetadata.METADATA_KEY_ALBUM_ARTIST,
-            MediaMetadata.METADATA_KEY_AUTHOR,
-            MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE
-        ).orEmpty()
-        val album = firstMetadataString(metadata, MediaMetadata.METADATA_KEY_ALBUM).orEmpty()
-        val duration = metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L
-        val state = when (playback?.state) {
-            PlaybackState.STATE_PLAYING -> "playing"
-            PlaybackState.STATE_PAUSED -> "paused"
-            PlaybackState.STATE_BUFFERING, PlaybackState.STATE_CONNECTING -> "buffering"
-            PlaybackState.STATE_STOPPED, PlaybackState.STATE_NONE -> "stopped"
-            else -> "paused"
-        }
-        val speed = playback?.playbackSpeed?.toDouble() ?: 0.0
-        val actions = playback?.actions ?: 0L
-        val position = currentPosition(playback, duration)
-        val artwork = artworkDataUrl(metadata, "$title\u0000$artist\u0000$album")
-
-        return JSONObject()
-            .put("hasSession", title.isNotBlank() || playback != null)
-            .put("permissionRequired", false)
-            .put("track", title)
-            .put("searchRevision", SongSearchCorrections.resolve(this, title, artist).revision)
-            .put("artist", artist)
-            .put("album", album)
-            .put("packageName", controller.packageName)
-            .put("state", state)
-            .put("positionMs", position)
-            .put("durationMs", max(0L, duration))
-            .put("speed", if (speed.isFinite()) speed else 1.0)
-            .put(
-                "canPlay",
-                actions and (PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PLAY_PAUSE) != 0L
-            )
-            .put(
-                "canPause",
-                actions and (PlaybackState.ACTION_PAUSE or PlaybackState.ACTION_PLAY_PAUSE) != 0L
-            )
-            .put("canPrevious", actions and PlaybackState.ACTION_SKIP_TO_PREVIOUS != 0L)
-            .put("canNext", actions and PlaybackState.ACTION_SKIP_TO_NEXT != 0L)
-            .put("canSeek", actions and PlaybackState.ACTION_SEEK_TO != 0L)
-            .put("capturedAtMs", System.currentTimeMillis())
-            .put("cover", artwork)
-            .put("volumePct", mediaVolumePercent())
-    }
-
-    private fun mediaVolumePercent(): Int {
-        return try {
-            val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-            val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            if (maxVolume > 0) (current * 100f / maxVolume).toInt().coerceIn(0, 100) else 0
-        } catch (_: Exception) {
-            0
-        }
-    }
-
-    private fun currentPosition(state: PlaybackState?, duration: Long): Long {
-        if (state == null) return 0L
-        var position = max(0L, state.position)
-        // 只有拿到有效的 lastPositionUpdateTime 才外推，否则会用 0 基准把位置越推越大
-        if (state.state == PlaybackState.STATE_PLAYING && state.playbackSpeed > 0f &&
-            state.lastPositionUpdateTime > 0L) {
-            val elapsed = max(0L, SystemClock.elapsedRealtime() - state.lastPositionUpdateTime)
-            position += (elapsed * state.playbackSpeed).toLong()
-        }
-        return if (duration > 0) min(position, duration) else position
-    }
-
-    private fun mediaTitle(metadata: MediaMetadata?): String? = firstMetadataString(
-        metadata,
-        MediaMetadata.METADATA_KEY_TITLE,
-        MediaMetadata.METADATA_KEY_DISPLAY_TITLE
-    )
-
-    private fun firstMetadataString(metadata: MediaMetadata?, vararg keys: String): String? {
-        if (metadata == null) return null
-        for (key in keys) {
-            metadata.getString(key)?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
-        }
-        return null
-    }
-
-    private fun artworkDataUrl(metadata: MediaMetadata?, key: String): String {
-        // Media apps often publish title/artist first and artwork in a later callback.
-        // Do not permanently cache an empty first result for the lifetime of the track.
-        if (key == cachedArtworkKey && cachedArtworkDataUrl.isNotEmpty()) {
-            return cachedArtworkDataUrl
-        }
-        cachedArtworkKey = key
-        val bitmap = metadata?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
-            ?: metadata?.getBitmap(MediaMetadata.METADATA_KEY_ART)
-            ?: metadata?.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
-        cachedArtworkDataUrl = bitmap?.let { bitmapDataUrl(it) }.orEmpty()
-        return cachedArtworkDataUrl
-    }
-
-    private fun bitmapDataUrl(source: Bitmap): String {
-        return try {
-            val maxSide = max(source.width, source.height)
-            val scaled = if (maxSide > 640) {
-                val ratio = 640f / maxSide.toFloat()
-                Bitmap.createScaledBitmap(
-                    source,
-                    max(1, (source.width * ratio).toInt()),
-                    max(1, (source.height * ratio).toInt()),
-                    true
-                )
-            } else {
-                source
-            }
-            val bytes = ByteArrayOutputStream().use { output ->
-                scaled.compress(Bitmap.CompressFormat.JPEG, 88, output)
-                output.toByteArray()
-            }
-            if (scaled !== source) scaled.recycle()
-            "data:image/jpeg;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
-        } catch (_: Exception) {
-            ""
-        }
     }
 
     private fun updateNativePlayback(snapshot: JSONObject) {
@@ -1840,14 +1469,7 @@ class LyricsOverlayService : Service() {
         const val PREF_FONT_WEIGHT = "font_weight_compact_v1"
         const val PREF_LYRIC_COLOR = "lyric_color_v1"
         const val PREF_LYRIC_COLOR_COMPACT = "lyric_color_compact_v1"
-        const val PREF_LYRIC_OFFSET_MS = "lyric_offset_ms_v1"
-        const val PREF_LYRIC_OFFSET_ENTRY_PREFIX = "lyric_offset_entry_v2:"
-        const val PREF_LYRIC_OFFSET_INDEX = "lyric_offset_index_v2"
         const val PREF_TRANSLATION_MODE = "translation_mode_v1"
-        const val PREF_ACTIVE_LYRIC_IDENTITY = "active_lyric_identity_v1"
-        const val PREF_ACTIVE_LYRIC_SOURCE = "active_lyric_source_v1"
-        const val PREF_ACTIVE_LYRIC_TITLE = "active_lyric_title_v1"
-        const val PREF_ACTIVE_LYRIC_ARTIST = "active_lyric_artist_v1"
         private const val PREF_COMPACT_WIDTH = "compact_width_v1"
         private const val PREF_EXPANDED_X = "expanded_x_v1"
         private const val PREF_EXPANDED_Y = "expanded_y_v1"
@@ -1864,8 +1486,6 @@ class LyricsOverlayService : Service() {
         const val FONT_SCALE_MAX_PERCENT = 150
         const val FONT_SCALE_DEFAULT_PERCENT = 100
         const val LYRIC_COLOR_DEFAULT = "#F4F6FA"
-        const val LYRIC_OFFSET_MIN_MS = -5_000
-        const val LYRIC_OFFSET_MAX_MS = 5_000
         const val TRANSLATION_ORIGINAL = "original"
         const val TRANSLATION_BILINGUAL = "bilingual"
         const val TRANSLATION_TRANSLATED = "translated"
@@ -1875,87 +1495,8 @@ class LyricsOverlayService : Service() {
             return (9.5f + 34.5f * scale).roundToInt().coerceIn(32, 64)
         }
 
-        /**
-         * 计算某首歌某个歌词源的 per-song 偏移存储键。与实例方法同算法（SHA-256 取前 12 字节），
-         * 让设置页在悬浮窗没运行时也能直接读写 per-song 记忆。
-         */
-        fun lyricOffsetPreferenceKey(identity: String, source: String): String {
-            val digest = MessageDigest.getInstance("SHA-256")
-                .digest("$identity\u0000$source".toByteArray(Charsets.UTF_8))
-                .take(12)
-                .joinToString("") { "%02x".format(it) }
-            return PREF_LYRIC_OFFSET_ENTRY_PREFIX + digest
-        }
-
-        /** 静态版偏移索引维护，供设置页/悬浮窗共用。offsetMs 为 0 时移除该条。 */
-        fun updateLyricOffsetIndex(
-            prefs: android.content.SharedPreferences,
-            editor: android.content.SharedPreferences.Editor,
-            preferenceKey: String,
-            identity: String,
-            source: String,
-            title: String,
-            artist: String,
-            offsetMs: Int
-        ) {
-            val entryId = preferenceKey.removePrefix(PREF_LYRIC_OFFSET_ENTRY_PREFIX)
-            val index = runCatching {
-                org.json.JSONObject(prefs.getString(PREF_LYRIC_OFFSET_INDEX, "{}").orEmpty().ifBlank { "{}" })
-            }.getOrDefault(org.json.JSONObject())
-            if (offsetMs == 0) {
-                index.remove(entryId)
-            } else {
-                index.put(entryId, org.json.JSONObject()
-                    .put("identity", identity)
-                    .put("source", source)
-                    .put("title", title)
-                    .put("artist", artist)
-                    .put("offsetMs", offsetMs)
-                    .put("updatedAt", System.currentTimeMillis()))
-            }
-            editor.putString(PREF_LYRIC_OFFSET_INDEX, index.toString())
-        }
-
-        /** 记录当前正在显示的歌词身份，让没开悬浮窗时设置页也能把偏移写到对的 per-song 键。 */
-        fun rememberActiveLyric(
-            prefs: android.content.SharedPreferences,
-            identity: String,
-            source: String,
-            title: String,
-            artist: String
-        ) {
-            prefs.edit()
-                .putString(PREF_ACTIVE_LYRIC_IDENTITY, identity)
-                .putString(PREF_ACTIVE_LYRIC_SOURCE, source)
-                .putString(PREF_ACTIVE_LYRIC_TITLE, title)
-                .putString(PREF_ACTIVE_LYRIC_ARTIST, artist)
-                .apply()
-        }
-
-        /**
-         * 把某首歌某源的偏移写入 per-song 记忆并同步索引。悬浮窗没运行时由设置页直接调用，
-         * 保证偏移记忆和悬浮窗内改的一致。
-         */
-        fun writeLyricOffsetMemory(
-            prefs: android.content.SharedPreferences,
-            identity: String,
-            source: String,
-            title: String,
-            artist: String,
-            offsetMs: Int
-        ) {
-            if (identity.isBlank() || source.isBlank()) return
-            val clamped = offsetMs.coerceIn(LYRIC_OFFSET_MIN_MS, LYRIC_OFFSET_MAX_MS)
-            val key = lyricOffsetPreferenceKey(identity, source)
-            val editor = prefs.edit()
-            if (clamped == 0) editor.remove(key) else editor.putInt(key, clamped)
-            updateLyricOffsetIndex(prefs, editor, key, identity, source, title, artist, clamped)
-            editor.apply()
-        }
         private const val LOG_TAG = "DesktopLyrics"
         internal const val CHANNEL_ID = "lobsta_lyrics_overlay"
-        private const val DISPLAY_EDGE_MARGIN_DP = 8
-        private const val NOTIFICATION_ID = 4202
 
         @Volatile
         var isRunning: Boolean = false

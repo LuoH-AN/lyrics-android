@@ -1,5 +1,7 @@
 package com.luoh.music.lrc
 
+import com.luoh.music.lrc.overlay.OverlayDisplayMode
+import com.luoh.music.lrc.overlay.preferredOverlayRefreshRate
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

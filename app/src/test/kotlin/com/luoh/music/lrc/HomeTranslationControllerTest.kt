@@ -1,5 +1,9 @@
 package com.luoh.music.lrc
 
+import com.luoh.music.lrc.data.translation.SupplementOutcome
+import com.luoh.music.lrc.lyrics.LyricDocument
+import com.luoh.music.lrc.lyrics.LyricLine
+import com.luoh.music.lrc.ui.home.HomeTranslationController
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

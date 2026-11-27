@@ -2,6 +2,9 @@ package com.luoh.music.lrc
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.luoh.music.lrc.data.lyrics.CustomLyricsStore
+import com.luoh.music.lrc.data.lyrics.DirectLyricsRepository
+import com.luoh.music.lrc.data.lyrics.SharedLyricsCache
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull

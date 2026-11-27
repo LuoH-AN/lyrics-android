@@ -16,14 +16,20 @@ assert.match(main, /class MainActivity\s*:\s*ComponentActivity\(\)/);
 assert.match(main, /setContent\s*\{/);
 assert.match(main, /ComposeHomeScreen\(/);
 assert.match(main, /SettingsOverlayHost\(/);
-const navigation = read('ComposeNavigation.kt');
+const navigation = read('ui/navigation/ComposeNavigation.kt');
 assert.match(navigation, /GuardedAnimatedContent\(/);
 assert.match(navigation, /SettingsTwoPane\(/);
 assert.match(navigation, /LocalSettingsScrollRetention provides/);
 assert.match(navigation, /BackHandler\(/);
 
-const pageSources = ['MainActivity.kt', 'ComposeNavigation.kt', 'ComposeHomeScreen.kt',
-  'ComposeLibraryScreens.kt', 'ComposeSettingsScreens.kt', 'LyricsComposeTheme.kt'];
+const featureSources = ['home', 'library', 'settings'].flatMap(feature => {
+  const folder = 'ui/' + feature;
+  return fs.readdirSync(path.join(base, folder))
+    .filter(name => name.endsWith('.kt'))
+    .map(name => path.join(folder, name));
+});
+const pageSources = ['MainActivity.kt', 'ui/navigation/ComposeNavigation.kt', 'ui/theme/LyricsComposeTheme.kt',
+  ...featureSources.filter(name => read(name).includes('@Composable'))];
 for (const name of pageSources) {
   const source = read(name);
   assert.match(source, /androidx\.compose\./, `${name} must render through Compose`);
@@ -53,9 +59,9 @@ const sheet = read('ui/agora/SmoothBottomSheet.kt');
 assert.match(sheet, /Dialog\(/, 'the Agora sheet must use its original custom Compose dialog');
 assert.match(sheet, /nestedScroll\(/, 'sheet and scrolling content must share gesture handoff');
 assert.doesNotMatch(sheet, /\bModalBottomSheet\s*\(/, 'an unrelated Material sheet cannot replace the Agora shell');
-assert.match(read('ComposeHomeScreen.kt'), /SmoothBottomSheet\(/);
-assert.match(read('LyricsComposeTheme.kt'), /AgoraTheme\(/);
-assert.match(read('LyricsComposeTheme.kt'), /ProvideAgoraMotionPolicy\(/);
+assert.match(read('ui/home/HomeActions.kt'), /SmoothBottomSheet\(/);
+assert.match(read('ui/theme/LyricsComposeTheme.kt'), /AgoraTheme\(/);
+assert.match(read('ui/theme/LyricsComposeTheme.kt'), /ProvideAgoraMotionPolicy\(/);
 for (const name of ['ComposeTransitionTest.kt', 'ComposeScrollRetentionTest.kt']) {
   assert.ok(fs.existsSync('app/src/test/kotlin/com/luoh/music/lrc/ui/agora/' + name));
 }

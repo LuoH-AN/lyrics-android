@@ -2,10 +2,12 @@ package com.luoh.music.lrc
 
 import android.graphics.Bitmap
 import android.graphics.Color
+import com.luoh.music.lrc.ui.home.blendHomeAlbumArtwork
+import com.luoh.music.lrc.ui.home.prepareHomeAlbumBackground
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test

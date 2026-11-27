@@ -19,8 +19,11 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
+import com.luoh.music.lrc.data.translation.TranslationApiProfiles
 import com.luoh.music.lrc.ui.agora.AgoraMotionPolicy
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
+import com.luoh.music.lrc.ui.navigation.ComposeNavigator
+import com.luoh.music.lrc.ui.navigation.ComposeRoute
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule

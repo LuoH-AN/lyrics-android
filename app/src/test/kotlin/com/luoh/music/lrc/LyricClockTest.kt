@@ -1,5 +1,6 @@
 package com.luoh.music.lrc
 
+import com.luoh.music.lrc.lyrics.LyricClock
 import org.junit.Assert.*
 import org.junit.Test
 

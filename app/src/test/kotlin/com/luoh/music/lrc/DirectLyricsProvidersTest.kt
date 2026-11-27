@@ -2,6 +2,7 @@ package com.luoh.music.lrc
 
 import android.net.Uri
 import android.util.Base64
+import com.luoh.music.lrc.data.lyrics.DirectLyricsRepository
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*

@@ -1,6 +1,7 @@
 package com.luoh.music.lrc
 import android.content.Context
 import android.content.Intent
+import com.luoh.music.lrc.ui.navigation.ComposeNavigationActivity
 class SettingsActivity : ComposeNavigationActivity() {
     enum class Section { ACCESS, OVERLAY, SYNC, LYRICS, APPEARANCE, HOME, MOTION, ABOUT }
     companion object {

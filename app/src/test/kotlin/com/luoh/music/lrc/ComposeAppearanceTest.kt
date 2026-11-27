@@ -31,6 +31,11 @@ import com.luoh.music.lrc.ui.agora.SchemeStyle
 import com.luoh.music.lrc.ui.agora.colorSchemeForPreset
 import com.luoh.music.lrc.ui.agora.colorSchemeForSeed
 import com.luoh.music.lrc.ui.agora.withAmoledBackground
+import com.luoh.music.lrc.ui.navigation.ComposeNavigator
+import com.luoh.music.lrc.ui.navigation.ComposeRoute
+import com.luoh.music.lrc.ui.theme.AccentPrefs
+import com.luoh.music.lrc.ui.theme.LyricsComposeTheme
+import com.luoh.music.lrc.ui.theme.ThemePrefs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
