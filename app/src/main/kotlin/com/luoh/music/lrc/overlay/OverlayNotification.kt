@@ -64,7 +64,6 @@ internal class OverlayNotification(private val service: Service) {
         )
 
         val controls = RemoteViews(service.packageName, R.layout.notification_lyrics).apply {
-            setTextViewText(R.id.notification_lyrics_state, if (positionLocked) "已锁定" else "可拖动")
             setImageViewResource(R.id.notification_lyrics_lock,
                 if (positionLocked) R.drawable.ic_overlay_locked else R.drawable.ic_overlay_unlocked)
             setContentDescription(R.id.notification_lyrics_lock, if (positionLocked) "解锁" else "锁定")
@@ -74,12 +73,12 @@ internal class OverlayNotification(private val service: Service) {
 
         return NotificationCompat.Builder(service, LyricsOverlayService.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("桌面歌词")
-            .setContentText(if (positionLocked) "已锁定" else "可拖动")
+            .setContentTitle(service.getString(R.string.overlay_notification_title))
             .setContentIntent(openPendingIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setCustomContentView(controls)
             .setCustomBigContentView(controls)
@@ -91,10 +90,10 @@ internal class OverlayNotification(private val service: Service) {
         manager.createNotificationChannel(
             NotificationChannel(
                 LyricsOverlayService.CHANNEL_ID,
-                "桌面歌词",
+                service.getString(R.string.overlay_notification_title),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "保持桌面歌词与正在播放的音乐实时同步"
+                description = "锁定、解锁或关闭歌词"
                 setShowBadge(false)
             }
         )

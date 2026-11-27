@@ -19,7 +19,6 @@ internal fun UsageAnalyticsSettings() {
     val preferences by UsageAnalytics.preferences.collectAsStateWithLifecycle()
     SettingsItem(
         headlineContent = { Text("使用情况统计") },
-        supportingContent = { Text("用于改进使用体验，可随时关闭。") },
         trailingContent = { Switch(checked = preferences.enabled, onCheckedChange = null) },
         modifier = Modifier.toggleable(preferences.enabled, role = Role.Switch) { value ->
             if (!UsageAnalytics.setEnabled(value)) Toast.makeText(context, "无法保存设置，请稍后重试", Toast.LENGTH_SHORT).show()

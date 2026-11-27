@@ -14,6 +14,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.provider.Settings
+import androidx.core.content.ContextCompat
 import com.luoh.music.lrc.data.lyrics.LyricOffsetMemory
 import com.luoh.music.lrc.diagnostics.UsageAnalytics
 import com.luoh.music.lrc.overlay.OverlayAppearance
@@ -420,6 +421,11 @@ class LyricsOverlayService : Service() {
     companion object {
         var instance: LyricsOverlayService? = null
             private set
+
+        internal fun start(context: Context) {
+            ContextCompat.startForegroundService(context, Intent(context, LyricsOverlayService::class.java).setAction(ACTION_START))
+        }
+
         const val ACTION_START = "com.luoh.music.lrc.action.START_LYRICS_OVERLAY"
         const val ACTION_STOP = "com.luoh.music.lrc.action.STOP_LYRICS_OVERLAY"
         const val ACTION_LOCK = "com.luoh.music.lrc.action.LOCK_LYRICS_OVERLAY"

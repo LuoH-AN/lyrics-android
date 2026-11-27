@@ -2,8 +2,12 @@ package com.luoh.music.lrc
 
 import android.Manifest
 import android.app.Application
+import android.content.ComponentName
 import android.content.Context
 import android.provider.Settings
+import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.activity.result.ActivityResultRegistry
+import androidx.activity.result.contract.ActivityResultContract
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
@@ -16,6 +20,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityOptionsCompat
 import androidx.test.core.app.ApplicationProvider
 import com.luoh.music.lrc.ui.agora.AgoraMotionPolicy
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
@@ -29,6 +34,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowSettings
 import org.robolectric.util.ReflectionHelpers
 
 @RunWith(RobolectricTestRunner::class)
@@ -87,5 +93,42 @@ class ComposeOverlayControlsTest {
         show("access")
         compose.onNodeWithText("解锁").assertIsDisplayed().performTouchInput { click() }
         compose.runOnIdle { assertEquals(LyricsOverlayService.ACTION_UNLOCK, shadowOf(application).nextStartedService.action) }
+    }
+
+    @Test fun enablingTheOverlayRequestsNotificationPermissionBeforeStartingIt() {
+        ReflectionHelpers.setStaticField(LyricsOverlayService::class.java, "isRunning", false)
+        Settings.Secure.putString(
+            application.contentResolver, "enabled_notification_listeners",
+            ComponentName(application, MediaListenerService::class.java).flattenToString(),
+        )
+        ShadowSettings.setCanDrawOverlays(true)
+        var permissionRequestCode: Int? = null
+        val registry = object : ActivityResultRegistry() {
+            override fun <I, O> onLaunch(
+                requestCode: Int,
+                contract: ActivityResultContract<I, O>,
+                input: I,
+                options: ActivityOptionsCompat?,
+            ) {
+                assertEquals(Manifest.permission.POST_NOTIFICATIONS, input)
+                permissionRequestCode = requestCode
+            }
+        }
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalAgoraMotionPolicy provides AgoraMotionPolicy(reduceMotion = true),
+                LocalActivityResultRegistryOwner provides object : androidx.activity.result.ActivityResultRegistryOwner {
+                    override val activityResultRegistry = registry
+                },
+            ) {
+                MaterialTheme { Box(Modifier.size(400.dp, 700.dp)) { SettingsCategoryContent("access", {}, {}) } }
+            }
+        }
+        compose.onNodeWithText("在其他应用上显示歌词").performTouchInput { click() }
+        compose.runOnIdle {
+            assertNull(shadowOf(application).nextStartedService)
+            assertTrue(registry.dispatchResult(requireNotNull(permissionRequestCode), true))
+            assertEquals(LyricsOverlayService.ACTION_START, shadowOf(application).nextStartedService.action)
+        }
     }
 }

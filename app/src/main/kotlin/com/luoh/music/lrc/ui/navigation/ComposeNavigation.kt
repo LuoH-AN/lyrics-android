@@ -129,7 +129,7 @@ private val categories = listOf(
     SettingsCategory("lyrics","歌词与翻译","翻译、歌词与来源",Icons.Default.Translate),
     SettingsCategory("appearance","应用外观","设置应用主题、配色方案与主调颜色",Icons.Default.Palette),
     SettingsCategory("home","主页歌词","动画、排版与背景",Icons.Default.MusicNote),
-    SettingsCategory("motion","滚动动画","滚动、错位、缩放与模糊",Icons.Default.Animation),
+    SettingsCategory("motion","滚动动画","逐字动效与行间动画",Icons.Default.Animation),
     SettingsCategory("about","关于应用","查看版本更新、项目信息与隐私说明",Icons.Default.Info),
 )
 

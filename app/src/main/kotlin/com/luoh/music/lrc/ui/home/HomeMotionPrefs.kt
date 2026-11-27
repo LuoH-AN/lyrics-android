@@ -11,7 +11,8 @@ data class MotionStyle(
     val scale: Boolean = true,
     val scalePercent: Int = SCALE_DEFAULT,
     val depthBlur: Boolean = true,
-    val blurPercent: Int = BLUR_DEFAULT
+    val blurPercent: Int = BLUR_DEFAULT,
+    val characterMotion: ScrollingCharacterMotion = ScrollingCharacterMotion(),
 ) {
     companion object {
         const val DURATION_MIN = 300
@@ -39,7 +40,27 @@ data class MotionStyle(
     }
 }
 
-/** 主页歌词动效偏好：缓动滚动 / 逐行错位 / 行间缩放 / 远景模糊，各自独立开关与数值。 */
+data class ScrollingCharacterMotion(
+    val enabled: Boolean = false,
+    val liftDp: Int = 5,
+    val glowPercent: Int = 65,
+    val durationMs: Int = 350,
+) {
+    val visible: Boolean get() = enabled && (liftDp > 0 || glowPercent > 0)
+
+    internal fun normalized() = copy(
+        liftDp = liftDp.coerceIn(LIFT_RANGE),
+        glowPercent = glowPercent.coerceIn(GLOW_RANGE),
+        durationMs = durationMs.coerceIn(DURATION_RANGE),
+    )
+
+    companion object {
+        val LIFT_RANGE = 0..12
+        val GLOW_RANGE = 0..100
+        val DURATION_RANGE = 150..800
+    }
+}
+
 object HomeMotionPrefs {
     const val PREFS = "home_motion_v1"
     const val KEY_EASED_SCROLL = "eased_scroll"
@@ -50,6 +71,10 @@ object HomeMotionPrefs {
     const val KEY_SCALE_PERCENT = "scale_percent"
     const val KEY_DEPTH_BLUR = "depth_blur"
     const val KEY_BLUR_PERCENT = "blur_percent"
+    private const val KEY_CHARACTER_MOTION = "character_motion"
+    private const val KEY_CHARACTER_LIFT = "character_lift_dp"
+    private const val KEY_CHARACTER_GLOW = "character_glow_percent"
+    private const val KEY_CHARACTER_DURATION = "character_duration_ms"
 
     // 旧版三档模式，仅用于把已存的设置一次性迁移到独立开关。
     private const val LEGACY_KEY = "motion_mode"
@@ -64,6 +89,7 @@ object HomeMotionPrefs {
             save(context, migrated)
             return migrated
         }
+        val characterDefaults = ScrollingCharacterMotion()
         return MotionStyle(
             easedScroll = prefs.getBoolean(KEY_EASED_SCROLL, true),
             scrollDurationMs = MotionStyle.snapDuration(
@@ -80,11 +106,18 @@ object HomeMotionPrefs {
             depthBlur = prefs.getBoolean(KEY_DEPTH_BLUR, true),
             blurPercent = MotionStyle.snapPercent(
                 prefs.getInt(KEY_BLUR_PERCENT, MotionStyle.BLUR_DEFAULT)
-            )
+            ),
+            characterMotion = ScrollingCharacterMotion(
+                enabled = prefs.getBoolean(KEY_CHARACTER_MOTION, characterDefaults.enabled),
+                liftDp = prefs.getInt(KEY_CHARACTER_LIFT, characterDefaults.liftDp),
+                glowPercent = prefs.getInt(KEY_CHARACTER_GLOW, characterDefaults.glowPercent),
+                durationMs = prefs.getInt(KEY_CHARACTER_DURATION, characterDefaults.durationMs),
+            ).normalized(),
         )
     }
 
     fun save(context: Context, style: MotionStyle) {
+        val characterMotion = style.characterMotion.normalized()
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putBoolean(KEY_EASED_SCROLL, style.easedScroll)
             .putInt(KEY_SCROLL_DURATION, style.scrollDurationMs)
@@ -94,6 +127,10 @@ object HomeMotionPrefs {
             .putInt(KEY_SCALE_PERCENT, style.scalePercent)
             .putBoolean(KEY_DEPTH_BLUR, style.depthBlur)
             .putInt(KEY_BLUR_PERCENT, style.blurPercent)
+            .putBoolean(KEY_CHARACTER_MOTION, characterMotion.enabled)
+            .putInt(KEY_CHARACTER_LIFT, characterMotion.liftDp)
+            .putInt(KEY_CHARACTER_GLOW, characterMotion.glowPercent)
+            .putInt(KEY_CHARACTER_DURATION, characterMotion.durationMs)
             .apply()
     }
 

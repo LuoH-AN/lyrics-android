@@ -33,6 +33,13 @@ object LyricTiming {
     fun lineEnd(line: LyricLine): Long = line.endMs?.takeIf { it > line.startMs }
         ?: (line.startMs + (line.text.length * 400L + 1500L).coerceIn(3000L, 8000L))
 
+    internal fun wordDuration(line: LyricLine, index: Int): Long {
+        val word = line.words[index]
+        return word.durationMs.takeIf { it > 0L }
+            ?: line.words.getOrNull(index + 1)?.let { it.startMs - word.startMs }?.takeIf { it > 0L }
+            ?: 500L
+    }
+
     /** Character boundary plus the sung fraction of the current word; drawing measures actual glyph widths. */
     fun sungCharacters(line: LyricLine, positionMs: Long): Float {
         if (line.words.isEmpty()) return 0f
@@ -40,9 +47,7 @@ object LyricTiming {
         var done = 0f
         for ((index, word) in line.words.withIndex()) {
             if (positionMs < word.startMs) break
-            val duration = word.durationMs.takeIf { it > 0L }
-                ?: line.words.getOrNull(index + 1)?.let { it.startMs - word.startMs }?.takeIf { it > 0L }
-                ?: 500L
+            val duration = wordDuration(line, index)
             val fraction = ((positionMs - word.startMs).toDouble() / duration).coerceIn(0.0, 1.0)
             done += word.text.length * fraction.toFloat()
             if (fraction < 1.0) break

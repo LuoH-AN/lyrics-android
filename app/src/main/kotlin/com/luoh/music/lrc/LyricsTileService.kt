@@ -16,6 +16,7 @@ import android.widget.Toast
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.luoh.music.lrc.diagnostics.UsageAnalytics
+import com.luoh.music.lrc.overlay.OverlayNotificationAccess
 
 /** Reflects the overlay service, including stops from its floating close button. */
 class LyricsTileService : TileService() {
@@ -51,10 +52,11 @@ class LyricsTileService : TileService() {
         } else if (!NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName) ||
             !Settings.canDrawOverlays(this)) {
             openPermissions()
+        } else if (OverlayNotificationAccess.needsPermission(this)) {
+            openPermissions(startOverlay = true)
         } else {
             try {
-                ContextCompat.startForegroundService(this,
-                    Intent(this, LyricsOverlayService::class.java).setAction(LyricsOverlayService.ACTION_START))
+                LyricsOverlayService.start(this)
             } catch (_: IllegalStateException) {
                 openPermissions()
             } catch (_: SecurityException) {
@@ -65,8 +67,8 @@ class LyricsTileService : TileService() {
     }
 
     @Suppress("DEPRECATION")
-    private fun openPermissions() {
-        val intent = SettingsActivity.intent(this, SettingsActivity.Section.ACCESS)
+    private fun openPermissions(startOverlay: Boolean = false) {
+        val intent = SettingsActivity.intent(this, SettingsActivity.Section.ACCESS, startOverlay)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         if (Build.VERSION.SDK_INT >= 34) {
             startActivityAndCollapse(PendingIntent.getActivity(this, 0, intent,

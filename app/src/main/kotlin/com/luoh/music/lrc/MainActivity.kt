@@ -131,10 +131,8 @@ class MainActivity : ComponentActivity() {
     private var currentLrcText = ""
     private var currentLrcTranslated = ""
     private var pendingLrcExport = ""
-    private val overlayNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted && LyricsOverlayService.isRunning) {
-            startService(Intent(this, LyricsOverlayService::class.java).setAction(LyricsOverlayService.ACTION_REFRESH_NOTIFICATION))
-        }
+    private val overlayNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+        LyricsOverlayService.start(this)
     }
     private val exportLrcLauncher = registerForActivityResult(
         ActivityResultContracts.CreateDocument("application/octet-stream")
@@ -296,16 +294,11 @@ class MainActivity : ComponentActivity() {
                 )
             ); return
         }
-        ContextCompat.startForegroundService(
-            this,
-            Intent(this, LyricsOverlayService::class.java).apply {
-                action = LyricsOverlayService.ACTION_START
-            }
-        )
         if (OverlayNotificationAccess.needsPermission(this)) {
             overlayNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            LyricsOverlayService.start(this)
         }
-        updateGate()
     }
 
     private fun openSettings() {

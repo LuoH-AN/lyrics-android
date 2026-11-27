@@ -64,7 +64,7 @@ internal fun AboutSettings(context: Context, onNavigate: (ComposeRoute) -> Unit)
         },
         { SettingsNavigationItem("维护者 · LuoH-AN", icon = Icons.Default.Person) { settingsOpenUrl(context, "https://github.com/LuoH-AN") } },
         { SettingsNavigationItem("项目主页 · GitHub", icon = Icons.Default.Link) { settingsOpenUrl(context, "https://github.com/LuoH-AN/lyrics-android") } },
-        { SettingsNavigationItem("隐私说明", "了解应用权限与数据处理方式", Icons.Default.Lock) { onNavigate(ComposeRoute("privacy")) } },
+        { SettingsNavigationItem("隐私说明", icon = Icons.Default.Lock) { onNavigate(ComposeRoute("privacy")) } },
     ))
     SettingsGroup(title = "帮助改进", items = listOf(
         { UsageAnalyticsSettings() },

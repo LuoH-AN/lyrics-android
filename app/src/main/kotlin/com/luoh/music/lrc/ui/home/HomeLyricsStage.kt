@@ -16,10 +16,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -47,23 +45,14 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.ResolvedTextDirection
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -78,7 +67,6 @@ import com.luoh.music.lrc.ui.home.pop.PopPlaybackFrame
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlin.math.abs
-import kotlin.math.floor
 import kotlin.math.min
 
 @Composable
@@ -237,6 +225,7 @@ private fun HomeScrollingLyricsStage(state: HomePresentationState, modifier: Mod
                         position = position,
                         scrollVelocity = scrollVelocity,
                         timed = document.timed,
+                        nextLineMs = timeline.getOrNull(index + 1),
                         onClick = { if (onLyricTap != null) onLyricTap() else state.seek(line.startMs - state.displayOffsetMs) },
                         onLongClick = { state.beginSharing(index) },
                         activeColor = if (albumBackground) foreground else MaterialTheme.colorScheme.primary,
@@ -279,6 +268,7 @@ private fun HomeLyricRow(
     position: State<Long>,
     scrollVelocity: State<Float>,
     timed: Boolean,
+    nextLineMs: Long?,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     activeColor: Color,
@@ -318,60 +308,19 @@ private fun HomeLyricRow(
         ).padding(vertical = 10.dp),
     ) {
         val primary = if (translationMode == LyricsOverlayService.TRANSLATION_TRANSLATED && line.translation.isNotBlank()) line.translation else line.text
+        val characterMotion = motion.characterMotion
+        val motionEndMs = if (allowMotion && timed && index == focused && characterMotion.visible) {
+            val lineEnd = LyricTiming.lineEnd(line)
+            minOf(lineEnd, nextLineMs ?: lineEnd)
+        } else line.startMs
         KaraokeLyricText(primary, line, position, index < focused, index == focused,
             wordTiming = translationMode != LyricsOverlayService.TRANSLATION_TRANSLATED && line.words.isNotEmpty(),
-            color = color, textAlign = textAlignment, appearance = appearance)
+            color = color, textAlign = textAlignment, appearance = appearance,
+            characterMotion = characterMotion, motionEndMs = motionEndMs)
         if (translationMode == LyricsOverlayService.TRANSLATION_BILINGUAL && line.translation.isNotBlank()) {
             Text(line.translation, modifier = Modifier.fillMaxWidth().padding(top = 6.dp), color = color,
                 fontSize = appearance.translationSize.sp, lineHeight = (appearance.translationSize * 1.4f).sp,
                 textAlign = textAlignment, fontWeight = FontWeight(appearance.fontWeight))
         }
     }
-}
-
-/** Layout once, then redraw only the active line's glyph clip from the monotonic clock. */
-@Composable
-private fun KaraokeLyricText(
-    text: String,
-    line: LyricLine,
-    position: State<Long>,
-    fullySung: Boolean,
-    active: Boolean,
-    wordTiming: Boolean,
-    color: Color,
-    textAlign: TextAlign,
-    appearance: HomeLyricAppearance,
-) {
-    var layout by remember(text, textAlign) { mutableStateOf<TextLayoutResult?>(null) }
-    Text(
-        text = text,
-        color = if (wordTiming) color.copy(alpha = .32f) else color,
-        fontSize = appearance.fontSize.sp,
-        lineHeight = (appearance.fontSize * 1.3f).sp,
-        fontWeight = FontWeight(appearance.fontWeight),
-        textAlign = textAlign,
-        onTextLayout = { layout = it },
-        modifier = Modifier.fillMaxWidth().drawWithCache {
-            val result = layout
-            onDrawWithContent {
-                drawContent()
-                if (wordTiming && result != null && text.isNotEmpty()) {
-                    val sung = if (fullySung) text.length.toFloat() else if (active) LyricTiming.sungCharacters(line, position.value) else 0f
-                    val complete = floor(sung.toDouble()).toInt().coerceIn(0, text.length)
-                    val highlight = Path()
-                    if (complete > 0) highlight.addPath(result.getPathForRange(0, complete))
-                    if (complete < text.length) {
-                        val fraction = sung - complete
-                        if (fraction > 0f) {
-                            val bounds = result.getBoundingBox(complete)
-                            val rtl = result.getBidiRunDirection(complete) == ResolvedTextDirection.Rtl
-                            highlight.addRect(if (rtl) Rect(bounds.right - bounds.width * fraction, bounds.top, bounds.right, bounds.bottom)
-                                else Rect(bounds.left, bounds.top, bounds.left + bounds.width * fraction, bounds.bottom))
-                        }
-                    }
-                    clipPath(highlight) { drawText(result, color = color) }
-                }
-            }
-        },
-    )
 }

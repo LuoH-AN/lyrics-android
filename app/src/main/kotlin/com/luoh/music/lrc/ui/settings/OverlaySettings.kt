@@ -76,8 +76,6 @@ import com.luoh.music.lrc.ui.icons.filled.Palette
 import com.luoh.music.lrc.ui.icons.filled.Remove
 import com.luoh.music.lrc.ui.icons.filled.Style
 import com.luoh.music.lrc.ui.icons.filled.TextFields
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 @Composable
@@ -128,27 +126,32 @@ private fun DesktopPositionSettingsItem(context: Context, prefs: SharedPreferenc
 private fun DesktopNotificationSettingsItem(context: Context) {
     val revision = overlaySettingsRevision(context)
     val allowed = remember(revision) { OverlayNotificationAccess.isEnabled(context) }
+    val notificationSettings = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        if (OverlayNotificationAccess.isEnabled(context)) {
+            settingsOverlayAction(context, LyricsOverlayService.ACTION_REFRESH_NOTIFICATION)
+        }
+    }
     SettingsNavigationItem(
         "桌面歌词通知",
-        if (allowed) "已允许，点按恢复通知栏的操作按钮" else "未允许，点按开启通知以在通知栏解锁",
+        if (allowed) "已开启" else "未开启",
         Icons.Default.Notifications,
     ) {
         if (allowed && LyricsOverlayService.isRunning) {
             settingsOverlayAction(context, LyricsOverlayService.ACTION_REFRESH_NOTIFICATION)
         } else {
-            settingsOpenIntent(context, OverlayNotificationAccess.settingsIntent(context))
+            runCatching { notificationSettings.launch(OverlayNotificationAccess.settingsIntent(context)) }
+                .onFailure { settingsToast(context, "无法打开此页面") }
         }
     }
 }
 
 @Composable
 internal fun DesktopAccessSettings(context: Context) {
-    var toggleRevision by remember { mutableIntStateOf(0) }
-    val revision = overlaySettingsRevision(context) + toggleRevision
+    val revision = overlaySettingsRevision(context)
     val running = remember(revision) { LyricsOverlayService.isRunning }
     val prefs = remember(context) { context.getSharedPreferences(LyricsOverlayService.PREFS_NAME, Context.MODE_PRIVATE) }
-    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) settingsOverlayAction(context, LyricsOverlayService.ACTION_REFRESH_NOTIFICATION)
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        LyricsOverlayService.start(context)
     }
     val notificationAllowed = remember(revision) {
         NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
@@ -156,7 +159,6 @@ internal fun DesktopAccessSettings(context: Context) {
     val overlayAllowed = remember(revision) {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(context)
     }
-    val scope = rememberSettingsBusinessScope()
     SettingsGroup(title = "桌面歌词", items = buildList<@Composable () -> Unit> {
         add {
             SettingsNavigationItem("添加快捷开关", "在系统快捷设置中显示", Icons.Default.Lyrics) {
@@ -177,12 +179,9 @@ internal fun DesktopAccessSettings(context: Context) {
                         settingsToast(context, "请先授予悬浮窗权限")
                         settingsOpenIntent(context, Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
                     }
-                    else -> {
-                        ContextCompat.startForegroundService(context, Intent(context, LyricsOverlayService::class.java).setAction(LyricsOverlayService.ACTION_START))
-                        if (OverlayNotificationAccess.needsPermission(context)) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    }
+                    OverlayNotificationAccess.needsPermission(context) -> notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    else -> LyricsOverlayService.start(context)
                 }
-                scope.launch { delay(250); toggleRevision++ }
             }
         }
         add { DesktopPositionSettingsItem(context, prefs) }
