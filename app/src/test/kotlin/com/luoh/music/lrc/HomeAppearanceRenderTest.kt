@@ -78,7 +78,7 @@ class HomeAppearanceRenderTest {
             }
         }
         checkRoot()
-        compose.onNodeWithContentDescription("收起播放控制栏").performTouchInput { click() }
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.collapse_playback_controls)).performTouchInput { click() }
         compose.onNodeWithTag("home_cover_progress").assertExists()
         checkRoot()
         compose.onNodeWithTag("home_player").performTouchInput {
