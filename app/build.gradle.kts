@@ -100,8 +100,9 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
         unitTests.all {
-            // The repo1 endpoint can return stale 404s for Robolectric's runtime artifacts.
-            it.systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
+            val robolectricRepository = providers.environmentVariable("ROBOLECTRIC_REPOSITORY_URL")
+                .getOrElse("https://repo.maven.apache.org/maven2")
+            it.systemProperty("robolectric.dependency.repo.url", robolectricRepository)
             it.timeout.set(Duration.ofMinutes(5))
             it.testLogging {
                 events("started", "passed", "skipped", "failed")
