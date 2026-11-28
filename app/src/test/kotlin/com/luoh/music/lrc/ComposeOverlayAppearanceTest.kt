@@ -41,7 +41,7 @@ import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowDialog
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], application = Application::class, qualifiers = "w400dp-h800dp-mdpi")
+@Config(sdk = [35], application = Application::class, qualifiers = "zh-rCN-w400dp-h800dp-mdpi")
 class ComposeOverlayAppearanceTest {
     @get:Rule val compose = createComposeRule()
     private val prefs get() = ApplicationProvider.getApplicationContext<Context>()
@@ -122,10 +122,10 @@ class ComposeOverlayAppearanceTest {
         compose.runOnIdle { assertEquals("#123ABC", applied) }
     }
 
-    @Test @Config(sdk = [26], qualifiers = "w320dp-h480dp-mdpi")
+    @Test @Config(sdk = [26], qualifiers = "zh-rCN-w320dp-h480dp-mdpi")
     fun colorPickerCanScrollAndApplyOnSmallLegacyScreens() = verifyScrollablePicker()
 
-    @Test @Config(sdk = [35], qualifiers = "w640dp-h360dp-mdpi")
+    @Test @Config(sdk = [35], qualifiers = "zh-rCN-w640dp-h360dp-mdpi")
     fun colorPickerCanScrollAndApplyInLandscape() = verifyScrollablePicker()
 
     private fun verifyScrollablePicker() {

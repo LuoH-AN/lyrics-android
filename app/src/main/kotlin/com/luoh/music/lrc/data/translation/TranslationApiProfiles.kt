@@ -1,6 +1,7 @@
 package com.luoh.music.lrc.data.translation
 
 import android.content.Context
+import com.luoh.music.lrc.R
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -13,7 +14,7 @@ data class TranslationApiProfile(
 
 object TranslationApiProfiles {
     private val builtIns = listOf(
-        TranslationApiProfile("glm", "智谱 GLM", "https://open.bigmodel.cn/api/paas/v4", "glm-4.7-flash"),
+        TranslationApiProfile("glm", "Zhipu GLM", "https://open.bigmodel.cn/api/paas/v4", "glm-4.7-flash"),
         TranslationApiProfile("deepseek", "DeepSeek", "https://api.deepseek.com", "deepseek-v4-flash"),
         TranslationApiProfile("gemini", "Gemini", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-3.1-flash-lite")
     )
@@ -38,16 +39,17 @@ object TranslationApiProfiles {
         val deleted = deleted(context)
         val labels = labels(context)
         return builtIns.filterNot { it.id in deleted }.map { profile ->
-            profile.copy(label = labels.optString(profile.id, profile.label))
+            val defaultLabel = if (profile.id == "glm") context.getString(R.string.profile_zhipu) else profile.label
+            profile.copy(label = labels.optString(profile.id, defaultLabel))
         } + custom(context).map { profile ->
             profile.copy(label = labels.optString(profile.id, profile.label))
         }
     }
     fun find(context: Context, id: String?) = all(context).firstOrNull { it.id == id }
         ?: all(context).firstOrNull()
-        ?: TranslationApiProfile("none", "尚未配置 API", "", "")
+        ?: TranslationApiProfile("none", context.getString(R.string.no_api_configured), "", "")
     fun add(context: Context, label: String): TranslationApiProfile {
-        val profile = TranslationApiProfile("custom_${System.currentTimeMillis()}", label.trim().ifBlank { "自定义 API" }, "", "")
+        val profile = TranslationApiProfile("custom_${System.currentTimeMillis()}", label.trim().ifBlank { context.getString(R.string.custom_api) }, "", "")
         val updated = custom(context) + profile
         saveCustom(context, updated)
         return profile

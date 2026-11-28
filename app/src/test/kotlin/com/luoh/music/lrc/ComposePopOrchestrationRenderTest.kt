@@ -93,7 +93,7 @@ class ComposePopOrchestrationRenderTest {
     }
 
     private fun reviewBuiltIns(width: Int, height: Int, orientation: String) {
-        val selected = mutableStateOf(PopLyricSchemes.recommended)
+        val selected = mutableStateOf(PopLyricSchemes.recommended(org.robolectric.RuntimeEnvironment.getApplication()))
         val state = HomePresentationState(LyricClock { 0L }).apply {
             setSnapshot(HomePresentationState.Snapshot(track = "方案示例", durationMs = 6000))
             setLyrics(LyricDocument(listOf(LyricLine(1000, "让音乐陪你到天亮",
@@ -105,7 +105,7 @@ class ComposePopOrchestrationRenderTest {
             setActive(true)
         }
         show(state, PopLyricsStyle(), width, height, scheme = { selected.value })
-        for (scheme in PopLyricSchemes.builtIns) {
+        for (scheme in PopLyricSchemes.builtIns(org.robolectric.RuntimeEnvironment.getApplication())) {
             compose.runOnIdle { selected.value = scheme }
             for (time in listOf(2900L, 4400L)) {
                 compose.runOnIdle { state.setProgress(time, false) }
@@ -205,7 +205,7 @@ class ComposePopOrchestrationRenderTest {
         reviewShortPhraseRhythm(800, 320, "landscape", "classic")
 
     private fun reviewSparseTypography(width: Int, height: Int, orientation: String) {
-        val selected = mutableStateOf(PopLyricSchemes.recommended)
+        val selected = mutableStateOf(PopLyricSchemes.recommended(org.robolectric.RuntimeEnvironment.getApplication()))
         val family = mutableStateOf(FontFamily.SansSerif)
         val state = HomePresentationState(LyricClock { 0L }).apply {
             setSnapshot(HomePresentationState.Snapshot(track = "字号与居中示例", durationMs = 9000))
@@ -280,7 +280,7 @@ class ComposePopOrchestrationRenderTest {
     fun shortPhrasesUseLargeTypeAndStayCenteredAtEveryFontSizeInLandscape() = reviewSparseTypography(800, 320, "landscape")
 
     private fun reviewSentenceHandoffs(width: Int, height: Int, orientation: String) {
-        val selected = mutableStateOf(PopLyricSchemes.recommended)
+        val selected = mutableStateOf(PopLyricSchemes.recommended(org.robolectric.RuntimeEnvironment.getApplication()))
         val state = HomePresentationState(LyricClock { 0L }).apply {
             setSnapshot(HomePresentationState.Snapshot(track = "居中转场示例", durationMs = 6000))
             setLyrics(LyricDocument(listOf(

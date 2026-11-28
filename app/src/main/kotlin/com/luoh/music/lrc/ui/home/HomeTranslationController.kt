@@ -1,5 +1,7 @@
 package com.luoh.music.lrc.ui.home
 
+import androidx.annotation.StringRes
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.data.translation.SupplementOutcome
 import com.luoh.music.lrc.data.translation.TranslationText
 import com.luoh.music.lrc.lyrics.LyricDocument
@@ -13,8 +15,9 @@ class HomeTranslationController(
     private val scope: CoroutineScope,
     private val translate: suspend (List<MissingLine>, onTranslationRequired: () -> Unit) -> Result,
     private val onDocument: (LyricDocument) -> Unit,
-    private val onStatus: (String) -> Unit
+    private val onStatus: (Status?) -> Unit
 ) {
+    data class Status(@StringRes val message: Int, val detail: String? = null)
     data class MissingLine(val id: Int, val text: String)
     data class Result(val translations: Map<Int, String> = emptyMap(), val outcome: SupplementOutcome = SupplementOutcome.COMPLETE)
     private data class Input(val key: String, val document: LyricDocument, val display: String, val mode: String, val config: String)
@@ -28,32 +31,34 @@ class HomeTranslationController(
         cancel()
         input = next
         if (document.lines.isEmpty() || display == "original") {
-            onStatus("")
+            onStatus(null)
             return
         }
         val missing = document.lines.mapIndexedNotNull { id, line ->
             if (line.translation.isBlank() && TranslationText.hasForeignLetters(line.text)) MissingLine(id, line.text) else null
         }
         if (missing.isEmpty()) {
-            onStatus("")
+            onStatus(null)
             return
         }
         if (mode != "offline" && mode != "api") {
             // Bilingual is a display preference, not a request to enable machine translation.
-            onStatus("")
+            onStatus(null)
             return
         }
         val token = generation
-        onStatus("")
+        onStatus(null)
         job = scope.launch {
             try {
                 val result = translate(missing) {
                     // Only missing foreign lines need progress, even when most of the song is Chinese.
-                    if (token == generation) onStatus(if (mode == "offline") "正在补充译文 · 离线翻译" else "正在补充译文 · 自定义 API")
+                    if (token == generation) {
+                        onStatus(Status(if (mode == "offline") R.string.translating_lyrics_offline else R.string.translating_lyrics_api))
+                    }
                 }
                 if (token != generation) return@launch
                 if (result.outcome != SupplementOutcome.COMPLETE) {
-                    onStatus("")
+                    onStatus(null)
                     return@launch
                 }
                 val results = result.translations
@@ -62,11 +67,11 @@ class HomeTranslationController(
                     else results[id]?.takeIf { it.isNotBlank() }?.let { line.copy(translation = it) } ?: line
                 }
                 if (lines != document.lines) onDocument(document.copy(lines = lines))
-                onStatus(if (lines == document.lines) "未获取到补充译文，请检查翻译配置" else "")
+                onStatus(if (lines == document.lines) Status(R.string.translation_no_result) else null)
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (error: Exception) {
-                if (token == generation) onStatus("补充翻译未完成：${error.message.orEmpty().take(120).ifBlank { "请检查网络或翻译配置" }}")
+                if (token == generation) onStatus(Status(R.string.translation_unfinished, error.message.orEmpty().take(120)))
             }
         }
     }

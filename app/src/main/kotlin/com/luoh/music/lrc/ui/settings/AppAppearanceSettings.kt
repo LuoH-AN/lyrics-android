@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import com.luoh.music.lrc.LyricsOverlayService
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.ui.agora.ColorSchemePreset
 import com.luoh.music.lrc.ui.agora.SchemeStyle
 import com.luoh.music.lrc.ui.agora.SettingsGroup
@@ -48,40 +49,40 @@ internal fun AppAppearanceSettings(context: Context, prefs: SharedPreferences, r
     val dynamicSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val dynamicActive = dynamicSupported && appearance.dynamicColor
     val presets = listOf(
-        ColorSchemePreset.OCEAN to "海洋", ColorSchemePreset.MIDNIGHT to "午夜",
-        ColorSchemePreset.NORDIC to "北欧", ColorSchemePreset.FOREST to "森林",
-        ColorSchemePreset.SUNSET to "日落", ColorSchemePreset.ROSE to "玫瑰",
-        ColorSchemePreset.LAVENDER to "薰衣草", ColorSchemePreset.SLATE to "岩灰",
+        ColorSchemePreset.OCEAN to context.getString(R.string.ocean), ColorSchemePreset.MIDNIGHT to context.getString(R.string.midnight),
+        ColorSchemePreset.NORDIC to context.getString(R.string.nordic), ColorSchemePreset.FOREST to context.getString(R.string.forest),
+        ColorSchemePreset.SUNSET to context.getString(R.string.sunset), ColorSchemePreset.ROSE to context.getString(R.string.rose),
+        ColorSchemePreset.LAVENDER to context.getString(R.string.lavender), ColorSchemePreset.SLATE to context.getString(R.string.slate),
     )
     val styles = listOf(
-        SchemeStyle.NEUTRAL to "中性", SchemeStyle.TONAL_SPOT to "柔和",
-        SchemeStyle.EXPRESSIVE to "表现力", SchemeStyle.VIBRANT to "鲜艳",
-        SchemeStyle.MONOCHROME to "黑白灰",
+        SchemeStyle.NEUTRAL to context.getString(R.string.neutral), SchemeStyle.TONAL_SPOT to context.getString(R.string.soft),
+        SchemeStyle.EXPRESSIVE to context.getString(R.string.expressive), SchemeStyle.VIBRANT to context.getString(R.string.vibrant),
+        SchemeStyle.MONOCHROME to context.getString(R.string.monochrome),
     )
     val presetLabel = presets.first { it.first == appearance.preset }.second
     val primary = MaterialTheme.colorScheme.primary
     var showColorPicker by rememberSaveable { mutableStateOf(false) }
-    SettingsGroup(title = "主题与颜色", items = listOf(
+    SettingsGroup(title = context.getString(R.string.theme_and_colors), items = listOf(
         {
-            SettingsChoiceItem("主题", theme, listOf(ThemePrefs.FOLLOW to "跟随系统", ThemePrefs.LIGHT to "浅色", ThemePrefs.DARK to "深色"), Icons.Default.SettingsBrightness) {
+            SettingsChoiceItem(context.getString(R.string.theme), theme, listOf(ThemePrefs.FOLLOW to context.getString(R.string.follow_system), ThemePrefs.LIGHT to context.getString(R.string.light), ThemePrefs.DARK to context.getString(R.string.dark)), Icons.Default.SettingsBrightness) {
                 prefs.edit().putString(ThemePrefs.KEY, it).apply()
             }
         },
         {
-            SettingsSwitchItem("AMOLED", "浅色使用纯白背景，深色使用纯黑背景",
+            SettingsSwitchItem("AMOLED", context.getString(R.string.amoled_description),
                 Icons.Default.Contrast, appearance.amoled) {
                 prefs.edit().putBoolean(ThemePrefs.KEY_AMOLED, it).apply()
             }
         },
         {
-            SettingsSwitchItem("动态颜色", "使用系统壁纸配色（Android 12 及以上）",
+            SettingsSwitchItem(context.getString(R.string.dynamic_color), context.getString(R.string.dynamic_color_description),
                 Icons.Default.ColorLens, appearance.dynamicColor, enabled = dynamicSupported) {
                 prefs.edit().putBoolean(ThemePrefs.KEY_DYNAMIC_COLOR, it).apply()
             }
         },
         {
-            SettingsChoiceItem("配色方案", if (accent != null) "custom" else appearance.preset.name,
-                (if (accent != null) listOf("custom" to "自定义") else emptyList()) +
+            SettingsChoiceItem(context.getString(R.string.color_scheme), if (accent != null) "custom" else appearance.preset.name,
+                (if (accent != null) listOf("custom" to context.getString(R.string.custom)) else emptyList()) +
                     presets.map { it.first.name to it.second },
                 Icons.Default.Palette, enabled = !dynamicActive) { value ->
                 if (value != "custom") {
@@ -91,15 +92,15 @@ internal fun AppAppearanceSettings(context: Context, prefs: SharedPreferences, r
             }
         },
         {
-            SettingsChoiceItem("方案风格", appearance.style.name, styles.map { it.first.name to it.second },
+            SettingsChoiceItem(context.getString(R.string.scheme_style), appearance.style.name, styles.map { it.first.name to it.second },
                 Icons.Default.Style, enabled = !dynamicActive) {
                 prefs.edit().putString(ThemePrefs.KEY_SCHEME_STYLE, it).apply()
             }
         },
         {
             SettingsItem(
-                headlineContent = { Text("主调颜色") },
-                supportingContent = { Text(if (dynamicActive) "跟随动态颜色" else accent ?: presetLabel) },
+                headlineContent = { Text(context.getString(R.string.accent_color)) },
+                supportingContent = { Text(if (dynamicActive) context.getString(R.string.follow_dynamic_color) else accent ?: presetLabel) },
                 leadingContent = { SettingsLeadingIcon(Icons.Default.Palette) },
                 trailingContent = { Box(Modifier.size(32.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary)) },
                 modifier = Modifier.alpha(if (dynamicActive) 0.38f else 1f)
@@ -108,7 +109,7 @@ internal fun AppAppearanceSettings(context: Context, prefs: SharedPreferences, r
         },
     ))
     if (showColorPicker) SettingsColorDialog(
-        title = "主调颜色",
+        title = context.getString(R.string.accent_color),
         initialColor = accent ?: settingsHexColor(primary.toArgb()),
         onDismiss = { showColorPicker = false },
         onReset = {

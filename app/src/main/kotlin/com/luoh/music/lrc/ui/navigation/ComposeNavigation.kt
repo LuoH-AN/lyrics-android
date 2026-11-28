@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.StringRes
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -26,9 +27,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.preferredFrameRate
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.diagnostics.UsageAnalytics
 import com.luoh.music.lrc.ui.agora.*
 import com.luoh.music.lrc.ui.icons.filled.*
@@ -121,23 +125,29 @@ internal fun routeForIntent(intent: Intent): ComposeRoute? = when(intent.compone
     else -> null
 }
 
-private data class SettingsCategory(val key:String,val title:String,val summary:String,val icon:ImageVector)
+private data class SettingsCategory(
+    val key: String,
+    @StringRes val title: Int,
+    @StringRes val summary: Int,
+    val icon: ImageVector,
+)
 private val categories = listOf(
-    SettingsCategory("access","权限与开关","显示权限与快捷开关",Icons.Default.Security),
-    SettingsCategory("overlay","桌面歌词外观","文字、背景与行数",Icons.Default.PictureInPicture),
-    SettingsCategory("sync","歌词同步","时间偏移与同步记录",Icons.Default.Sync),
-    SettingsCategory("lyrics","歌词与翻译","翻译、歌词与来源",Icons.Default.Translate),
-    SettingsCategory("appearance","应用外观","设置应用主题、配色方案与主调颜色",Icons.Default.Palette),
-    SettingsCategory("home","主页歌词","动画、排版与背景",Icons.Default.MusicNote),
-    SettingsCategory("motion","滚动动画","滚动、错位、缩放与模糊",Icons.Default.Animation),
-    SettingsCategory("about","关于应用","查看版本更新、项目信息与隐私说明",Icons.Default.Info),
+    SettingsCategory("access",R.string.permissions_and_controls,R.string.settings_permissions_summary,Icons.Default.Security),
+    SettingsCategory("overlay",R.string.lyrics_overlay_appearance,R.string.settings_overlay_summary,Icons.Default.PictureInPicture),
+    SettingsCategory("sync",R.string.lyrics_sync,R.string.settings_sync_summary,Icons.Default.Sync),
+    SettingsCategory("lyrics",R.string.lyrics_and_translation,R.string.settings_lyrics_summary,Icons.Default.Translate),
+    SettingsCategory("appearance",R.string.app_appearance,R.string.settings_appearance_summary,Icons.Default.Palette),
+    SettingsCategory("home",R.string.home_screen_lyrics,R.string.settings_home_summary,Icons.Default.MusicNote),
+    SettingsCategory("motion",R.string.scrolling_animation,R.string.settings_motion_summary,Icons.Default.Animation),
+    SettingsCategory("about",R.string.about,R.string.settings_about_summary,Icons.Default.Info),
 )
 
 @Composable
 private fun Destination(route:ComposeRoute,onNavigate:(ComposeRoute)->Unit,onBack:()->Unit) {
+    val context = LocalContext.current
     when(route.kind) {
-        "settings" -> CollapsingSettingsScaffold("设置",onBack) {
-            SettingsGroup("桌面歌词",items=categories.map { category -> { CategoryRow(category,Modifier.clickable { onNavigate(ComposeRoute("category",category=category.key)) }) } })
+        "settings" -> CollapsingSettingsScaffold(context.getString(R.string.settings),onBack) {
+            SettingsGroup(context.getString(R.string.desktop_lyrics),items=categories.map { category -> { CategoryRow(category,Modifier.clickable { onNavigate(ComposeRoute("category",category=category.key)) }) } })
         }
         "category" -> SettingsCategoryContent(route.category,onNavigate,onBack)
         else -> LibraryDestination(route,onNavigate,onBack)
@@ -148,20 +158,21 @@ private fun Destination(route:ComposeRoute,onNavigate:(ComposeRoute)->Unit,onBac
 private fun CategoryRow(category:SettingsCategory,modifier:Modifier = Modifier,selected:Boolean=false) {
     val color by animateColorAsState(if(selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface, tween(250),label="settingsSelection")
     Surface(color=color,modifier=modifier.fillMaxWidth(),shape=RoundedCornerShape(24.dp)) {
-        SettingsItem(headlineContent={Text(category.title)},supportingContent={Text(category.summary)},leadingContent={Icon(category.icon,null)})
+        SettingsItem(headlineContent={Text(stringResource(category.title))},supportingContent={Text(stringResource(category.summary))},leadingContent={Icon(category.icon,null)})
     }
 }
 
 @Composable
 private fun SettingsTwoPane(navigator:ComposeNavigator) {
+    val context = LocalContext.current
     val listState=rememberSettingsLazyListState()
     val parentPath=LocalSettingsScrollPath.current
     val parentActive=LocalSettingsScrollRetentionActive.current
     Row(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(Modifier.width(400.dp).fillMaxHeight().clip(RoundedCornerShape(topEnd=24.dp,bottomEnd=24.dp)).background(MaterialTheme.colorScheme.background)) {
             Row(Modifier.fillMaxWidth().padding(start=16.dp,end=20.dp,top=WindowInsets.statusBars.asPaddingValues().calculateTopPadding()+12.dp,bottom=12.dp),verticalAlignment=Alignment.CenterVertically) {
-                CircularBackButton(navigator::dismiss,contentDescription="返回")
-                Spacer(Modifier.width(14.dp));Text("设置",style=MaterialTheme.typography.headlineSmall)
+                CircularBackButton(navigator::dismiss,contentDescription=context.getString(R.string.back))
+                Spacer(Modifier.width(14.dp));Text(context.getString(R.string.settings),style=MaterialTheme.typography.headlineSmall)
             }
             LazyColumn(state=listState,contentPadding=PaddingValues(start=12.dp,end=12.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 items(categories,key={it.key}) { category -> SettingsNavigationItem(category,navigator.selectedCategory==category.key) { navigator.navigate(ComposeRoute("category",category=category.key)) } }
@@ -244,14 +255,14 @@ private fun SettingsNavigationItem(
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = category.title,
+                    text = stringResource(category.title),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
                     color = primaryContentColor,
                 )
                 Spacer(Modifier.height(3.dp))
                 Text(
-                    text = category.summary,
+                    text = stringResource(category.summary),
                     style = MaterialTheme.typography.bodyMedium,
                     color = supportingContentColor,
                     maxLines = 1,

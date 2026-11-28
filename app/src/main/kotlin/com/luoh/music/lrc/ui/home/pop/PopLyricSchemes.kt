@@ -1,6 +1,7 @@
 package com.luoh.music.lrc.ui.home.pop
 
 import android.content.Context
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.ui.home.HomeLyricAppearance
 import com.luoh.music.lrc.ui.home.HomeLyricsPrefs
 import org.json.JSONArray
@@ -16,57 +17,57 @@ internal object PopLyricSchemes {
     private const val KEY = "pop_saved_schemes"
     const val LIMIT = 12
     const val RECOMMENDED_ID = "flow"
-    val builtIns = listOf(
+    fun builtIns(context: Context) = listOf(
         // Match fresh-install motion and typography defaults; preserve the established motion profile.
-        PopLyricScheme(RECOMMENDED_ID, "默认", PopLyricsStyle(), description = "错落、跟随"),
-        PopLyricScheme("reading", "小幅", PopLyricsStyle(layout = "centered", entrance = "rise",
+        PopLyricScheme(RECOMMENDED_ID, context.getString(R.string.preset_default), PopLyricsStyle(), description = context.getString(R.string.preset_default_description)),
+        PopLyricScheme("reading", context.getString(R.string.subtle), PopLyricsStyle(layout = "centered", entrance = "rise",
             entranceMs = 350, lookaheadMs = 40, travelPercent = 0, activeScalePercent = 105,
             rotationDegrees = 0, camera = "off", cameraPercent = 0, breathing = false,
             transition = "fade", rowMotionPercent = 0, staggerPercent = 0, sustainShakePercent = 0,
             passedOpacityPercent = 90, motionStrength = "gentle", shortPhraseScalePercent = 125,
             stagePaddingDp = 24, translationGapDp = 12),
-            HomeLyricAppearance(fontSize = 30, translationSize = 18, lineSpacing = 12), "居中、小幅动画"),
-        PopLyricScheme("calm", "缓慢", PopLyricsStyle(layout = "centered", entrance = "rise",
+            HomeLyricAppearance(fontSize = 30, translationSize = 18, lineSpacing = 12), context.getString(R.string.preset_subtle_description)),
+        PopLyricScheme("calm", context.getString(R.string.slow), PopLyricsStyle(layout = "centered", entrance = "rise",
             entranceMs = 600, travelPercent = 35, activeScalePercent = 120, rotationDegrees = 0,
             cameraPercent = 35, breathing = false, transition = "fade", rowMotionPercent = 25,
             staggerPercent = 0, sustainShakePercent = 35, motionStrength = "gentle"),
-            description = "上移、淡入"),
-        PopLyricScheme("wave", "波浪", PopLyricsStyle(layout = "wave", entrance = "rise",
+            description = context.getString(R.string.preset_slow_description)),
+        PopLyricScheme("wave", context.getString(R.string.wave), PopLyricsStyle(layout = "wave", entrance = "rise",
             entranceMs = 520, lookaheadMs = 100, travelPercent = 65, activeScalePercent = 130,
             rotationDegrees = 4, camera = "drift", cameraPercent = 45, transition = "slide",
             pushDirection = "vertical", staggerPercent = 85, rowMotionPercent = 35,
             sustainShakePercent = 55, rowGapPercent = 100, shortPhraseScalePercent = 145),
-            HomeLyricAppearance(fontSize = 28, translationSize = 17, lineSpacing = 12), "波浪、上下切换"),
-        PopLyricScheme("orbit", "环绕", PopLyricsStyle(layout = "staggered", entrance = "disperse",
+            HomeLyricAppearance(fontSize = 28, translationSize = 17, lineSpacing = 12), context.getString(R.string.preset_wave_description)),
+        PopLyricScheme("orbit", context.getString(R.string.orbit), PopLyricsStyle(layout = "staggered", entrance = "disperse",
             entranceMs = 650, lookaheadMs = 110, travelPercent = 70, activeScalePercent = 130,
             rotationDegrees = 5, camera = "orbit", cameraPercent = 55, cameraSpeedPercent = 85,
             transition = "zoom", rowMotionPercent = 30, staggerPercent = 90, sustainShakePercent = 50,
             stageAnchorPercent = 44, stagePaddingDp = 24, shortPhraseScalePercent = 145,
             translationGapDp = 12),
-            HomeLyricAppearance(fontSize = 30, translationSize = 17, lineSpacing = 12), "环绕、缩放切换"),
-        PopLyricScheme("horizontal", "横向", PopLyricsStyle(layout = "stairs", entrance = "rise",
+            HomeLyricAppearance(fontSize = 30, translationSize = 17, lineSpacing = 12), context.getString(R.string.preset_orbit_description)),
+        PopLyricScheme("horizontal", context.getString(R.string.horizontal), PopLyricsStyle(layout = "stairs", entrance = "rise",
             entranceMs = 400, lookaheadMs = 70, travelPercent = 50, activeScalePercent = 130,
             rotationDegrees = 0, cameraPercent = 45, breathing = false, transition = "slide",
             pushDirection = "horizontal", staggerPercent = 80, rowMotionPercent = 35,
             cameraSpeedPercent = 110, sustainShakePercent = 35, shortPhraseScalePercent = 145),
-            description = "阶梯、左右切换"),
-        PopLyricScheme("converge", "聚合", PopLyricsStyle(layout = "centered", entrance = "converge",
+            description = context.getString(R.string.preset_horizontal_description)),
+        PopLyricScheme("converge", context.getString(R.string.converge), PopLyricsStyle(layout = "centered", entrance = "converge",
             entranceMs = 550, lookaheadMs = 90, travelPercent = 80, activeScalePercent = 135,
             rotationDegrees = 3, camera = "off", cameraPercent = 0, breathing = false,
             transition = "disperse", rowMotionPercent = 30, staggerPercent = 0,
             sustainShakePercent = 45, stageAnchorPercent = 45, shortPhraseScalePercent = 150),
-            HomeLyricAppearance(fontSize = 30, translationSize = 17, fontWeight = 600), "聚合入场、扩散切换"),
-        PopLyricScheme("dynamic", "快速", PopLyricsStyle(entranceMs = 300, lookaheadMs = 60,
+            HomeLyricAppearance(fontSize = 30, translationSize = 17, fontWeight = 600), context.getString(R.string.preset_converge_description)),
+        PopLyricScheme("dynamic", context.getString(R.string.fast), PopLyricsStyle(entranceMs = 300, lookaheadMs = 60,
             activeScalePercent = 160, rotationDegrees = 14, cameraPercent = 90,
             cameraSpeedPercent = 150, rowMotionPercent = 80, pageLength = 4, sustainShakePercent = 140,
-            motionStrength = "strong"), description = "快速入场、大幅动画"),
-        PopLyricScheme("random", "随机", PopLyricsStyle(layout = "random", entrance = "random",
+            motionStrength = "strong"), description = context.getString(R.string.preset_fast_description)),
+        PopLyricScheme("random", context.getString(R.string.random), PopLyricsStyle(layout = "random", entrance = "random",
             transition = "random", pushDirection = "random", entranceMs = 480, travelPercent = 75,
             activeScalePercent = 140, rotationDegrees = 6, cameraPercent = 55, cameraSpeedPercent = 105,
             staggerPercent = 100, rowMotionPercent = 40, sustainShakePercent = 65,
-            shortPhraseScalePercent = 150), description = "排版、入场与切换随机"),
+            shortPhraseScalePercent = 150), description = context.getString(R.string.preset_random_description)),
     )
-    val recommended: PopLyricScheme get() = builtIns.first { it.id == RECOMMENDED_ID }
+    fun recommended(context: Context): PopLyricScheme = builtIns(context).first { it.id == RECOMMENDED_ID }
 
     fun saved(context: Context): List<PopLyricScheme> {
         val source = context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE).getString(KEY, "[]")

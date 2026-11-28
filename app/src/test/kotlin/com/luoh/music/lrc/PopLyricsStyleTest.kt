@@ -72,7 +72,7 @@ class PopLyricsStyleTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE)
         prefs.edit().clear().commit()
-        val recommended = PopLyricSchemes.recommended
+        val recommended = PopLyricSchemes.recommended(context)
         assertEquals("flow", recommended.id)
         assertEquals(recommended.motion, PopLyricsPrefs.style(context))
         assertEquals(recommended.text, HomeLyricsPrefs.appearance(context))
@@ -92,7 +92,7 @@ class PopLyricsStyleTest {
     @Test fun everyBuiltInSchemeCanBeAppliedAndSavedWithItsOwnTypography() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences(HomeLyricsPrefs.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
-        val schemes = PopLyricSchemes.builtIns
+        val schemes = PopLyricSchemes.builtIns(context)
         assertEquals(9, schemes.size)
         assertEquals(schemes.size, schemes.map { it.id }.distinct().size)
         assertEquals(schemes.size, schemes.map { it.motion }.distinct().size)
@@ -114,11 +114,11 @@ class PopLyricsStyleTest {
         for (index in 1..PopLyricSchemes.LIMIT) assertTrue(PopLyricSchemes.save(context, "方案 $index"))
         assertFalse(PopLyricSchemes.save(context, "额外方案"))
         val first = PopLyricSchemes.saved(context).first()
-        PopLyricSchemes.apply(context, PopLyricSchemes.builtIns.last())
+        PopLyricSchemes.apply(context, PopLyricSchemes.builtIns(context).last())
         assertTrue(PopLyricSchemes.save(context, first.name))
         val updated = PopLyricSchemes.saved(context).first()
         assertEquals(first.id, updated.id)
-        assertEquals(PopLyricSchemes.builtIns.last().motion, updated.motion)
+        assertEquals(PopLyricSchemes.builtIns(context).last().motion, updated.motion)
         assertEquals(PopLyricSchemes.LIMIT, PopLyricSchemes.saved(context).size)
     }
 

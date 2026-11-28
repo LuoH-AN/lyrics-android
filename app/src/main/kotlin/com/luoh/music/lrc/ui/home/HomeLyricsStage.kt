@@ -48,6 +48,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -57,6 +58,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.luoh.music.lrc.LyricsOverlayService
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.lyrics.LyricInterlude
 import com.luoh.music.lrc.lyrics.LyricLine
 import com.luoh.music.lrc.lyrics.LyricTiming
@@ -84,6 +86,7 @@ internal fun HomeLyricsStage(state: HomePresentationState, modifier: Modifier = 
 @Composable
 private fun HomeScrollingLyricsStage(state: HomePresentationState, modifier: Modifier = Modifier, albumBackground: Boolean = false,
     appearance: HomeLyricAppearance = HomeLyricAppearance(), onLyricTap: (() -> Unit)? = null) {
+    val context = LocalContext.current
     val document = state.document
     val foreground = if (albumBackground) Color.White else MaterialTheme.colorScheme.onSurface
     val secondary = if (albumBackground) Color.White.copy(alpha = .72f) else MaterialTheme.colorScheme.onSurfaceVariant
@@ -95,14 +98,14 @@ private fun HomeScrollingLyricsStage(state: HomePresentationState, modifier: Mod
                         color = if (albumBackground) foreground else MaterialTheme.colorScheme.primary)
                 }
                 Text(when {
-                    state.snapshot.track.isBlank() -> "暂未播放"
-                    state.lyricStatus == "loading" -> "正在获取歌词"
-                    else -> "未找到歌词"
+                    state.snapshot.track.isBlank() -> context.getString(R.string.nothing_playing)
+                    state.lyricStatus == "loading" -> context.getString(R.string.finding_lyrics)
+                    else -> context.getString(R.string.no_lyrics_found)
                 }, style = MaterialTheme.typography.titleLarge, color = secondary)
                 if (state.lyricStatus == "empty") {
                     Row {
-                        IconButton(onClick = { state.actions?.retryLyrics() }) { Icon(Icons.Default.Refresh, "重新获取歌词", tint = foreground) }
-                        IconButton(onClick = { state.actions?.editCustomLyrics() }) { Icon(Icons.Default.Edit, "添加自定义歌词", tint = foreground) }
+                        IconButton(onClick = { state.actions?.retryLyrics() }) { Icon(Icons.Default.Refresh, context.getString(R.string.find_lyrics_again), tint = foreground) }
+                        IconButton(onClick = { state.actions?.editCustomLyrics() }) { Icon(Icons.Default.Edit, context.getString(R.string.add_custom_lyrics), tint = foreground) }
                     }
                 }
             }
@@ -243,12 +246,13 @@ private val HomeInterludeRowHeight = 88.dp
 
 @Composable
 private fun HomeInterludeProgress(interlude: LyricInterlude, position: State<Long>, color: Color) {
+    val context = LocalContext.current
     Box(Modifier.fillMaxWidth().height(HomeInterludeRowHeight).testTag("home_interlude_row"),
         contentAlignment = Alignment.Center) {
         CircularProgressIndicator(
             progress = { interlude.progress(position.value) },
             modifier = Modifier.size(32.dp).testTag("home_interlude_progress")
-                .semantics { contentDescription = "间奏进度" },
+                .semantics { contentDescription = context.getString(R.string.instrumental_progress) },
             color = color,
             trackColor = color.copy(alpha = .16f),
             strokeWidth = 3.dp,
@@ -275,6 +279,7 @@ private fun HomeLyricRow(
     foregroundColor: Color,
     appearance: HomeLyricAppearance,
 ) {
+    val context = LocalContext.current
     val distance = abs(index - focused)
     val duration = if (allowMotion && motion.easedScroll) motion.scrollDurationMs else 0
     val delayMs = if (allowMotion && motion.stagger) min(distance, 4) * motion.staggerDelayMs else 0
@@ -303,7 +308,7 @@ private fun HomeLyricRow(
             interactionSource = remember { MutableInteractionSource() },
             indication = null,
             onClick = { if (timed) onClick() },
-            onLongClickLabel = "摘句与分享",
+            onLongClickLabel = context.getString(R.string.select_and_share),
             onLongClick = onLongClick,
         ).padding(vertical = 10.dp),
     ) {

@@ -24,7 +24,7 @@
         android:src="@drawable/ic_overlay_unlocked"
         android:tint="@color/notification_foreground"
         android:background="?android:attr/selectableItemBackgroundBorderless"
-        android:contentDescription="锁定" />
+        android:contentDescription="@string/lock" />
 
     <ImageButton
         android:id="@+id/notification_lyrics_close"
@@ -35,5 +35,5 @@
         android:src="@drawable/ic_overlay_close"
         android:tint="@color/notification_foreground"
         android:background="?android:attr/selectableItemBackgroundBorderless"
-        android:contentDescription="关闭" />
+        android:contentDescription="@string/close_lyrics_overlay" />
 </LinearLayout>

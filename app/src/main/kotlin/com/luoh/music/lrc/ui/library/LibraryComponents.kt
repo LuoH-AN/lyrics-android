@@ -21,10 +21,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.ui.agora.LocalSettingsScrollRetentionActive
 import com.luoh.music.lrc.ui.agora.SettingsGroup
 import kotlinx.coroutines.CoroutineScope
@@ -39,7 +41,7 @@ internal fun LibraryConfirmationDialog(value: LibraryConfirmation?, dismiss: () 
         title = { Text(value.title) },
         text = { Text(value.body) },
         confirmButton = { TextButton(onClick = { dismiss(); value.accept() }) { Text(value.action) } },
-        dismissButton = { TextButton(onClick = dismiss) { Text("取消") } }
+        dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.cancel)) } }
     )
 }
 
@@ -89,7 +91,7 @@ internal fun LibraryField(label: String, value: String, onValueChange: (String) 
         enabled = enabled, singleLine = true, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
         visualTransformation = if (secret && !visible) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = KeyboardOptions(keyboardType = if (secret) KeyboardType.Password else KeyboardType.Text),
-        trailingIcon = if (secret) ({ TextButton(onClick = { visible = !visible }) { Text(if (visible) "隐藏" else "显示") } }) else null)
+        trailingIcon = if (secret) ({ TextButton(onClick = { visible = !visible }) { Text(if (visible) stringResource(R.string.hide) else stringResource(R.string.show)) } }) else null)
 }
 
 @Composable

@@ -38,11 +38,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import com.luoh.music.lrc.R
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
@@ -72,6 +74,7 @@ internal data class PickerColor(val hue: Float, val saturation: Float, val value
 @Composable
 internal fun SettingsColorDialog(title: String, initialColor: String, onDismiss: () -> Unit,
     onApply: (String) -> Unit, onReset: (() -> Unit)? = null) {
+    val context = LocalContext.current
     val initial = PickerColor.parse(initialColor) ?: PickerColor(0f, 0f, 1f)
     var hue by rememberSaveable(title) { mutableFloatStateOf(initial.hue) }
     var saturation by rememberSaveable(title) { mutableFloatStateOf(initial.saturation) }
@@ -96,12 +99,12 @@ internal fun SettingsColorDialog(title: String, initialColor: String, onDismiss:
                 ColorWheel(selected, select, Modifier.align(Alignment.CenterHorizontally))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.size(32.dp).clip(CircleShape).background(Color(selected.argb()))
-                        .semantics { contentDescription = "当前颜色 ${selected.hex()}" })
+                        .semantics { contentDescription = context.getString(R.string.current_color, selected.hex()) })
                     Text(selected.hex(), style = MaterialTheme.typography.labelLarge)
                 }
-                ColorSlider("色相", hue, 0f..360f) { select(selected.copy(hue = it)) }
-                ColorSlider("饱和度", saturation, 0f..1f) { select(selected.copy(saturation = it)) }
-                ColorSlider("明度", brightness, 0f..1f) { select(selected.copy(value = it)) }
+                ColorSlider(context.getString(R.string.hue), hue, 0f..360f) { select(selected.copy(hue = it)) }
+                ColorSlider(context.getString(R.string.saturation), saturation, 0f..1f) { select(selected.copy(saturation = it)) }
+                ColorSlider(context.getString(R.string.brightness), brightness, 0f..1f) { select(selected.copy(value = it)) }
                 OutlinedTextField(
                     value = draft,
                     onValueChange = { text ->
@@ -112,16 +115,16 @@ internal fun SettingsColorDialog(title: String, initialColor: String, onDismiss:
                             saturation = it.saturation; brightness = it.value
                         }
                     },
-                    label = { Text("十六进制颜色") },
-                    supportingText = { Text("输入 6 位颜色值，例如 #9FD8FF") },
+                    label = { Text(context.getString(R.string.hex_color)) },
+                    supportingText = { Text(context.getString(R.string.enter_a_six_digit_color_for)) },
                     isError = !valid, singleLine = true, modifier = Modifier.fillMaxWidth(),
                 )
             }
         },
-        confirmButton = { TextButton(onClick = { onApply(requireNotNull(PickerColor.parse(draft)).hex()); onDismiss() }, enabled = valid) { Text("应用") } },
+        confirmButton = { TextButton(onClick = { onApply(requireNotNull(PickerColor.parse(draft)).hex()); onDismiss() }, enabled = valid) { Text(context.getString(R.string.apply)) } },
         dismissButton = { Row {
-            if (onReset != null) TextButton(onClick = { onReset(); onDismiss() }) { Text("恢复方案配色") }
-            TextButton(onClick = onDismiss) { Text("取消") }
+            if (onReset != null) TextButton(onClick = { onReset(); onDismiss() }) { Text(context.getString(R.string.restore_scheme_color)) }
+            TextButton(onClick = onDismiss) { Text(context.getString(R.string.cancel)) }
         } },
     )
 }
@@ -137,10 +140,11 @@ private fun ColorSlider(label: String, value: Float, range: ClosedFloatingPointR
 
 @Composable
 private fun ColorWheel(color: PickerColor, onChange: (PickerColor) -> Unit, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     val current by rememberUpdatedState(color)
     val update by rememberUpdatedState(onChange)
     Canvas(modifier.size(192.dp).testTag("color_wheel").semantics {
-        contentDescription = "色盘；也可使用下方色相、饱和度和明度滑块选色"
+        contentDescription = context.getString(R.string.color_wheel_description)
     }.pointerInput(Unit) {
         awaitEachGesture {
             val down = awaitFirstDown()

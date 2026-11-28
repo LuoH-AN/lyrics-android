@@ -21,7 +21,7 @@ class HomeTranslationControllerTest {
     @Test fun fillsOnlyMissingTranslationsWithoutChangingTimingOrOfficialText() {
         val scope = CoroutineScope(Job() + Dispatchers.Unconfined)
         val documents = mutableListOf<LyricDocument>()
-        val statuses = mutableListOf<String>()
+        val statuses = mutableListOf<HomeTranslationController.Status?>()
         var calls = 0
         val controller = HomeTranslationController(scope, { missing, required ->
             calls++
@@ -32,7 +32,7 @@ class HomeTranslationControllerTest {
         controller.update("song", document, "bilingual", "offline")
         assertEquals(listOf("你好", "世界"), documents.single().lines.map { it.translation })
         assertEquals(document.lines.map { it.startMs }, documents.single().lines.map { it.startMs })
-        assertEquals("", statuses.last())
+        assertNull(statuses.last())
         controller.update("song", document, "bilingual", "offline")
         assertEquals(1, calls)
         scope.cancel()
@@ -40,17 +40,17 @@ class HomeTranslationControllerTest {
 
     @Test fun displayModeDoesNotSilentlyEnableMachineTranslation() {
         val scope = CoroutineScope(Job() + Dispatchers.Unconfined)
-        val statuses = mutableListOf<String>()
+        val statuses = mutableListOf<HomeTranslationController.Status?>()
         var calls = 0
         val controller = HomeTranslationController(scope, { _, _ -> calls++; HomeTranslationController.Result() }, {}, statuses::add)
         controller.update("song", document, "bilingual", "off")
-        assertEquals("Display mode must not nag users to enable machine translation", "", statuses.last())
+        assertNull("Display mode must not nag users to enable machine translation", statuses.last())
         controller.update("chinese", LyricDocument(listOf(LyricLine(0, "让歌词陪着你")), true), "bilingual", "off")
-        assertEquals("Chinese lyrics should not prompt for unnecessary machine translation", "", statuses.last())
+        assertNull("Chinese lyrics should not prompt for unnecessary machine translation", statuses.last())
         controller.update("chinese-with-name", LyricDocument(listOf(LyricLine(0, "Jay 陪你走过每个夜晚")), true), "bilingual", "off")
-        assertEquals("", statuses.last())
+        assertNull(statuses.last())
         controller.update("song", document, "original", "api")
-        assertEquals("", statuses.last())
+        assertNull(statuses.last())
         controller.update("song", document.copy(lines = document.lines.take(1)), "bilingual", "api")
         assertEquals(0, calls)
         scope.cancel()
@@ -58,14 +58,14 @@ class HomeTranslationControllerTest {
 
     @Test fun missingModelErrorsAreVisibleAndDoNotDiscardOfficialLyrics() {
         val scope = CoroutineScope(Job() + Dispatchers.Unconfined)
-        val statuses = mutableListOf<String>()
+        val statuses = mutableListOf<HomeTranslationController.Status?>()
         val documents = mutableListOf<LyricDocument>()
         val controller = HomeTranslationController(scope, { _, required ->
             required()
             throw IllegalArgumentException("请先下载中文语言包")
         }, documents::add, statuses::add)
         controller.update("song", document, "bilingual", "offline")
-        assertTrue(statuses.last().contains("请先下载中文语言包"))
+        assertEquals(HomeTranslationController.Status(R.string.translation_unfinished, "请先下载中文语言包"), statuses.last())
         assertTrue(documents.isEmpty())
         scope.cancel()
     }
@@ -92,7 +92,7 @@ class HomeTranslationControllerTest {
 
     @Test fun chineseLyricsNeverStartTranslationOrShowAStatus() {
         val scope = CoroutineScope(Job() + Dispatchers.Unconfined)
-        val statuses = mutableListOf<String>()
+        val statuses = mutableListOf<HomeTranslationController.Status?>()
         var calls = 0
         val controller = HomeTranslationController(scope, { _, _ -> calls++; HomeTranslationController.Result() },
             { fail("Chinese lyrics should remain unchanged") }, statuses::add)
@@ -103,13 +103,13 @@ class HomeTranslationControllerTest {
             controller.update("chinese", chinese, display, mode)
         }
         assertEquals(0, calls)
-        assertTrue(statuses.isNotEmpty() && statuses.all(String::isEmpty))
+        assertTrue(statuses.isNotEmpty() && statuses.all { it == null })
         scope.cancel()
     }
 
     @Test fun chineseIdentifiedWithLatinNamesIsSilentlySkipped() {
         val scope = CoroutineScope(Job() + Dispatchers.Unconfined)
-        val statuses = mutableListOf<String>()
+        val statuses = mutableListOf<HomeTranslationController.Status?>()
         var calls = 0
         val controller = HomeTranslationController(scope, { _, _ ->
             calls++
@@ -120,13 +120,13 @@ class HomeTranslationControllerTest {
             controller.update("chinese", chinese, display, mode)
         }
         assertEquals(4, calls)
-        assertTrue(statuses.all(String::isEmpty))
+        assertTrue(statuses.all { it == null })
         scope.cancel()
     }
 
     @Test fun foreignLyricsStillTranslateAndActualEmptyResponsesRemainFailures() {
         val scope = CoroutineScope(Job() + Dispatchers.Unconfined)
-        val statuses = mutableListOf<String>()
+        val statuses = mutableListOf<HomeTranslationController.Status?>()
         var calls = 0
         val controller = HomeTranslationController(scope, { _, required ->
             calls++
@@ -135,7 +135,7 @@ class HomeTranslationControllerTest {
         }, {}, statuses::add)
         for (text in listOf("Hello world", "世界の歌", "노래")) {
             controller.update(text, LyricDocument(listOf(LyricLine(0, text)), true), "bilingual", "offline")
-            assertTrue(statuses.last().contains("未获取到补充译文"))
+            assertEquals(HomeTranslationController.Status(R.string.translation_no_result), statuses.last())
         }
         assertEquals(3, calls)
         scope.cancel()
@@ -143,7 +143,7 @@ class HomeTranslationControllerTest {
 
     @Test fun switchingToChineseClearsFailureAndRejectsLateProgressAndErrors() {
         val scope = CoroutineScope(Job() + Dispatchers.Unconfined)
-        val statuses = mutableListOf<String>()
+        val statuses = mutableListOf<HomeTranslationController.Status?>()
         val old = CompletableDeferred<Unit>()
         var calls = 0
         lateinit var lateProgress: () -> Unit
@@ -158,16 +158,16 @@ class HomeTranslationControllerTest {
         }, { fail("A stale request must not change the new song") }, statuses::add)
         val chinese = LyricDocument(listOf(LyricLine(0, "让歌词陪着你")), true)
         controller.update("failed", document, "bilingual", "api")
-        assertTrue(statuses.last().contains("network error"))
+        assertEquals(HomeTranslationController.Status(R.string.translation_unfinished, "network error"), statuses.last())
         controller.update("chinese", chinese, "bilingual", "api")
-        assertEquals("", statuses.last())
+        assertNull(statuses.last())
         controller.update("pending", document, "bilingual", "api")
         controller.update("chinese", chinese, "bilingual", "api")
         val count = statuses.size
         lateProgress()
         old.complete(Unit)
         assertEquals(count, statuses.size)
-        assertEquals("", statuses.last())
+        assertNull(statuses.last())
         scope.cancel()
     }
 }

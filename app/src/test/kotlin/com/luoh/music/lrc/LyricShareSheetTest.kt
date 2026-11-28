@@ -31,7 +31,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], application = Application::class, qualifiers = "w400dp-h800dp-mdpi")
+@Config(sdk = [35], application = Application::class, qualifiers = "zh-rCN-w400dp-h800dp-mdpi")
 class LyricShareSheetTest {
     @get:Rule val compose = createComposeRule()
 

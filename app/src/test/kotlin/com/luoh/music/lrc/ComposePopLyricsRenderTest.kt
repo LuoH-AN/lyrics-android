@@ -44,7 +44,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], qualifiers = "w400dp-h800dp-mdpi")
+@Config(sdk = [35], qualifiers = "zh-rCN-w400dp-h800dp-mdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ComposePopLyricsRenderTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
@@ -251,6 +251,6 @@ class ComposePopLyricsRenderTest {
     @Test fun nativeCanvasRevealsMoreWordsAsTheRealTimelineAdvances() = renderStage(false)
 
     @Test
-    @Config(qualifiers = "w800dp-h400dp-mdpi")
+    @Config(qualifiers = "zh-rCN-w800dp-h400dp-mdpi")
     fun landscapeStageAndAllThreePlayerFormsRenderNatively() = renderStage(true)
 }

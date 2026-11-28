@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.luoh.music.lrc.LyricsOverlayService
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.data.lyrics.LyricOffsetMemory
 import com.luoh.music.lrc.overlay.LyricSyncText
 import com.luoh.music.lrc.ui.agora.CollapsingSettingsLazyScaffold
@@ -26,7 +27,7 @@ import kotlinx.coroutines.withContext
 
 @Composable
 internal fun OffsetMemoriesComposeScreen(onBack: () -> Unit) {
-    val context = LocalContext.current.applicationContext
+    val context = LocalContext.current
     val prefs = remember(context) { context.getSharedPreferences(LyricsOverlayService.PREFS_NAME, Context.MODE_PRIVATE) }
     val memory = remember(prefs) { LyricOffsetMemory(prefs) }
     val revision = preferenceRevision(prefs, setOf(LyricOffsetMemory.INDEX_KEY))
@@ -40,13 +41,13 @@ internal fun OffsetMemoriesComposeScreen(onBack: () -> Unit) {
         entries = withContext(Dispatchers.IO) { memory.entries() }
         loaded = true
     }
-    CollapsingSettingsLazyScaffold(title = "同步记忆", onBack = onBack) {
+    CollapsingSettingsLazyScaffold(title = context.getString(R.string.saved_sync_offsets), onBack = onBack) {
         item(key = "summary") {
-            SettingsGroup("同步调整", items = listOf({
+            SettingsGroup(context.getString(R.string.sync_adjustments), items = listOf({
                 Column {
-                    SettingsItem(headlineContent = { Text(if (!loaded) "正在读取…" else if (entries.isEmpty()) "暂无同步记忆" else "已保存 ${entries.size} 条同步记忆") })
-                    if (entries.isNotEmpty()) LibraryAction("全部重置") {
-                        confirmation = LibraryConfirmation("重置全部同步调整？", "所有歌曲和歌词源都会恢复原始同步时间，此操作无法撤销。", "确认重置") {
+                    SettingsItem(headlineContent = { Text(if (!loaded) context.getString(R.string.loading) else if (entries.isEmpty()) context.getString(R.string.no_saved_sync_offsets) else context.getString(R.string.saved_sync_offset_count, entries.size)) })
+                    if (entries.isNotEmpty()) LibraryAction(context.getString(R.string.reset_all)) {
+                        confirmation = LibraryConfirmation(context.getString(R.string.reset_all_sync_adjustments), context.getString(R.string.reset_all_sync_message), context.getString(R.string.confirm_reset)) {
                             scope.launch {
                                 withContext(Dispatchers.IO) { memory.clear() }
                                 if (LyricsOverlayService.isRunning) context.startService(Intent(context, LyricsOverlayService::class.java)
@@ -59,17 +60,17 @@ internal fun OffsetMemoriesComposeScreen(onBack: () -> Unit) {
         }
         itemsIndexed(entries, key = { _, entry -> entry.key }, contentType = { _, _ -> "offset" }) { index, entry ->
             LibraryLazyGroupItem(index, entries.size) {
-                SettingsItem(headlineContent = { Text(entry.title.ifBlank { "未知歌曲" }) },
-                    supportingContent = { Text(listOf(entry.artist, "${entry.source.ifBlank { "歌词源" }} · ${LyricSyncText.format(entry.offsetMs)}").filter { it.isNotBlank() }.joinToString("\n")) },
+                SettingsItem(headlineContent = { Text(entry.title.ifBlank { context.getString(R.string.unknown_song) }) },
+                    supportingContent = { Text(listOf(entry.artist, "${context.lyricSourceLabel(entry.source)} · ${LyricSyncText.format(context, entry.offsetMs)}").filter { it.isNotBlank() }.joinToString("\n")) },
                     trailingContent = { TextButton(onClick = {
-                        confirmation = LibraryConfirmation("删除同步记忆？", "《${entry.title}》在 ${entry.source} 的歌词将恢复原始同步时间。", "删除记忆") {
+                        confirmation = LibraryConfirmation(context.getString(R.string.delete_saved_sync_offset), context.getString(R.string.delete_sync_offset_message, entry.title, context.lyricSourceLabel(entry.source)), context.getString(R.string.delete_saved_entry)) {
                             scope.launch {
                                 withContext(Dispatchers.IO) { memory.delete(entry.key) }
                                 if (LyricsOverlayService.isRunning) context.startService(Intent(context, LyricsOverlayService::class.java)
                                     .setAction(LyricsOverlayService.ACTION_DELETE_LYRIC_OFFSET_MEMORY).putExtra(LyricsOverlayService.EXTRA_LYRIC_OFFSET_MEMORY_KEY, entry.key))
                             }
                         }
-                    }) { Text("删除") } })
+                    }) { Text(context.getString(R.string.delete)) } })
             }
         }
     }

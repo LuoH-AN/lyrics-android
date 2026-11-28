@@ -48,6 +48,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -60,6 +61,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.luoh.music.lrc.LyricsOverlayService
 import com.luoh.music.lrc.LyricsTileService
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.diagnostics.UsageAnalytics
 import com.luoh.music.lrc.overlay.OverlayAppearance
 import com.luoh.music.lrc.overlay.OverlayNotificationAccess
@@ -110,7 +112,7 @@ private fun DesktopPositionSettingsItem(context: Context, prefs: SharedPreferenc
     val running = remember(revision) { LyricsOverlayService.isRunning }
     val locked = remember(revision) { prefs.getBoolean(LyricsOverlayService.PREF_POSITION_LOCKED, false) }
     SettingsNavigationItem(
-        if (locked) "解锁" else "锁定",
+        if (locked) context.getString(R.string.unlock) else context.getString(R.string.lock),
         icon = Icons.Default.Lock,
         enabled = running || locked,
     ) {
@@ -132,15 +134,15 @@ private fun DesktopNotificationSettingsItem(context: Context) {
         }
     }
     SettingsNavigationItem(
-        "桌面歌词通知",
-        if (allowed) "已开启" else "未开启",
+        context.getString(R.string.lyrics_overlay_notifications),
+        if (allowed) context.getString(R.string.enabled) else context.getString(R.string.overlay_notifications_off),
         Icons.Default.Notifications,
     ) {
         if (allowed && LyricsOverlayService.isRunning) {
             settingsOverlayAction(context, LyricsOverlayService.ACTION_REFRESH_NOTIFICATION)
         } else {
             runCatching { notificationSettings.launch(OverlayNotificationAccess.settingsIntent(context)) }
-                .onFailure { settingsToast(context, "无法打开此页面") }
+                .onFailure { settingsToast(context, context.getString(R.string.could_not_open_this_page)) }
         }
     }
 }
@@ -159,24 +161,24 @@ internal fun DesktopAccessSettings(context: Context) {
     val overlayAllowed = remember(revision) {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(context)
     }
-    SettingsGroup(title = "桌面歌词", items = buildList<@Composable () -> Unit> {
+    SettingsGroup(title = context.getString(R.string.desktop_lyrics), items = buildList<@Composable () -> Unit> {
         add {
-            SettingsNavigationItem("添加快捷开关", "在系统快捷设置中显示", Icons.Default.Lyrics) {
+            SettingsNavigationItem(context.getString(R.string.add_quick_settings_tile), context.getString(R.string.show_a_control_in_system_quick), Icons.Default.Lyrics) {
                 UsageAnalytics.feature(UsageAnalytics.Feature.ADD_TILE)
                 LyricsTileService.requestAdd(context)
             }
         }
         add {
-            SettingsSwitchItem("桌面歌词", "在其他应用上显示歌词", Icons.Default.Lyrics, running) {
+            SettingsSwitchItem(context.getString(R.string.desktop_lyrics), context.getString(R.string.show_lyrics_over_other_apps), Icons.Default.Lyrics, running) {
                 UsageAnalytics.feature(if (running) UsageAnalytics.Feature.OVERLAY_STOP else UsageAnalytics.Feature.OVERLAY_START)
                 when {
                     running -> context.stopService(Intent(context, LyricsOverlayService::class.java))
                     !notificationAllowed -> {
-                        settingsToast(context, "请先授予通知使用权")
+                        settingsToast(context, context.getString(R.string.grant_notification_access_first))
                         settingsOpenIntent(context, Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                     }
                     !overlayAllowed -> {
-                        settingsToast(context, "请先授予悬浮窗权限")
+                        settingsToast(context, context.getString(R.string.allow_display_over_other_apps_first))
                         settingsOpenIntent(context, Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
                     }
                     OverlayNotificationAccess.needsPermission(context) -> notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -187,12 +189,12 @@ internal fun DesktopAccessSettings(context: Context) {
         add { DesktopPositionSettingsItem(context, prefs) }
         add { DesktopNotificationSettingsItem(context) }
         add {
-            SettingsNavigationItem("通知使用权", if (notificationAllowed) "已授权" else "未授权", Icons.Default.Notifications) {
+            SettingsNavigationItem(context.getString(R.string.notification_access), if (notificationAllowed) context.getString(R.string.granted) else context.getString(R.string.not_granted), Icons.Default.Notifications) {
                 settingsOpenIntent(context, Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
             }
         }
         add {
-            SettingsNavigationItem("悬浮窗权限", if (overlayAllowed) "已授权" else "未授权", Icons.Default.Layers) {
+            SettingsNavigationItem(context.getString(R.string.display_over_other_apps), if (overlayAllowed) context.getString(R.string.granted) else context.getString(R.string.not_granted), Icons.Default.Layers) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     settingsOpenIntent(context, Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
                 }
@@ -248,11 +250,11 @@ internal fun DesktopAppearanceSettings(context: Context, prefs: SharedPreference
             putExtra(LyricsOverlayService.EXTRA_TARGET_COMPACT, true)
         }
     }
-    SettingsGroup(title = "位置与操作", items = listOf(
+    SettingsGroup(title = context.getString(R.string.position_and_controls), items = listOf(
         { DesktopPositionSettingsItem(context, prefs) },
         { DesktopNotificationSettingsItem(context) },
     ))
-    SettingsGroup(title = "歌词预览", items = listOf({
+    SettingsGroup(title = context.getString(R.string.lyrics_preview), items = listOf({
         val foreground = OverlayAppearance.parseColor(color)
         val backgroundColor = Color(OverlayAppearance.backgroundColor(background, foreground, opacity))
         val shape = RoundedCornerShape(radius.dp)
@@ -275,7 +277,7 @@ internal fun DesktopAppearanceSettings(context: Context, prefs: SharedPreference
                     OverlayAppearance.RIGHT -> Alignment.End
                     else -> Alignment.Start
                 }) {
-                val lines = listOf("City lights" to "街灯轻轻亮起", "A quiet melody" to "旋律停在耳边", "Stay with me" to "让歌词陪着你", "One more song" to "再听一首歌", "Until tomorrow" to "直到明天")
+                val lines = listOf("City lights" to context.getString(R.string.overlay_preview_translation_first), "A quiet melody" to context.getString(R.string.overlay_preview_translation_second), "Stay with me" to context.getString(R.string.overlay_preview_translation_third), "One more song" to context.getString(R.string.overlay_preview_translation_fourth), "Until tomorrow" to context.getString(R.string.overlay_preview_translation_fifth))
                 for (index in (2 - before)..(2 + after)) {
                     val (original, translated) = lines[index]
                     val size = (if (index == 2) 30f else 23f) * fontScale / 100f
@@ -289,19 +291,19 @@ internal fun DesktopAppearanceSettings(context: Context, prefs: SharedPreference
             }
         }
     }))
-    SettingsGroup(title = "文字与背景", items = listOf(
+    SettingsGroup(title = context.getString(R.string.text_and_background), items = listOf(
         {
-            SettingsChoiceItem("对齐方式", style.alignment, listOf(OverlayAppearance.LEFT to "左对齐",
-                OverlayAppearance.CENTER to "居中", OverlayAppearance.RIGHT to "右对齐"), Icons.Default.FormatAlignLeft) {
+            SettingsChoiceItem(context.getString(R.string.alignment), style.alignment, listOf(OverlayAppearance.LEFT to context.getString(R.string.left),
+                OverlayAppearance.CENTER to context.getString(R.string.centered), OverlayAppearance.RIGHT to context.getString(R.string.right)), Icons.Default.FormatAlignLeft) {
                 prefs.edit().putString(OverlayAppearance.PREF_ALIGNMENT, it).apply()
                 refreshAppearance()
             }
         },
         {
-            SettingsChoiceItem("背景", background, listOf(
-                LyricsOverlayService.BACKGROUND_TRANSPARENT to "透明",
-                LyricsOverlayService.BACKGROUND_LOW to "半透明",
-                LyricsOverlayService.BACKGROUND_HIGH to "不透明",
+            SettingsChoiceItem(context.getString(R.string.background), background, listOf(
+                LyricsOverlayService.BACKGROUND_TRANSPARENT to context.getString(R.string.transparent),
+                LyricsOverlayService.BACKGROUND_LOW to context.getString(R.string.translucent),
+                LyricsOverlayService.BACKGROUND_HIGH to context.getString(R.string.opaque),
             ), Icons.Default.Layers) { mode ->
                 prefs.edit().putString(LyricsOverlayService.PREF_BACKGROUND_MODE_COMPACT, mode).apply()
                 settingsOverlayAction(context, LyricsOverlayService.ACTION_SET_BACKGROUND) {
@@ -311,26 +313,26 @@ internal fun DesktopAppearanceSettings(context: Context, prefs: SharedPreference
             }
         },
         {
-            SettingsSliderItem("半透明强度", opacity, 10..90, step = 5, icon = Icons.Default.Contrast,
+            SettingsSliderItem(context.getString(R.string.background_opacity), opacity, 10..90, step = 5, icon = Icons.Default.Contrast,
                 enabled = background == LyricsOverlayService.BACKGROUND_LOW) {
                 prefs.edit().putInt(OverlayAppearance.PREF_BACKGROUND_OPACITY, it).apply()
                 refreshAppearance()
             }
         },
         {
-            SettingsSliderItem("背景圆角", radius, 0..32, unit = " dp", icon = Icons.Default.Layers) {
+            SettingsSliderItem(context.getString(R.string.background_corner_radius), radius, 0..32, unit = " dp", icon = Icons.Default.Layers) {
                 prefs.edit().putInt(OverlayAppearance.PREF_CORNER_RADIUS, it).apply()
                 refreshAppearance()
             }
         },
         {
-            SettingsSliderItem("悬浮窗宽度", widthPercent, 40..100, icon = Icons.Default.FormatSize) {
+            SettingsSliderItem(context.getString(R.string.overlay_width), widthPercent, 40..100, icon = Icons.Default.FormatSize) {
                 prefs.edit().putInt(OverlayAppearance.PREF_WIDTH_PERCENT, it).apply()
                 refreshAppearance()
             }
         },
         {
-            SettingsSliderItem("字号", fontScale, LyricsOverlayService.FONT_SCALE_MIN_PERCENT..LyricsOverlayService.FONT_SCALE_MAX_PERCENT,
+            SettingsSliderItem(context.getString(R.string.text_size), fontScale, LyricsOverlayService.FONT_SCALE_MIN_PERCENT..LyricsOverlayService.FONT_SCALE_MAX_PERCENT,
                 icon = Icons.Default.FormatSize) { value ->
                 prefs.edit().putInt(LyricsOverlayService.PREF_FONT_SCALE_COMPACT_PERCENT, value).apply()
                 settingsOverlayAction(context, LyricsOverlayService.ACTION_SET_FONT_SCALE) {
@@ -340,7 +342,7 @@ internal fun DesktopAppearanceSettings(context: Context, prefs: SharedPreference
             }
         },
         {
-            SettingsSliderItem("字重", OverlayAppearance.weightToPercent(fontWeight), OverlayAppearance.MIN_FONT_WEIGHT_PERCENT..OverlayAppearance.MAX_FONT_WEIGHT_PERCENT,
+            SettingsSliderItem(context.getString(R.string.font_weight), OverlayAppearance.weightToPercent(fontWeight), OverlayAppearance.MIN_FONT_WEIGHT_PERCENT..OverlayAppearance.MAX_FONT_WEIGHT_PERCENT,
                 step = 25, icon = Icons.Default.TextFields) { value ->
                 val weight = OverlayAppearance.percentToWeight(value)
                 prefs.edit().putInt(LyricsOverlayService.PREF_FONT_WEIGHT, weight).apply()
@@ -349,7 +351,7 @@ internal fun DesktopAppearanceSettings(context: Context, prefs: SharedPreference
         },
         {
             SettingsItem(
-                headlineContent = { Text("歌词颜色") },
+                headlineContent = { Text(context.getString(R.string.lyrics_color)) },
                 supportingContent = { Text(color.uppercase()) },
                 leadingContent = { SettingsLeadingIcon(Icons.Default.Palette) },
                 trailingContent = {
@@ -359,44 +361,44 @@ internal fun DesktopAppearanceSettings(context: Context, prefs: SharedPreference
             )
         },
         {
-            SettingsSwitchItem("渐变歌词", "双色渐变，逐字高亮", Icons.Default.Palette, style.gradientEnd != null) {
+            SettingsSwitchItem(context.getString(R.string.gradient_lyrics), context.getString(R.string.two_color_gradient_with_word_by), Icons.Default.Palette, style.gradientEnd != null) {
                 prefs.edit().putBoolean(OverlayAppearance.PREF_GRADIENT, it).apply()
                 refreshAppearance()
             }
         },
     ))
-    if (style.gradientEnd != null) SettingsGroup(title = "渐变配色", items = listOf(
+    if (style.gradientEnd != null) SettingsGroup(title = context.getString(R.string.gradient_colors), items = listOf(
         {
             SettingsItem(
-                headlineContent = { Text("渐变终点颜色") }, supportingContent = { Text(gradientEnd.uppercase()) },
+                headlineContent = { Text(context.getString(R.string.gradient_end_color)) }, supportingContent = { Text(gradientEnd.uppercase()) },
                 leadingContent = { SettingsLeadingIcon(Icons.Default.ColorLens) },
                 trailingContent = { Box(Modifier.size(32.dp).clip(CircleShape).background(settingsParseColor(gradientEnd))) },
                 modifier = Modifier.clickable { pickingGradientEnd = true; showColorPicker = true },
             )
         },
         {
-            SettingsChoiceItem("渐变方向", if (style.gradientVertical) "vertical" else "horizontal",
-                listOf("horizontal" to "横向", "vertical" to "纵向"), Icons.Default.Style) {
+            SettingsChoiceItem(context.getString(R.string.gradient_direction), if (style.gradientVertical) "vertical" else "horizontal",
+                listOf("horizontal" to context.getString(R.string.horizontal), "vertical" to context.getString(R.string.vertical)), Icons.Default.Style) {
                 prefs.edit().putBoolean(OverlayAppearance.PREF_GRADIENT_VERTICAL, it == "vertical").apply()
                 refreshAppearance()
             }
         },
     ))
-    SettingsGroup(title = "上下文显示", items = listOf(
+    SettingsGroup(title = context.getString(R.string.surrounding_lines), items = listOf(
         {
-            SettingsCountItem("前文行数", before) { value ->
+            SettingsCountItem(context.getString(R.string.previous_lines), before) { value ->
                 prefs.edit().putInt(LyricsOverlayService.PREF_CONTEXT_BEFORE, value).apply()
                 settingsOverlayAction(context, LyricsOverlayService.ACTION_SET_CONTEXT)
             }
         },
         {
-            SettingsCountItem("后文行数", after) { value ->
+            SettingsCountItem(context.getString(R.string.following_lines), after) { value ->
                 prefs.edit().putInt(LyricsOverlayService.PREF_CONTEXT_AFTER, value).apply()
                 settingsOverlayAction(context, LyricsOverlayService.ACTION_SET_CONTEXT)
             }
         },
     ))
-    if (showColorPicker) SettingsColorDialog(if (pickingGradientEnd) "渐变终点颜色" else "歌词颜色",
+    if (showColorPicker) SettingsColorDialog(if (pickingGradientEnd) context.getString(R.string.gradient_end_color) else context.getString(R.string.lyrics_color),
         if (pickingGradientEnd) gradientEnd else color, onDismiss = { showColorPicker = false }, onApply = {
             if (pickingGradientEnd) {
                 prefs.edit().putString(OverlayAppearance.PREF_GRADIENT_END, it).apply()
@@ -407,18 +409,19 @@ internal fun DesktopAppearanceSettings(context: Context, prefs: SharedPreference
 
 @Composable
 private fun SettingsCountItem(title: String, count: Int, onChange: (Int) -> Unit) {
+    val context = LocalContext.current
     SettingsItem(
         headlineContent = { Text(title) },
-        supportingContent = { Text("显示 $count 行") },
+        supportingContent = { Text(context.getString(R.string.visible_line_count, count)) },
         leadingContent = { SettingsLeadingIcon(Icons.Default.Lyrics) },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { onChange(count - 1) }, enabled = count > 0) {
-                    Icon(Icons.Default.Remove, "减少$title")
+                    Icon(Icons.Default.Remove, context.getString(R.string.decrease_value, title))
                 }
                 Text("$count", textAlign = TextAlign.Center)
                 IconButton(onClick = { onChange(count + 1) }, enabled = count < 2) {
-                    Icon(Icons.Default.Add, "增加$title")
+                    Icon(Icons.Default.Add, context.getString(R.string.increase_value, title))
                 }
             }
         },

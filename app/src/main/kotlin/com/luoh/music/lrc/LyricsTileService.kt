@@ -81,8 +81,9 @@ class LyricsTileService : TileService() {
             icon = Icon.createWithResource(this@LyricsTileService, R.drawable.ic_quick_settings)
             state = if (LyricsOverlayService.isRunning) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
             label = getString(R.string.app_name)
-            if (Build.VERSION.SDK_INT >= 29) subtitle = if (LyricsOverlayService.isRunning) "已开启" else "已关闭"
-            contentDescription = "桌面歌词：${if (LyricsOverlayService.isRunning) "已开启" else "已关闭"}"
+            val status = getString(if (LyricsOverlayService.isRunning) R.string.enabled else R.string.disabled)
+            if (Build.VERSION.SDK_INT >= 29) subtitle = status
+            contentDescription = getString(R.string.lyrics_tile_description, status)
             updateTile()
         }
     }
@@ -95,13 +96,13 @@ class LyricsTileService : TileService() {
                     Icon.createWithResource(context, R.drawable.ic_quick_settings), context.mainExecutor,
                 ) { result ->
                     val message = when (result) {
-                        StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED -> "已添加桌面歌词快捷开关"
-                        StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED -> "快捷开关已添加，可在下拉面板中使用"
-                        else -> "可在下拉快捷设置的编辑页面添加桌面歌词"
+                        StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED -> context.getString(R.string.lyrics_tile_added)
+                        StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED -> context.getString(R.string.the_lyrics_tile_is_already_available)
+                        else -> context.getString(R.string.you_can_add_the_lyrics_tile)
                     }
                     Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                 }
-            } else Toast.makeText(context, "下拉快捷设置，点编辑并添加「桌面歌词」", Toast.LENGTH_LONG).show()
+            } else Toast.makeText(context, context.getString(R.string.open_quick_settings_tap_edit_and), Toast.LENGTH_LONG).show()
         }
 
         fun requestUpdate(context: Context) {

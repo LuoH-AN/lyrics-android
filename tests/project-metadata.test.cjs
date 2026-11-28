@@ -11,7 +11,7 @@ assert.ok(gradle.includes('applicationId = "com.luoh.music.lrc"'));
 
 const activity = read(base + 'ui/settings/AboutSettings.kt');
 const library = read(base + 'ui/library/PrivacyScreen.kt');
-assert.ok(activity.includes('维护者 · LuoH-AN'));
+assert.ok(activity.includes('R.string.maintainer_luoh_an'));
 assert.ok(activity.includes('"https://github.com/LuoH-AN"'));
 assert.ok(activity.includes('"https://github.com/LuoH-AN/lyrics-android"'));
 assert.ok(library.includes('R.string.privacy_summary'), 'privacy information must be available offline');

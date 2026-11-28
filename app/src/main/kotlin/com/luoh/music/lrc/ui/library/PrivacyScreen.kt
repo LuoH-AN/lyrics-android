@@ -14,12 +14,12 @@ import com.luoh.music.lrc.ui.agora.SettingsGroup
 
 @Composable
 internal fun PrivacyComposeScreen(onBack: () -> Unit) {
-    CollapsingSettingsScaffold(title = "隐私说明", onBack = onBack) {
+    CollapsingSettingsScaffold(title = stringResource(R.string.privacy), onBack = onBack) {
         LibraryStatus(stringResource(R.string.privacy_summary))
-        PrivacySection("权限与播放", R.string.privacy_permissions)
-        PrivacySection("歌词与联网", R.string.privacy_lyrics)
-        PrivacySection("补充翻译", R.string.privacy_translation)
-        PrivacySection("使用情况统计", R.string.privacy_analytics)
+        PrivacySection(stringResource(R.string.permissions_and_playback), R.string.privacy_permissions)
+        PrivacySection(stringResource(R.string.lyrics_and_network_access), R.string.privacy_lyrics)
+        PrivacySection(stringResource(R.string.supplemental_translation), R.string.privacy_translation)
+        PrivacySection(stringResource(R.string.usage_analytics), R.string.privacy_analytics)
     }
 }
 

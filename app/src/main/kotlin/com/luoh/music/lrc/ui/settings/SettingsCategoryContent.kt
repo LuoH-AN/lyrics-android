@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.luoh.music.lrc.LyricsOverlayService
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.ui.agora.CollapsingSettingsScaffold
 import com.luoh.music.lrc.ui.agora.LocalSettingsScrollRetentionActive
 import com.luoh.music.lrc.ui.home.HomeLyricsPrefs
@@ -63,15 +64,15 @@ internal fun SettingsCategoryContent(
     // Reading this state keeps business values current when the service or another page changes them.
     val title = remember(normalizedCategory) {
         when (normalizedCategory) {
-            "ACCESS" -> "权限与开关"
-            "OVERLAY" -> "桌面歌词外观"
-            "SYNC" -> "歌词同步"
-            "LYRICS" -> "歌词与翻译"
-            "APPEARANCE" -> "应用外观"
-            "HOME" -> "主页歌词"
-            "MOTION" -> "滚动动画"
-            "ABOUT" -> "关于应用"
-            else -> "设置"
+            "ACCESS" -> context.getString(R.string.permissions_and_controls)
+            "OVERLAY" -> context.getString(R.string.lyrics_overlay_appearance)
+            "SYNC" -> context.getString(R.string.lyrics_sync)
+            "LYRICS" -> context.getString(R.string.lyrics_and_translation)
+            "APPEARANCE" -> context.getString(R.string.app_appearance)
+            "HOME" -> context.getString(R.string.home_screen_lyrics)
+            "MOTION" -> context.getString(R.string.scrolling_animation)
+            "ABOUT" -> context.getString(R.string.about)
+            else -> context.getString(R.string.settings)
         }
     }
     CollapsingSettingsScaffold(title = title, onBack = onBack, floatingActionButton = {
@@ -80,8 +81,8 @@ internal fun SettingsCategoryContent(
             Column {
                 Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("预览", style = MaterialTheme.typography.titleMedium)
-                    TextButton(onClick = { previewPinned = false }) { Text("收起") }
+                    Text(context.getString(R.string.preview), style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = { previewPinned = false }) { Text(context.getString(R.string.collapse)) }
                 }
                 PopLyricPreview(PopLyricsPrefs.style(context), HomeLyricsPrefs.appearance(context), compact = true)
             }

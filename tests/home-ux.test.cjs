@@ -12,12 +12,12 @@ assert.doesNotMatch(main + home, /\bWebView\b|JavascriptInterface|evaluateJavasc
 assert.match(home, /LazyColumn\(/, 'lyrics must be rendered in a real Compose scrolling list');
 assert.match(home, /Slider\(/, 'playback progress must remain adjustable');
 assert.match(home, /SmoothBottomSheet\(/, 'home actions must use the upstream Agora sheet');
-for (const status of ['暂未播放', '正在获取歌词', '未找到歌词']) assert.ok(home.includes(status));
+for (const status of ['R.string.nothing_playing', 'R.string.finding_lyrics', 'R.string.no_lyrics_found']) assert.ok(home.includes(status));
 assert.doesNotMatch(home, /现在，专注听歌|先在音乐应用中播放一首歌|获取完成后会自动显示|home_empty_detail/);
 assert.match(home, /state\.actions\?\.retryLyrics\(\)/);
 assert.match(home, /state\.actions\?\.editCustomLyrics\(\)/);
 assert.match(home, /state\.actions\?\.exportLrc\(\)/);
-assert.ok(home.includes('导出 LRC 歌词'));
+assert.ok(home.includes('R.string.export_lrc_lyrics'));
 assert.match(loader,
   /LyricParser\.parse\(\s*payload\.lyrics,\s*payload\.translated,\s*payload\.word,\s*allowPartialWords\s*=\s*payload\.source\s*==\s*CustomLyricsStore\.SOURCE\s*,?\s*\)/,
   'home must parse lyrics, translations and word timing, allowing partial words only for custom lyrics');

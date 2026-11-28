@@ -65,7 +65,7 @@ internal class RecordingHomeActions : HomePresentationState.Actions {
 }
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], application = Application::class, qualifiers = "w400dp-h800dp-mdpi")
+@Config(sdk = [35], application = Application::class, qualifiers = "zh-rCN-w400dp-h800dp-mdpi")
 class ComposeHomeScreenTest {
     @get:Rule val compose = createComposeRule()
 
@@ -291,11 +291,11 @@ class ComposeHomeScreenTest {
     @Test fun portraitPlayerRetractsToOnlyTheCoverAndRestoresItsControls() = exerciseThreePlayerForms(400, 700)
 
     @Test
-    @Config(qualifiers = "w800dp-h400dp-mdpi")
+    @Config(qualifiers = "zh-rCN-w800dp-h400dp-mdpi")
     fun phoneLandscapePlayerFreesLyricWidthAndPreservesTheSameGestures() = exerciseThreePlayerForms(800, 400)
 
     @Test
-    @Config(qualifiers = "w800dp-h800dp-mdpi")
+    @Config(qualifiers = "zh-rCN-w800dp-h800dp-mdpi")
     fun rotationStartsLandscapeAsRightCoverAndRestoresUnlimitedPortraitControls() {
         val landscape = mutableStateOf(false)
         val state = HomePresentationState().apply {
@@ -384,11 +384,11 @@ class ComposeHomeScreenTest {
     @Test fun portraitCompactSwipesDockToEitherBottomCornerAndRestoreInward() = exerciseRightDock(400, 700)
 
     @Test
-    @Config(qualifiers = "w800dp-h400dp-mdpi")
+    @Config(qualifiers = "zh-rCN-w800dp-h400dp-mdpi")
     fun landscapeHasBoundedCardsAndTheSameTwoBottomCornerGestures() = exerciseRightDock(800, 400)
 
     @Test
-    @Config(qualifiers = "w800dp-h400dp-mdpi")
+    @Config(qualifiers = "zh-rCN-w800dp-h400dp-mdpi")
     fun landscapeVerticalGesturesFollowTheFingerAndSettleWithoutHeightJumps() {
         val actions = RecordingHomeActions()
         val state = HomePresentationState().apply {

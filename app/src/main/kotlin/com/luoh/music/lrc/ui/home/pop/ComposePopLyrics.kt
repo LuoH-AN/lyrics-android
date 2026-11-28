@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -55,6 +56,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.luoh.music.lrc.LyricsOverlayService
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.lyrics.LyricInterlude
 import com.luoh.music.lrc.lyrics.LyricLine
 import com.luoh.music.lrc.lyrics.LyricTiming
@@ -182,6 +184,7 @@ internal fun rememberPopPlayback(state: HomePresentationState, style: PopLyricsS
 internal fun PopLyricsStage(state: HomePresentationState, modifier: Modifier, albumBackground: Boolean,
     appearance: HomeLyricAppearance, style: PopLyricsStyle, frame: PopPlaybackFrame,
     onLyricTap: (() -> Unit)? = null, interactive: Boolean = true) {
+    val context = LocalContext.current
     val cache = remember(state.document) { PopRenderCache() }
     val position = frame.position
     val allowMotion = LocalAgoraMotionPolicy.current.allowSpatialTransitions
@@ -245,7 +248,7 @@ internal fun PopLyricsStage(state: HomePresentationState, modifier: Modifier, al
             if (frame.interlude != null || scenes == null) {
                 Column(Modifier.fillMaxWidth(.65f).align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(if (frame.index < 0) "前奏" else "间奏", color = foreground.copy(alpha = .7f))
+                    Text(if (frame.index < 0) context.getString(R.string.intro) else context.getString(R.string.instrumental), color = foreground.copy(alpha = .7f))
                     frame.interlude?.let { gap ->
                         LinearProgressIndicator(progress = { gap.progress(position.value) },
                             modifier = Modifier.fillMaxWidth().testTag("home_pop_interlude"), color = activeColor)
@@ -257,7 +260,7 @@ internal fun PopLyricsStage(state: HomePresentationState, modifier: Modifier, al
                 val gesture = if (interactive) Modifier.combinedClickable(
                     interactionSource = remember { MutableInteractionSource() }, indication = null,
                     onClick = { if (onLyricTap != null) onLyricTap() else state.seek(start - state.displayOffsetMs) },
-                    onLongClickLabel = "摘句与分享", onLongClick = { state.beginSharing(frame.index) }) else Modifier
+                    onLongClickLabel = context.getString(R.string.select_and_share), onLongClick = { state.beginSharing(frame.index) }) else Modifier
                 Box(Modifier.fillMaxSize().then(gesture)) {
                     if (previousScenes != null) PopSentenceContent(previousScenes, builder, position,
                         appearance, style, allowMotion, foreground, activeColor, composition,

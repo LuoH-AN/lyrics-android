@@ -10,8 +10,10 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.lyrics.LyricLine
 import com.luoh.music.lrc.lyrics.LyricWord
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
@@ -33,24 +35,24 @@ internal fun ScrollingLyricSettings(context: Context, revision: Int, appearance:
         val style = HomeMotionPrefs.style(context)
         HomeMotionPrefs.save(context, style.copy(characterMotion = transform(style.characterMotion)))
     }
-    SettingsGroup(title = "滚动模式", items = buildList<@Composable () -> Unit> {
+    SettingsGroup(title = context.getString(R.string.scrolling_mode), items = buildList<@Composable () -> Unit> {
         add {
-            SettingsSwitchItem("逐字浮动", "适用于逐字歌词", Icons.Default.TextFields, motion.enabled) {
+            SettingsSwitchItem(context.getString(R.string.floating_highlights), context.getString(R.string.applies_to_word_timed_lyrics), Icons.Default.TextFields, motion.enabled) {
                 enabled -> save { it.copy(enabled = enabled) }
             }
         }
         if (motion.enabled) {
             add { ScrollingLyricPreview(motion, appearance) }
             add {
-                SettingsSliderItem("浮动高度", motion.liftDp, ScrollingCharacterMotion.LIFT_RANGE,
+                SettingsSliderItem(context.getString(R.string.float_height), motion.liftDp, ScrollingCharacterMotion.LIFT_RANGE,
                     unit = "dp", icon = Icons.Default.Layers) { value -> save { it.copy(liftDp = value) } }
             }
             add {
-                SettingsSliderItem("柔光强度", motion.glowPercent, ScrollingCharacterMotion.GLOW_RANGE,
+                SettingsSliderItem(context.getString(R.string.glow_intensity), motion.glowPercent, ScrollingCharacterMotion.GLOW_RANGE,
                     step = 5, icon = Icons.Default.BlurOn) { value -> save { it.copy(glowPercent = value) } }
             }
             add {
-                SettingsSliderItem("抬升时长", motion.durationMs, ScrollingCharacterMotion.DURATION_RANGE,
+                SettingsSliderItem(context.getString(R.string.rise_duration), motion.durationMs, ScrollingCharacterMotion.DURATION_RANGE,
                     step = 50, unit = "ms", icon = Icons.Default.Speed) { value -> save { it.copy(durationMs = value) } }
             }
         }
@@ -59,12 +61,13 @@ internal fun ScrollingLyricSettings(context: Context, revision: Int, appearance:
 
 @Composable
 private fun ScrollingLyricPreview(motion: ScrollingCharacterMotion, appearance: HomeLyricAppearance) {
+    val context = LocalContext.current
     val line = remember {
-        LyricLine(0L, "晚风轻轻吹", words = listOf(
-            LyricWord(0L, 380L, "晚"),
-            LyricWord(380L, 460L, "风"),
-            LyricWord(840L, 600L, "轻轻"),
-            LyricWord(1440L, 1650L, "吹"),
+        LyricLine(0L, context.getString(R.string.scrolling_preview_line), words = listOf(
+            LyricWord(0L, 380L, context.getString(R.string.scrolling_preview_word_one)),
+            LyricWord(380L, 460L, context.getString(R.string.scrolling_preview_word_two)),
+            LyricWord(840L, 600L, context.getString(R.string.scrolling_preview_word_three)),
+            LyricWord(1440L, 1650L, context.getString(R.string.scrolling_preview_word_four)),
         ))
     }
     val position = remember { mutableLongStateOf(3090L) }

@@ -8,6 +8,7 @@ import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.nl.translate.TranslateRemoteModel
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.TranslatorOptions
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.data.lyrics.TemporaryCache
 import com.luoh.music.lrc.diagnostics.UsageAnalytics
 import kotlinx.coroutines.CancellationException
@@ -111,7 +112,7 @@ class SupplementTranslation(private val context: Context) {
         val pending = mutableListOf<Line>()
         fun deliver(row: Line, text: String) {
             emit(JSONObject().put("id", row.id).put("text", text)
-                .put("source", if (mode == "api") "AI 译" else "机翻"))
+                .put("source", if (mode == "api") context.getString(R.string.ai_translation) else context.getString(R.string.machine_translation)))
         }
         for ((canonical, sameLines) in groups) {
             val cached = runCatching {
@@ -132,14 +133,18 @@ class SupplementTranslation(private val context: Context) {
         if (mode == "offline") {
             val pendingByLanguage = pending.groupBy { languages[canonicalText(it.text)] }
             if (null in pendingByLanguage) throw TranslationFailure(UsageAnalytics.Failure.LANGUAGE_UNKNOWN,
-                "暂时无法自动识别部分歌词的语言，可尝试 API 翻译")
+                context.getString(R.string.translation_language_unknown))
             val installed = RemoteModelManager.getInstance().getDownloadedModels(TranslateRemoteModel::class.java).await()
                 .map { it.language }.toSet()
             val needed = (pendingByLanguage.keys.filterNotNull() + "zh").filter { it != "en" }.toSet()
-            if (!installed.containsAll(needed)) throw TranslationFailure(UsageAnalytics.Failure.MODEL_MISSING,
-                "请先下载" + needed.filter { it !in installed }.joinToString("、") {
-                    Locale.forLanguageTag(it).getDisplayLanguage(Locale.SIMPLIFIED_CHINESE)
-                } + "语言包")
+            if (!installed.containsAll(needed)) {
+                val locale = context.resources.configuration.locales[0]
+                val languageNames = needed.filter { it !in installed }.joinToString(context.getString(R.string.language_list_separator)) {
+                    Locale.forLanguageTag(it).getDisplayLanguage(locale)
+                }
+                throw TranslationFailure(UsageAnalytics.Failure.MODEL_MISSING,
+                    context.getString(R.string.translation_required_packs, languageNames))
+            }
             for ((language, rows) in pendingByLanguage) {
                 val sourceLanguage = requireNotNull(language)
                 prefs.edit().putString("last_language", sourceLanguage).apply()
@@ -155,7 +160,7 @@ class SupplementTranslation(private val context: Context) {
         } else if (mode == "api") {
             val key = SecretStorage(context, profile.id).read()
             if (!endpoint.startsWith("https://") || model.isBlank() || key.isBlank())
-                throw TranslationFailure(UsageAnalytics.Failure.CONFIGURATION, "请先配置 HTTPS 服务地址、模型和 API Key")
+                throw TranslationFailure(UsageAnalytics.Failure.CONFIGURATION, context.getString(R.string.translation_missing_api_config))
             val policy = apiPolicy(profile, endpoint, model)
             for (batch in pending.chunked(policy.batchSize)) {
                 currentCoroutineContext().ensureActive()
@@ -171,7 +176,7 @@ class SupplementTranslation(private val context: Context) {
                     for (row in missing) retry[row.id]?.let { store(row, it) }
                 }
                 if (!batch.all { cacheFile(cacheKey(canonicalText(it.text))).exists() })
-                    throw TranslationFailure(UsageAnalytics.Failure.INCOMPLETE_RESPONSE, "部分翻译未返回，可稍后重试")
+                    throw TranslationFailure(UsageAnalytics.Failure.INCOMPLETE_RESPONSE, context.getString(R.string.translation_incomplete))
             }
         }
         SupplementOutcome.COMPLETE
@@ -180,7 +185,7 @@ class SupplementTranslation(private val context: Context) {
     fun testApi(endpoint: String, model: String, key: String): String {
         return requestApi(endpoint, model, key, listOf(Line(0, "Hello, world")))[0]
             ?.takeIf { it.isNotBlank() }
-            ?: throw IllegalArgumentException("服务已响应，但没有返回可识别的翻译结果")
+            ?: throw IllegalArgumentException(context.getString(R.string.translation_no_recognizable_result))
     }
 
     private fun apiPolicy(profile: TranslationApiProfile, endpoint: String, model: String): ApiPolicy {
@@ -215,7 +220,7 @@ class SupplementTranslation(private val context: Context) {
                 delay(policy.retryDelaysMs.getOrElse(attempt) { 2000L })
             }
         }
-        error("翻译服务暂时不可用")
+        error(context.getString(R.string.translation_service_unavailable))
     }
 
     private fun requestApi(endpoint: String, model: String, key: String, lines: List<Line>): Map<Int, String> {
@@ -248,14 +253,15 @@ class SupplementTranslation(private val context: Context) {
                 val detail = runCatching { JSONObject(rawError).optJSONObject("error")?.optString("message") }
                     .getOrNull().orEmpty().ifBlank { rawError.take(180) }
                 throw ApiHttpException(responseCode,
-                    "API $responseCode" + if (detail.isBlank()) "：请检查密钥、模型或额度" else "：$detail")
+                    if (detail.isBlank()) context.getString(R.string.translation_api_error_hint, responseCode)
+                    else context.getString(R.string.details_with_code, responseCode, detail))
             }
             val raw = connection.inputStream.bufferedReader().use { it.readText().take(200000) }
             val content = JSONObject(raw).getJSONArray("choices").getJSONObject(0)
                 .getJSONObject("message").getString("content").trim()
             val start = content.indexOf('['); val end = content.lastIndexOf(']')
             if (start < 0 || end <= start) throw TranslationFailure(UsageAnalytics.Failure.RESPONSE_FORMAT,
-                "翻译结果格式无效，请换用支持 JSON 输出的模型")
+                context.getString(R.string.translation_invalid_json))
             val result = JSONArray(content.substring(start, end + 1))
             val valid = lines.map { it.id }.toSet()
             val output = mutableMapOf<Int, String>()

@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
 import com.luoh.music.lrc.ui.agora.LocalSettingsScrollRetentionActive
 import com.luoh.music.lrc.ui.agora.SettingsGroup
@@ -45,26 +46,26 @@ internal fun HomeMotionSettings(context: Context, revision: Int) {
     val appPrefs = remember(context) { context.getSharedPreferences(ThemePrefs.PREFS, Context.MODE_PRIVATE) }
     val reduceMotion = remember(revision) { appPrefs.getBoolean("reduce_motion", false) }
     fun save(transform: (MotionStyle) -> MotionStyle) { HomeMotionPrefs.save(context, transform(HomeMotionPrefs.style(context))) }
-    SettingsGroup(title = "页面动画", items = listOf({
-        SettingsSwitchItem("减少动效", "减少页面与面板动画", Icons.Default.MotionPhotosOff, reduceMotion) {
+    SettingsGroup(title = context.getString(R.string.page_animations), items = listOf({
+        SettingsSwitchItem(context.getString(R.string.reduce_motion), context.getString(R.string.reduce_motion_description), Icons.Default.MotionPhotosOff, reduceMotion) {
             appPrefs.edit().putBoolean("reduce_motion", it).apply()
         }
     }))
-    SettingsGroup(title = "预览", items = listOf({ ComposeMotionPreview(style) }))
-    SettingsGroup(title = "滚动与错位", items = listOf(
-        { SettingsSwitchItem("缓动滚动", "平滑切换歌词行", Icons.Default.Speed, style.easedScroll) { value -> save { it.copy(easedScroll = value) } } },
-        { SettingsSliderItem("切行时长", style.scrollDurationMs, MotionStyle.DURATION_MIN..MotionStyle.DURATION_MAX, MotionStyle.DURATION_STEP,
+    SettingsGroup(title = context.getString(R.string.preview), items = listOf({ ComposeMotionPreview(style) }))
+    SettingsGroup(title = context.getString(R.string.scrolling_and_stagger), items = listOf(
+        { SettingsSwitchItem(context.getString(R.string.smooth_scrolling), context.getString(R.string.animate_transitions_between_lyric_lines), Icons.Default.Speed, style.easedScroll) { value -> save { it.copy(easedScroll = value) } } },
+        { SettingsSliderItem(context.getString(R.string.scroll_duration), style.scrollDurationMs, MotionStyle.DURATION_MIN..MotionStyle.DURATION_MAX, MotionStyle.DURATION_STEP,
             "ms", Icons.Default.Speed, style.easedScroll) { value -> save { it.copy(scrollDurationMs = value) } } },
-        { SettingsSwitchItem("逐行错位", "相邻行依次跟随", Icons.Default.Layers, style.stagger) { value -> save { it.copy(stagger = value) } } },
-        { SettingsSliderItem("错位延迟", style.staggerDelayMs, MotionStyle.STAGGER_MIN..MotionStyle.STAGGER_MAX, MotionStyle.STAGGER_STEP,
+        { SettingsSwitchItem(context.getString(R.string.stagger_lines), context.getString(R.string.move_neighboring_lines_in_sequence), Icons.Default.Layers, style.stagger) { value -> save { it.copy(stagger = value) } } },
+        { SettingsSliderItem(context.getString(R.string.stagger_delay), style.staggerDelayMs, MotionStyle.STAGGER_MIN..MotionStyle.STAGGER_MAX, MotionStyle.STAGGER_STEP,
             "ms", Icons.Default.Layers, style.stagger) { value -> save { it.copy(staggerDelayMs = value) } } },
     ))
-    SettingsGroup(title = "缩放与模糊", items = listOf(
-        { SettingsSwitchItem("行间缩放", "缩小非当前行", Icons.Default.FormatSize, style.scale) { value -> save { it.copy(scale = value) } } },
-        { SettingsSliderItem("缩放强度", style.scalePercent, MotionStyle.PERCENT_MIN..MotionStyle.PERCENT_MAX, MotionStyle.PERCENT_STEP,
+    SettingsGroup(title = context.getString(R.string.scaling_and_blur), items = listOf(
+        { SettingsSwitchItem(context.getString(R.string.scale_inactive_lines), context.getString(R.string.shrink_lines_around_the_current_line), Icons.Default.FormatSize, style.scale) { value -> save { it.copy(scale = value) } } },
+        { SettingsSliderItem(context.getString(R.string.scale_amount), style.scalePercent, MotionStyle.PERCENT_MIN..MotionStyle.PERCENT_MAX, MotionStyle.PERCENT_STEP,
             "%", Icons.Default.FormatSize, style.scale) { value -> save { it.copy(scalePercent = value) } } },
-        { SettingsSwitchItem("非当前行模糊", "距离越远越模糊", Icons.Default.BlurOn, style.depthBlur) { value -> save { it.copy(depthBlur = value) } } },
-        { SettingsSliderItem("模糊强度", style.blurPercent, MotionStyle.PERCENT_MIN..MotionStyle.PERCENT_MAX, MotionStyle.PERCENT_STEP,
+        { SettingsSwitchItem(context.getString(R.string.blur_inactive_lines), context.getString(R.string.increase_blur_on_lines_farther_away), Icons.Default.BlurOn, style.depthBlur) { value -> save { it.copy(depthBlur = value) } } },
+        { SettingsSliderItem(context.getString(R.string.blur_amount), style.blurPercent, MotionStyle.PERCENT_MIN..MotionStyle.PERCENT_MAX, MotionStyle.PERCENT_STEP,
             "%", Icons.Default.BlurOn, style.depthBlur) { value -> save { it.copy(blurPercent = value) } } },
     ))
 }

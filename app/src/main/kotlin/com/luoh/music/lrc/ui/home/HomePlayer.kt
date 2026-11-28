@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -71,6 +72,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
 import com.luoh.music.lrc.ui.agora.SettingsItem
 import com.luoh.music.lrc.ui.icons.filled.Lyrics
@@ -92,6 +94,7 @@ internal fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (
     onDockChange: (Boolean) -> Unit, onDockDrag: (Float?) -> Unit, tall: Boolean = false,
     modifier: Modifier = Modifier, albumBackground: Boolean = false,
     onEnterImmersive: () -> Unit = {}, onBusyChange: (Boolean) -> Unit = {}) {
+    val context = LocalContext.current
     val snapshot = state.snapshot
     var showMore by rememberSaveable { mutableStateOf(false) }
     var correctionSong by remember { mutableStateOf<Pair<String, String>?>(null) }
@@ -169,20 +172,20 @@ internal fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (
                 Modifier.width(56.dp + (fullWidth - 56.dp) * reveal)
                     .testTag("home_player").semantics {
                     stateDescription = when (mode) {
-                        HOME_PLAYER_COVER -> "仅封面"
-                        HOME_PLAYER_COMPACT -> "已收起"
-                        else -> "已展开"
+                        HOME_PLAYER_COVER -> context.getString(R.string.album_art_only)
+                        HOME_PLAYER_COMPACT -> context.getString(R.string.collapsed)
+                        else -> context.getString(R.string.expanded)
                     }
                     customActions = buildList {
-                        add(CustomAccessibilityAction(if (expanded) "收起播放控制栏" else "展开播放控制栏") {
+                        add(CustomAccessibilityAction(if (expanded) context.getString(R.string.collapse_playback_controls) else context.getString(R.string.expand_playback_controls)) {
                             setExpanded(!expanded)
                             true
                         })
                         if (mode != HOME_PLAYER_EXPANDED) {
-                            add(CustomAccessibilityAction("封面移到左下角") {
+                            add(CustomAccessibilityAction(context.getString(R.string.move_album_art_to_bottom_left)) {
                                 onDockChange(false); onModeChange(HOME_PLAYER_COVER); true
                             })
-                            add(CustomAccessibilityAction("封面移到右下角") {
+                            add(CustomAccessibilityAction(context.getString(R.string.move_album_art_to_bottom_right)) {
                                 onDockChange(true); onModeChange(HOME_PLAYER_COVER); true
                             })
                         }
@@ -269,20 +272,20 @@ internal fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (
                                 }, verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Column(Modifier.weight(1f).clickable(
-                                onClickLabel = if (expanded) "收起播放控制栏" else "展开播放控制栏",
+                                onClickLabel = if (expanded) context.getString(R.string.collapse_playback_controls) else context.getString(R.string.expand_playback_controls),
                             ) { setExpanded(!expanded) }.semantics {
-                                contentDescription = if (expanded) "收起播放控制栏" else "展开播放控制栏"
+                                contentDescription = if (expanded) context.getString(R.string.collapse_playback_controls) else context.getString(R.string.expand_playback_controls)
                             }.padding(start = 12.dp)) {
-                                Text(snapshot.track.ifBlank { "暂未播放" }, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                val artist = if (state.custom) listOf(snapshot.artist, "自定义歌词").filter(String::isNotBlank).joinToString(" · ") else snapshot.artist
+                                Text(snapshot.track.ifBlank { context.getString(R.string.nothing_playing) }, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                val artist = if (state.custom) listOf(snapshot.artist, context.getString(R.string.custom_lyrics)).filter(String::isNotBlank).joinToString(" · ") else snapshot.artist
                                 if (artist.isNotBlank()) Text(artist, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                             IconButton(onClick = { state.actions?.toggleOverlay() }) {
-                                Icon(Icons.Default.Lyrics, if (state.isOverlayRunning) "关闭桌面歌词" else "开启桌面歌词",
+                                Icon(Icons.Default.Lyrics, if (state.isOverlayRunning) context.getString(R.string.close_lyrics_overlay) else context.getString(R.string.open_lyrics_overlay),
                                     tint = if (state.isOverlayRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            IconButton(onClick = { showMore = true }) { Icon(Icons.Default.MoreVert, "更多") }
+                            IconButton(onClick = { showMore = true }) { Icon(Icons.Default.MoreVert, context.getString(R.string.more)) }
                         }
                     }
                     if (expanded || dragging || fraction > 0f) Column(
@@ -299,14 +302,14 @@ internal fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (
                         if (state.translationMessage.isNotBlank()) {
                             SettingsItem(
                                 headlineContent = { Text(state.translationMessage, style = MaterialTheme.typography.bodySmall) },
-                                trailingContent = { Text("查看设置", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) },
+                                trailingContent = { Text(context.getString(R.string.view_settings), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) },
                                 modifier = Modifier.clickable { state.onTranslationSettings?.invoke() },
                             )
                         }
                         HomeProgress(state)
                         Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                             IconButton(onClick = { state.actions?.skipPrev() }, enabled = snapshot.track.isNotBlank() && snapshot.canPrevious) {
-                                Icon(Icons.Default.SkipPrevious, "上一首")
+                                Icon(Icons.Default.SkipPrevious, context.getString(R.string.previous_track))
                             }
                             FilledIconButton(onClick = { state.actions?.togglePlay() }, enabled = snapshot.track.isNotBlank(),
                                 colors = if (albumBackground) IconButtonDefaults.filledIconButtonColors(
@@ -315,10 +318,10 @@ internal fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (
                                     disabledContentColor = Color.White.copy(alpha = .30f),
                                 ) else IconButtonDefaults.filledIconButtonColors(),
                                 modifier = Modifier.padding(horizontal = 20.dp).width(88.dp).height(56.dp), shape = CircleShape) {
-                                Icon(if (state.playing) Icons.Default.Pause else Icons.Default.PlayArrow, if (state.playing) "暂停" else "播放", modifier = Modifier.size(30.dp))
+                                Icon(if (state.playing) Icons.Default.Pause else Icons.Default.PlayArrow, if (state.playing) context.getString(R.string.pause) else context.getString(R.string.play), modifier = Modifier.size(30.dp))
                             }
                             IconButton(onClick = { state.actions?.skipNext() }, enabled = snapshot.track.isNotBlank() && snapshot.canNext) {
-                                Icon(Icons.Default.SkipNext, "下一首")
+                                Icon(Icons.Default.SkipNext, context.getString(R.string.next_track))
                             }
                         }
                     }
@@ -339,6 +342,7 @@ internal fun HomePlayer(state: HomePresentationState, mode: Int, onModeChange: (
 
 @Composable
 private fun HomePlayerArtwork(state: HomePresentationState, ringAlpha: Float, interactive: Boolean, onExpand: () -> Unit) {
+    val context = LocalContext.current
     val snapshot = state.snapshot
     val position = remember { mutableLongStateOf(state.clock.positionMs()) }
     val ringVisible = ringAlpha > 0f
@@ -355,7 +359,7 @@ private fun HomePlayerArtwork(state: HomePresentationState, ringAlpha: Float, in
         if (ringAlpha > 0f) Canvas(Modifier.fillMaxSize().testTag("home_cover_progress")
             .graphicsLayer { alpha = ringAlpha }
             .semantics {
-                contentDescription = "封面播放进度"
+                contentDescription = context.getString(R.string.album_art_playback_progress)
                 progressBarRangeInfo = ProgressBarRangeInfo(
                     if (snapshot.durationMs > 0) (position.longValue.toFloat() / snapshot.durationMs).coerceIn(0f, 1f) else 0f,
                     0f..1f,
@@ -372,12 +376,12 @@ private fun HomePlayerArtwork(state: HomePresentationState, ringAlpha: Float, in
         }
         val artwork = Modifier.size(46.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainer)
         Box(if (interactive) artwork.combinedClickable(enabled = snapshot.track.isNotBlank(), role = Role.Button,
-                onClickLabel = if (state.playing) "暂停播放" else "开始播放",
-                onClick = { state.actions?.togglePlay() }, onLongClickLabel = "展开播放控制栏", onLongClick = onExpand)
+                onClickLabel = if (state.playing) context.getString(R.string.pause_playback) else context.getString(R.string.start_playback),
+                onClick = { state.actions?.togglePlay() }, onLongClickLabel = context.getString(R.string.expand_playback_controls), onLongClick = onExpand)
             .semantics {
-                contentDescription = if (state.playing) "暂停播放" else "开始播放"
-                stateDescription = if (state.playing) "正在播放" else "已暂停"
-            } else artwork.semantics { contentDescription = "专辑封面" }, contentAlignment = Alignment.Center) {
+                contentDescription = if (state.playing) context.getString(R.string.pause_playback) else context.getString(R.string.start_playback)
+                stateDescription = if (state.playing) context.getString(R.string.now_playing) else context.getString(R.string.paused)
+            } else artwork.semantics { contentDescription = context.getString(R.string.album_art) }, contentAlignment = Alignment.Center) {
             val cover = snapshot.cover
             if (cover != null && !cover.isRecycled) {
                 Image(remember(cover) { cover.asImageBitmap() }, null,
@@ -394,6 +398,7 @@ private fun HomePlayerArtwork(state: HomePresentationState, ringAlpha: Float, in
 
 @Composable
 private fun HomeProgress(state: HomePresentationState) {
+    val context = LocalContext.current
     val duration = state.snapshot.durationMs.coerceAtLeast(0L)
     var position by remember { mutableLongStateOf(state.clock.positionMs()) }
     var draft by remember { mutableFloatStateOf(0f) }
@@ -417,7 +422,7 @@ private fun HomeProgress(state: HomePresentationState) {
         onValueChangeFinished = { dragging = false; state.seek(draft.toLong()); position = state.clock.positionMs() },
         valueRange = 0f..duration.coerceAtLeast(1L).toFloat(),
         enabled = state.snapshot.track.isNotBlank() && duration > 0L,
-        modifier = Modifier.fillMaxWidth().semantics { contentDescription = "播放进度 ${homeFormatTime(displayed)} / ${homeFormatTime(duration)}" },
+        modifier = Modifier.fillMaxWidth().semantics { contentDescription = context.getString(R.string.playback_position, homeFormatTime(displayed), homeFormatTime(duration)) },
     )
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(homeFormatTime(displayed), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

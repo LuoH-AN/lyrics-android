@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -33,6 +34,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.luoh.music.lrc.LyricsOverlayService
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.lyrics.LyricDocument
 import com.luoh.music.lrc.lyrics.LyricLine
 import com.luoh.music.lrc.lyrics.LyricWord
@@ -46,6 +48,7 @@ import kotlinx.coroutines.delay
 @Composable
 internal fun PopLyricPreview(style: PopLyricsStyle, appearance: HomeLyricAppearance, compact: Boolean = false,
     onPin: (() -> Unit)? = null) {
+    val context = LocalContext.current
     val state = remember {
         fun line(start: Long, text: String, step: Long, lastHold: Long): LyricLine {
             val words = text.mapIndexed { index, char ->
@@ -53,11 +56,11 @@ internal fun PopLyricPreview(style: PopLyricsStyle, appearance: HomeLyricAppeara
             }
             return LyricLine(start, text, endMs = words.last().let { it.startMs + it.durationMs }, words = words)
         }
-        val first = line(0, "让音乐陪着你穿过城市的灯火到天亮", 230, 1800)
-        val quick = line(requireNotNull(first.endMs), "跟着节奏向前奔跑不要停下脚步", 120, 120)
-        val last = line(requireNotNull(quick.endMs), "把这一刻留下", 320, 1600)
+        val first = line(0, context.getString(R.string.pop_preview_first_line), 230, 1800)
+        val quick = line(requireNotNull(first.endMs), context.getString(R.string.pop_preview_second_line), 120, 120)
+        val last = line(requireNotNull(quick.endMs), context.getString(R.string.pop_preview_last_line), 320, 1600)
         HomePresentationState().apply {
-            setSnapshot(HomePresentationState.Snapshot(track = "歌词预览", durationMs = requireNotNull(last.endMs) + 400))
+            setSnapshot(HomePresentationState.Snapshot(track = context.getString(R.string.lyrics_preview), durationMs = requireNotNull(last.endMs) + 400))
             setLyrics(LyricDocument(listOf(first, quick, last), true))
             setTranslationMode(LyricsOverlayService.TRANSLATION_ORIGINAL)
         }
@@ -95,11 +98,11 @@ internal fun PopLyricPreview(style: PopLyricsStyle, appearance: HomeLyricAppeara
                 false, appearance, style, frame, interactive = false)
         }
         Row(Modifier.fillMaxWidth()) {
-            TextButton(onClick = { play = !play }) { Text(if (play) "暂停" else "继续") }
-            TextButton(onClick = { state.seek(0) }) { Text("重播") }
+            TextButton(onClick = { play = !play }) { Text(if (play) context.getString(R.string.pause) else context.getString(R.string.resume)) }
+            TextButton(onClick = { state.seek(0) }) { Text(context.getString(R.string.replay)) }
             if (onPin != null) {
                 Spacer(Modifier.weight(1f))
-                FilledTonalButton(onClick = onPin) { Text("固定") }
+                FilledTonalButton(onClick = onPin) { Text(context.getString(R.string.pin_preview)) }
             }
         }
     }

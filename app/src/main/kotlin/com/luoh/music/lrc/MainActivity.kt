@@ -107,9 +107,18 @@ class MainActivity : ComponentActivity() {
             }
             HomeTranslationController.Result(translated, outcome)
         }, { document -> home.setLyrics(document, currentLyricsCustom) }, { status ->
-            home.setTranslationStatus(status)
+            val message = when {
+                status == null -> ""
+                status.detail == null -> getString(status.message)
+                else -> getString(status.message, status.detail.ifBlank {
+                    getString(R.string.check_translation_config_or_network)
+                })
+            }
+            home.setTranslationStatus(message)
             translationPrefs().edit()
-                .putString("last_status", status).putString("last_track", currentTrack).apply()
+                .putString("last_status", message)
+                .putString("last_status_locale", resources.configuration.locales[0].toLanguageTag())
+                .putString("last_track", currentTrack).apply()
         })
     }
 
@@ -200,7 +209,7 @@ class MainActivity : ComponentActivity() {
         }
         if (!UsageAnalytics.preferences.value.noticeSeen) {
             if (UsageAnalytics.preferences.value.enabled) {
-                Toast.makeText(this, "使用统计已开启，用于改进使用体验", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.analytics_enabled_toast), Toast.LENGTH_SHORT).show()
             }
             UsageAnalytics.markNoticeSeen()
         }
@@ -275,8 +284,8 @@ class MainActivity : ComponentActivity() {
         UsageAnalytics.permissions(listenerOk, overlayOk)
         home.gateVisible = !listenerOk
         home.gateStatus = if (!overlayOk) {
-            "通知使用权用于获取歌曲信息，不读取通知正文。\n开启桌面歌词还需悬浮窗权限。"
-        } else "通知使用权用于获取歌曲信息，不读取通知正文。"
+            getString(R.string.permission_usage_with_overlay)
+        } else getString(R.string.permission_usage)
     }
 
     private fun tryStartOverlay() {
@@ -648,7 +657,7 @@ class MainActivity : ComponentActivity() {
                 fetchLyrics(currentTrack, currentArtist, currentAlbum, currentDurationMs, forceNetwork = !hasCustom, refreshOverlay = true)
             }
             LyricsOverlayService.instance?.refreshSongSearch()
-            Toast.makeText(this@MainActivity, if (title == null) "已恢复原名" else "已保存", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@MainActivity, if (title == null) getString(R.string.original_title_restored) else getString(R.string.saved), Toast.LENGTH_SHORT).show()
         }
 
         override fun manageCustomLyrics() {
@@ -662,12 +671,12 @@ class MainActivity : ComponentActivity() {
         override fun exportLrc() {
             val lrc = currentLrcText
             if (currentTrack.isBlank() || lrc.isBlank()) {
-                Toast.makeText(this@MainActivity, "暂无可导出的歌词", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, getString(R.string.no_lyrics_to_export), Toast.LENGTH_SHORT).show()
                 return
             }
             pendingLrcExport = LyricExporter.buildLrc(currentTrack, currentArtist, lrc, currentLrcTranslated)
             UsageAnalytics.feature(UsageAnalytics.Feature.EXPORT_LRC)
-            exportLrcLauncher.launch(LyricExporter.fileName(currentTrack, currentArtist))
+            exportLrcLauncher.launch(LyricExporter.fileName(currentTrack, currentArtist, getString(R.string.lyrics_export_filename)))
         }
     }
 
@@ -678,7 +687,7 @@ class MainActivity : ComponentActivity() {
             }.getOrDefault(false)
             UsageAnalytics.exportResult(saved)
             withContext(Dispatchers.Main) {
-                Toast.makeText(this@MainActivity, if (saved) "LRC 歌词已保存" else "保存失败，请重试", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, if (saved) getString(R.string.lrc_lyrics_saved) else getString(R.string.save_failed), Toast.LENGTH_SHORT).show()
             }
         }
     }

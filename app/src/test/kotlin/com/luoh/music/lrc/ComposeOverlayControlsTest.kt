@@ -38,7 +38,7 @@ import org.robolectric.shadows.ShadowSettings
 import org.robolectric.util.ReflectionHelpers
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], application = Application::class, qualifiers = "w400dp-h800dp-mdpi")
+@Config(sdk = [35], application = Application::class, qualifiers = "zh-rCN-w400dp-h800dp-mdpi")
 class ComposeOverlayControlsTest {
     @get:Rule val compose = createComposeRule()
     private val application get() = ApplicationProvider.getApplicationContext<Application>()

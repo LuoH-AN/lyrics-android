@@ -66,8 +66,9 @@ internal class OverlayNotification(private val service: Service) {
         val controls = RemoteViews(service.packageName, R.layout.notification_lyrics).apply {
             setImageViewResource(R.id.notification_lyrics_lock,
                 if (positionLocked) R.drawable.ic_overlay_locked else R.drawable.ic_overlay_unlocked)
-            setContentDescription(R.id.notification_lyrics_lock, if (positionLocked) "解锁" else "锁定")
+            setContentDescription(R.id.notification_lyrics_lock, if (positionLocked) service.getString(R.string.unlock) else service.getString(R.string.lock))
             setOnClickPendingIntent(R.id.notification_lyrics_lock, movementPendingIntent)
+            setContentDescription(R.id.notification_lyrics_close, service.getString(R.string.close_lyrics_overlay))
             setOnClickPendingIntent(R.id.notification_lyrics_close, stopPendingIntent)
         }
 
@@ -93,7 +94,7 @@ internal class OverlayNotification(private val service: Service) {
                 service.getString(R.string.overlay_notification_title),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "锁定、解锁或关闭歌词"
+                description = service.getString(R.string.overlay_notification_description)
                 setShowBadge(false)
             }
         )

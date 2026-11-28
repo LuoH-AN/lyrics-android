@@ -60,6 +60,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.ui.agora.LocalAgoraMotionPolicy
 import com.luoh.music.lrc.ui.home.pop.PopLyricsPrefs
 import com.luoh.music.lrc.ui.home.pop.popStageCamera
@@ -189,7 +190,7 @@ internal fun ComposeHomeScreen(
                 }
                 if (immersive && controlsVisible) TextButton(onClick = { immersive = false },
                     modifier = Modifier.align(Alignment.TopEnd).padding(12.dp)) {
-                    Text("退出沉浸", color = if (darkAlbumBackground) Color.White else MaterialTheme.colorScheme.primary)
+                    Text(context.getString(R.string.exit_immersive_mode), color = if (darkAlbumBackground) Color.White else MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -219,17 +220,18 @@ private fun HomePermissionGate(
     onStartOverlay: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    val context = LocalContext.current
     Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
         Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Icon(Icons.Default.Lyrics, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
-                Text("桌面歌词", style = MaterialTheme.typography.headlineMedium)
-                Text(status.ifBlank { "通知使用权用于获取歌曲信息；开启桌面歌词还需悬浮窗权限。" },
+                Text(context.getString(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
+                Text(status.ifBlank { context.getString(R.string.permission_gate_message) },
                     style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedButton(onClick = onListenerPermission, modifier = Modifier.fillMaxWidth()) { Text("通知使用权") }
-                OutlinedButton(onClick = onOverlayPermission, modifier = Modifier.fillMaxWidth()) { Text("悬浮窗权限") }
-                Button(onClick = onStartOverlay, modifier = Modifier.fillMaxWidth()) { Text("开启桌面歌词") }
-                TextButton(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth()) { Text("设置") }
+                OutlinedButton(onClick = onListenerPermission, modifier = Modifier.fillMaxWidth()) { Text(context.getString(R.string.notification_access)) }
+                OutlinedButton(onClick = onOverlayPermission, modifier = Modifier.fillMaxWidth()) { Text(context.getString(R.string.display_over_other_apps)) }
+                Button(onClick = onStartOverlay, modifier = Modifier.fillMaxWidth()) { Text(context.getString(R.string.open_lyrics_overlay)) }
+                TextButton(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth()) { Text(context.getString(R.string.settings)) }
             }
         }
     }

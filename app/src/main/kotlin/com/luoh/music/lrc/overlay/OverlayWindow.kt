@@ -19,6 +19,7 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import androidx.annotation.StringRes
 import com.google.android.material.button.MaterialButton
 import com.luoh.music.lrc.LyricsOverlayService.Companion.BACKGROUND_DEFAULT
 import com.luoh.music.lrc.LyricsOverlayService.Companion.BACKGROUND_HIGH
@@ -146,16 +147,26 @@ internal class OverlayWindow(
         resizeCompactWindow()
     }
 
+    private var emptyStatus = R.string.nothing_playing
+
     fun setDocument(result: OverlayNativeDocument) {
         val lyrics = nativeLyrics ?: return
-        lyrics.setDocument(result.document, result.message, result.durationMs)
+        emptyStatus = if (result.message == "loading") R.string.finding_lyrics else R.string.no_lyrics_found
+        lyrics.setDocument(result.document, context.getString(emptyStatus), result.durationMs)
         if (result.document.lines.isNotEmpty()) {
             UsageAnalytics.lyricsDisplayed(UsageAnalytics.Surface.OVERLAY)
         }
     }
 
-    fun clearLyrics(message: String) {
-        nativeLyrics?.clear(message)
+    fun clearLyrics(@StringRes status: Int) {
+        emptyStatus = status
+        nativeLyrics?.clear(context.getString(status))
+    }
+
+    fun refreshLocalizedText() {
+        closeButton?.contentDescription = context.getString(R.string.close_lyrics_overlay)
+        lockButton?.contentDescription = context.getString(if (positionLocked) R.string.unlock else R.string.lock)
+        nativeLyrics?.refreshEmptyMessage(context.getString(emptyStatus))
     }
 
     fun setPlayback(identity: String, positionMs: Long, durationMs: Long, playing: Boolean, speed: Float) {
@@ -291,8 +302,8 @@ internal class OverlayWindow(
         val dragArea = View(uiContext)
         dragTouchArea = dragArea
 
-        closeButton = chromeButton(R.drawable.ic_overlay_close, "关闭桌面歌词", onClose)
-        lockButton = chromeButton(R.drawable.ic_overlay_unlocked, "锁定", onLock)
+        closeButton = chromeButton(R.drawable.ic_overlay_close, context.getString(R.string.close_lyrics_overlay), onClose)
+        lockButton = chromeButton(R.drawable.ic_overlay_unlocked, context.getString(R.string.lock), onLock)
         updateLockControl()
 
         attachDragHandler(dragArea)
@@ -557,7 +568,7 @@ internal class OverlayWindow(
 
     private fun updateLockControl() {
         lockButton?.let { button ->
-            button.contentDescription = if (positionLocked) "解锁" else "锁定"
+            button.contentDescription = if (positionLocked) context.getString(R.string.unlock) else context.getString(R.string.lock)
             button.isChecked = positionLocked
             button.isSelected = positionLocked
             setChromeIcon(button, if (positionLocked) R.drawable.ic_overlay_locked else R.drawable.ic_overlay_unlocked)

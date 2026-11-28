@@ -189,13 +189,15 @@ internal class OverlayLyricsEngine(
                     data.optInt("requestId", -1) != nativeDocumentRequestId) return@post
                 val status = data.optString("status")
                 val message = when (status) {
-                    "working" -> "正在补充译文"
+                    "working" -> context.getString(R.string.translating_lyrics)
                     "done", "skipped", "off" -> ""
-                    "error" -> data.optString("message").take(180).ifBlank { "补充翻译失败，请检查配置" }
+                    "error" -> data.optString("message").take(180).ifBlank { context.getString(R.string.translation_failed_check_settings) }
                     else -> return@post
                 }
                 context.translationPrefs().edit()
-                    .putString("last_status", message).putString("last_track", nativeTrack).apply()
+                    .putString("last_status", message)
+                    .putString("last_status_locale", context.resources.configuration.locales[0].toLanguageTag())
+                    .putString("last_track", nativeTrack).apply()
                 if (status == "error") Toast.makeText(
                     context, message, Toast.LENGTH_LONG
                 ).show()
@@ -288,10 +290,10 @@ internal class OverlayLyricsEngine(
                     val search = SongSearchCorrections.resolve(context, track, artist)
                     val result = lyricsRepository.rematch(source, search.title, search.artist, album,
                         durationMs.takeIf { it.isFinite() && it > 0 }?.toLong() ?: 0L, excluded)
-                    result?.toJson() ?: JSONObject().put("error", "没有找到更合适的版本，已保留当前歌词")
+                    result?.toJson() ?: JSONObject().put("error", context.getString(R.string.rematch_no_better_version))
                 } catch (error: Exception) {
                     val cooling = error.message.orEmpty().contains("cool", ignoreCase = true)
-                    JSONObject().put("error", if (cooling) "此歌词源暂时限流或不可用，请稍后重试" else "重新匹配失败，已保留当前歌词")
+                    JSONObject().put("error", if (cooling) context.getString(R.string.rematch_source_unavailable) else context.getString(R.string.rematch_failed))
                 }
                 mainHandler.post {
                     if (requestId == latestLyricsRequestId && webReady) webView?.evaluateJavascript(
@@ -412,13 +414,13 @@ internal class OverlayLyricsEngine(
             nativeTrack = ""
             nativeArtist = ""
             window.setKeepScreenOn(false)
-            window.clearLyrics(if (snapshot.optBoolean("permissionRequired")) "请授予通知使用权" else "暂未播放")
+            window.clearLyrics(if (snapshot.optBoolean("permissionRequired")) R.string.grant_notification_access else R.string.nothing_playing)
             return
         }
         if (track != nativeTrack || artist != nativeArtist) {
             nativeTrack = track
             nativeArtist = artist
-            window.clearLyrics("正在获取歌词")
+            window.clearLyrics(R.string.finding_lyrics)
         }
         val playing = snapshot.optString("state") == "playing"
         window.setPlayback(

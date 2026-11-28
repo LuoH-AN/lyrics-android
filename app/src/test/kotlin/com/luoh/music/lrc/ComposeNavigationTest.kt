@@ -33,7 +33,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], application = Application::class, qualifiers = "w400dp-h800dp-mdpi")
+@Config(sdk = [35], application = Application::class, qualifiers = "zh-rCN-w400dp-h800dp-mdpi")
 class ComposeNavigationTest {
     @get:Rule val compose = createComposeRule()
 
@@ -55,6 +55,16 @@ class ComposeNavigationTest {
         }
     }
 
+    @Test @Config(qualifiers = "en-rUS-w400dp-h800dp-mdpi")
+    fun englishSettingsNavigateWithLocalizedLabels() {
+        val navigator = ComposeNavigator(initial = ComposeRoute("settings"))
+        show(navigator)
+        compose.onNodeWithText("App appearance").performScrollTo().performTouchInput { click() }
+        compose.runOnIdle { assertEquals(ComposeRoute("category", category = "appearance"), navigator.route) }
+        compose.onNodeWithText("Theme and colors").assertExists()
+        compose.onNodeWithContentDescription("Back").assertExists()
+    }
+
     @Test fun phoneCategoryNavigationShowsAndPersistsTheActualAppearanceControls() {
         val navigator = ComposeNavigator(initial = ComposeRoute("settings"))
         show(navigator)
@@ -72,7 +82,7 @@ class ComposeNavigationTest {
         compose.onNodeWithText("应用外观").assertExists()
     }
 
-    @Test @Config(qualifiers = "w1200dp-h800dp-mdpi")
+    @Test @Config(qualifiers = "zh-rCN-w1200dp-h800dp-mdpi")
     fun wideCategorySelectionChildBackAndOuterDismissShareOneNavigationSession() {
         val navigator = ComposeNavigator(initial = ComposeRoute("settings"))
         show(navigator, width = 1200)

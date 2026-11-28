@@ -14,7 +14,7 @@ object UpdateChecker {
         "https://api.github.com/repos/LuoH-AN/lyrics-android/releases/latest"
 
     /** GitHub 返回 404 表示仓库还没有发布任何 Release。 */
-    class NoReleaseException : Exception("尚未发布任何版本")
+    class NoReleaseException : Exception()
 
     data class Release(
         val tag: String,
@@ -87,6 +87,6 @@ object UpdateChecker {
             .joinToString(" · ")
             .replace(Regex("[`*_\\[\\]]"), "")
             .take(180)
-        return text.ifBlank { "新版本已经发布，可前往 GitHub 查看更新内容。" }
+        return text
     }
 }

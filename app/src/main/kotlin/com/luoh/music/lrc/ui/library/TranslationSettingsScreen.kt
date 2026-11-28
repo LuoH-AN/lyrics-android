@@ -34,6 +34,7 @@ import com.google.mlkit.common.model.RemoteModelManager
 import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.nl.translate.TranslateRemoteModel
 import com.luoh.music.lrc.LyricsOverlayService
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.data.translation.SecretStorage
 import com.luoh.music.lrc.data.translation.SupplementTranslation
 import com.luoh.music.lrc.data.translation.TranslationApiProfile
@@ -55,22 +56,23 @@ import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.util.Locale
 
-private val translationModes = listOf("off" to "关闭", "offline" to "离线翻译", "api" to "自定义 API")
+private val translationModes = listOf("off" to R.string.off, "offline" to R.string.offline_translation, "api" to R.string.custom_api)
 
 @Composable
 private fun TranslationModeDialog(mode: String, dismiss: () -> Unit, select: (String) -> Unit) {
-    AlertDialog(onDismissRequest = dismiss, title = { Text("选择补充翻译方式") }, text = {
+    val context = LocalContext.current
+    AlertDialog(onDismissRequest = dismiss, title = { Text(context.getString(R.string.choose_translation_method)) }, text = {
         Column {
             translationModes.forEach { (value, label) ->
                 SettingsItem(
                     modifier = Modifier.testTag("translation-mode-$value")
                         .selectable(selected = mode == value, role = Role.RadioButton, onClick = { select(value) }),
-                    headlineContent = { Text(label) },
+                    headlineContent = { Text(context.getString(label)) },
                     leadingContent = { RadioButton(selected = mode == value, onClick = null) },
                 )
             }
         }
-    }, confirmButton = {}, dismissButton = { TextButton(onClick = dismiss) { Text("取消") } })
+    }, confirmButton = {}, dismissButton = { TextButton(onClick = dismiss) { Text(context.getString(R.string.cancel)) } })
 }
 
 /** One-time migration keeps older API credentials usable without retaining their old UI. */
@@ -81,7 +83,7 @@ private fun ensureTranslationProfile(context: Context): String {
         val model = prefs.getString("model", "").orEmpty()
         val secret = SecretStorage(context, "custom").read()
         val id = if (address.isNotBlank() || model.isNotBlank() || secret.isNotBlank()) {
-            val profile = TranslationApiProfiles.add(context, "原自定义服务")
+            val profile = TranslationApiProfiles.add(context, context.getString(R.string.previous_custom_service))
             prefs.edit().putString(TranslationApiProfiles.endpointKey(profile.id), address)
                 .putString(TranslationApiProfiles.modelKey(profile.id), model).apply()
             if (secret.isNotBlank()) SecretStorage(context, profile.id).save(secret)
@@ -94,9 +96,9 @@ private fun ensureTranslationProfile(context: Context): String {
 
 @Composable
 internal fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack: () -> Unit) {
-    val context = LocalContext.current.applicationContext
+    val context = LocalContext.current
     val prefs = remember(context) { context.translationPrefs() }
-    val revision = preferenceRevision(prefs, setOf("mode", "last_status", "last_track"))
+    val revision = preferenceRevision(prefs, setOf("mode", "last_status", "last_status_locale", "last_track"))
     val profileRevision = preferenceRevision(prefs, setOf("custom_api_profiles", "deleted_api_profiles", "api_profile_labels", "active_api_profile"))
     val scope = rememberLibraryScope()
     val active = LocalSettingsScrollRetentionActive.current
@@ -106,12 +108,13 @@ internal fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack
     // Encrypted credentials are read on IO, never stored in the activity's saved-state bundle.
     var apiKey by remember(profileId) { mutableStateOf("") }
     var profileLoaded by remember(profileId) { mutableStateOf(false) }
-    var status by rememberSaveable { mutableStateOf("") }
+    var status by remember { mutableStateOf("") }
     var verifying by remember { mutableStateOf(false) }
     var verifyJob by remember { mutableStateOf<Job?>(null) }
     var profileMenu by remember { mutableStateOf(false) }
     var modeMenu by remember { mutableStateOf(false) }
     var confirmation by remember { mutableStateOf<LibraryConfirmation?>(null) }
+    var downloadCode by remember { mutableStateOf<String?>(null) }
     var search by rememberSaveable { mutableStateOf("") }
     var downloaded by remember { mutableStateOf(emptySet<String>()) }
     var downloading by remember { mutableStateOf(emptyMap<String, Long>()) }
@@ -122,11 +125,15 @@ internal fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack
     val mode = remember(revision) { prefs.getString("mode", "off").orEmpty() }
     var profiles by remember { mutableStateOf(emptyList<TranslationApiProfile>()) }
     var profileMigrationReady by remember { mutableStateOf(false) }
-    val profile = profiles.find { it.id == profileId } ?: TranslationApiProfile("none", "正在读取 API 配置…", "", "")
-    val lastStatus = remember(revision) {
+    val profile = profiles.find { it.id == profileId } ?: TranslationApiProfile("none", context.getString(R.string.loading_api_configurations), "", "")
+    val locale = context.resources.configuration.locales[0]
+    val lastStatus = remember(revision, locale) {
+        val statusLocale = prefs.getString("last_status_locale", null)
+        if (statusLocale != null && statusLocale != locale.toLanguageTag() ||
+            statusLocale == null && locale.language != "zh") return@remember ""
         val value = prefs.getString("last_status", "").orEmpty()
         val track = prefs.getString("last_track", "").orEmpty()
-        if (value.isBlank() || track.isBlank()) value else "《$track》 · $value"
+        if (value.isBlank() || track.isBlank()) value else context.getString(R.string.song_translation_status, track, value)
     }
     var languages by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
     val filteredLanguages = remember(languages, search) {
@@ -144,9 +151,9 @@ internal fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack
         prefs.edit().putString("mode", value).putString("language", "auto").apply()
         LyricsOverlayService.instance?.refreshSupplementTranslation()
         status = when (value) {
-            "off" -> "补充翻译已关闭"
-            "offline" -> "已启用离线翻译，请下载所需语言包"
-            else -> "已启用 API 翻译，修改配置后请保存并验证"
+            "off" -> context.getString(R.string.supplemental_translation_is_off)
+            "offline" -> context.getString(R.string.offline_translation_enabled)
+            else -> context.getString(R.string.api_translation_enabled)
         }
     }
     fun switchProfile(selected: TranslationApiProfile) {
@@ -159,14 +166,14 @@ internal fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack
                 profileId = selected.id
                 prefs.edit().putString("active_api_profile", selected.id).putString("mode", "api").apply()
                 LyricsOverlayService.instance?.refreshSupplementTranslation()
-                status = "已切换至 ${selected.label}，首次使用请配置密钥并验证"
+                status = context.getString(R.string.api_profile_switched, selected.label)
             } catch (error: CancellationException) { throw error }
-            catch (error: Exception) { status = "配置保存失败，请重试" }
+            catch (error: Exception) { status = context.getString(R.string.configuration_save_failed) }
         }
     }
     fun downloadLanguage(code: String, wifi: Boolean) {
         downloading = downloading + (code to System.currentTimeMillis())
-        status = "正在连接语言包服务…"
+        status = context.getString(R.string.connecting_language_pack_service)
         scope.launch {
             try {
                 val conditions = DownloadConditions.Builder().apply { if (wifi) requireWifi() }.build()
@@ -175,12 +182,12 @@ internal fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack
                         Tasks.whenAll(needed(code).map { manager.download(TranslateRemoteModel.Builder(it).build(), conditions) }).await()
                     }
                 }
-                status = "语言包已就绪，可使用离线翻译"
+                status = context.getString(R.string.language_packs_ready)
                 LyricsOverlayService.instance?.refreshSupplementTranslation()
             } catch (error: kotlinx.coroutines.TimeoutCancellationException) {
-                status = "下载等待超时，请检查网络并刷新状态；仍未完成时重试"
+                status = context.getString(R.string.language_pack_download_timeout)
             } catch (error: CancellationException) { throw error
-            } catch (error: Exception) { status = "下载未完成，请确认网络可访问 Google ML Kit"
+            } catch (error: Exception) { status = context.getString(R.string.language_pack_download_failed)
             } finally { downloading = downloading - code; modelRefresh++ }
         }
     }
@@ -188,7 +195,7 @@ internal fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack
         if (!active || profileMigrationReady) return@LaunchedEffect
         try { withContext(Dispatchers.IO) { ensureTranslationProfile(context) } }
         catch (error: CancellationException) { throw error }
-        catch (error: Exception) { status = "旧配置读取失败，请重新填写 API 配置" }
+        catch (error: Exception) { status = context.getString(R.string.old_api_settings_read_failed) }
         profileMigrationReady = true
     }
     LaunchedEffect(profileRevision, active, profileMigrationReady) {
@@ -215,12 +222,12 @@ internal fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack
         if (model.isEmpty()) model = values.second
         apiKey = values.third; profileLoaded = true
     }
-    LaunchedEffect(mode, active) {
-        if (!active || mode != "offline" || languages.isNotEmpty()) return@LaunchedEffect
+    LaunchedEffect(mode, active, locale) {
+        if (!active || mode != "offline") return@LaunchedEffect
         languages = withContext(Dispatchers.IO) {
             val common = listOf("en", "ja", "ko", "zh")
             val titles = TranslateLanguage.getAllLanguages().associateWith {
-                Locale.forLanguageTag(it).getDisplayLanguage(Locale.SIMPLIFIED_CHINESE) + " · $it"
+                Locale.forLanguageTag(it).getDisplayLanguage(locale) + " · $it"
             }
             (common + titles.keys.filter { it !in common }.sortedBy { titles[it] })
                 .map { it to (titles[it] ?: it) }
@@ -234,7 +241,7 @@ internal fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack
                 manager.getDownloadedModels(TranslateRemoteModel::class.java).await().map { it.language }.toSet()
             }
         } catch (error: CancellationException) { throw error }
-        catch (error: Exception) { status = "暂时无法读取语言包状态" }
+        catch (error: Exception) { status = context.getString(R.string.language_pack_status_unavailable) }
         finally { modelsBusy = false }
     }
     LaunchedEffect(downloading, active) {
@@ -244,41 +251,41 @@ internal fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack
             delay(1000)
         }
     }
-    CollapsingSettingsLazyScaffold(title = "补充翻译", onBack = onBack) {
+    CollapsingSettingsLazyScaffold(title = context.getString(R.string.supplemental_translation), onBack = onBack) {
         if (lastStatus.isNotBlank()) item(key = "last-status") { LibraryStatus(lastStatus) }
         item(key = "mode") {
-            SettingsGroup("翻译方式", items = listOf({
+            SettingsGroup(context.getString(R.string.translation_method), items = listOf({
                 SettingsItem(
                     modifier = Modifier.clickable { modeMenu = true },
-                    headlineContent = { Text("补充翻译方式") },
-                    supportingContent = { Text(translationModes.firstOrNull { it.first == mode }?.second ?: "关闭") },
+                    headlineContent = { Text(context.getString(R.string.supplemental_translation_method)) },
+                    supportingContent = { Text(context.getString(translationModes.firstOrNull { it.first == mode }?.second ?: R.string.off)) },
                 )
             }))
         }
         if (mode == "api") {
-            item(key = "api-title") { LibraryGroupTitle("翻译 API") }
+            item(key = "api-title") { LibraryGroupTitle(context.getString(R.string.translation_api)) }
             item(key = "api-profile", contentType = "setting") {
                 LibraryLazyGroupItem(0, 6) {
                     SettingsItem(modifier = Modifier.clickable(enabled = profileLoaded) { profileMenu = true },
-                        headlineContent = { Text(profile.label) }, supportingContent = { Text("选择翻译服务或管理 API 配置") })
+                        headlineContent = { Text(profile.label) }, supportingContent = { Text(context.getString(R.string.choose_or_manage_translation_api)) })
                 }
             }
             item(key = "api-endpoint", contentType = "field") { LibraryLazyGroupItem(1, 6) {
-                LibraryField("HTTPS 服务地址", endpoint, { endpoint = it }, profileLoaded && !verifying)
+                LibraryField(context.getString(R.string.https_endpoint), endpoint, { endpoint = it }, profileLoaded && !verifying)
             } }
             item(key = "api-model", contentType = "field") { LibraryLazyGroupItem(2, 6) {
-                LibraryField("模型名称", model, { model = it }, profileLoaded && !verifying)
+                LibraryField(context.getString(R.string.model_name), model, { model = it }, profileLoaded && !verifying)
             } }
             item(key = "api-key", contentType = "field") { LibraryLazyGroupItem(3, 6) {
-                LibraryField("API Key", apiKey, { apiKey = it }, profileLoaded && !verifying, secret = true)
+                LibraryField(context.getString(R.string.api_key), apiKey, { apiKey = it }, profileLoaded && !verifying, secret = true)
             } }
             item(key = "api-delete", contentType = "action") { LibraryLazyGroupItem(4, 6) {
-                LibraryAction("删除密钥", profileLoaded && !verifying) {
+                LibraryAction(context.getString(R.string.delete_key), profileLoaded && !verifying) {
                     val id = profileId
-                    confirmation = LibraryConfirmation("删除已保存的密钥？", "删除当前配置的本机密钥，保留服务地址与模型。", "删除密钥") {
+                    confirmation = LibraryConfirmation(context.getString(R.string.delete_the_saved_key), context.getString(R.string.delete_api_key_message), context.getString(R.string.delete_key)) {
                         scope.launch {
                             withContext(Dispatchers.IO) { SecretStorage(context, id).save("") }
-                            if (profileId == id) { apiKey = ""; status = "当前服务的密钥已删除" }
+                            if (profileId == id) { apiKey = ""; status = context.getString(R.string.api_key_deleted) }
                         }
                     }
                 }
@@ -287,7 +294,7 @@ internal fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack
                     Button(enabled = profileLoaded && !verifying, modifier = Modifier.fillMaxWidth().padding(16.dp), onClick = {
                         val id = profileId; val address = endpoint.trim(); val modelName = model.trim(); val secret = apiKey.trim()
                         if (!address.startsWith("https://") || modelName.isBlank() || secret.isBlank()) {
-                            status = "请填写 HTTPS 服务地址、模型与 API Key"
+                            status = context.getString(R.string.api_translation_required_fields)
                         } else {
                             verifying = true
                             verifyJob = scope.launch {
@@ -295,31 +302,31 @@ internal fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack
                                     withContext(Dispatchers.IO) { saveDraft(id, address, modelName, secret) }
                                     prefs.edit().putString("mode", "api").putString("active_api_profile", id).putString("language", "auto").apply()
                                     LyricsOverlayService.instance?.refreshSupplementTranslation()
-                                    status = "配置已保存，正在连接翻译服务…"
+                                    status = context.getString(R.string.verifying_translation_service)
                                     val translated = withContext(Dispatchers.IO) { SupplementTranslation(context).testApi(address, modelName, secret) }
-                                    if (profileId == id) { status = "连接成功，测试译文：$translated"; LyricsOverlayService.instance?.refreshSupplementTranslation() }
+                                    if (profileId == id) { status = context.getString(R.string.api_verification_success, translated); LyricsOverlayService.instance?.refreshSupplementTranslation() }
                                 } catch (error: CancellationException) { throw error
-                                } catch (error: Exception) { if (profileId == id) status = "API 验证失败：${error.message.orEmpty().ifBlank { "未知错误" }.take(180)}"
+                                } catch (error: Exception) { if (profileId == id) status = context.getString(R.string.api_verification_failed, error.message.orEmpty().ifBlank { context.getString(R.string.unknown_error) }.take(180))
                                 } finally { if (profileId == id) verifying = false }
                             }
                         }
-                    }) { Text(if (verifying) "验证中…" else "保存并验证") }
+                    }) { Text(if (verifying) context.getString(R.string.verifying) else context.getString(R.string.save_and_verify)) }
             } }
         }
         if (mode == "offline") {
             item(key = "offline-tools") {
-                SettingsGroup("离线语言包", items = listOf({
+                SettingsGroup(context.getString(R.string.offline_language_packs), items = listOf({
                     Column {
                         if (modelsBusy || downloading.isNotEmpty()) LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp))
-                        if (downloading.isNotEmpty()) LibraryStatus("正在下载语言包 · 已用时 ${elapsed} 秒")
-                        LibraryField("搜索语言", search, { search = it })
+                        if (downloading.isNotEmpty()) LibraryStatus(context.getString(R.string.language_pack_download_progress, elapsed))
+                        LibraryField(context.getString(R.string.search_languages), search, { search = it })
                         Row(Modifier.fillMaxWidth()) {
-                            LibraryAction("刷新状态") { modelRefresh++ }
-                            LibraryAction("清理译文缓存") {
-                                confirmation = LibraryConfirmation("清理译文缓存？", "删除已缓存的补充译文，保留 API 配置与下载的语言包。", "清理缓存") {
+                            LibraryAction(context.getString(R.string.refresh_status)) { modelRefresh++ }
+                            LibraryAction(context.getString(R.string.clear_translation_cache)) {
+                                confirmation = LibraryConfirmation(context.getString(R.string.clear_translation_cache_title), context.getString(R.string.clear_translation_cache_message), context.getString(R.string.clear_cache)) {
                                     scope.launch {
                                         withContext(Dispatchers.IO) { File(context.cacheDir, "translations").listFiles()?.filter { it.isFile }?.forEach { it.delete() } }
-                                        status = "补充翻译缓存已清理"
+                                        status = context.getString(R.string.supplemental_translation_cache_cleared)
                                     }
                                 }
                             }
@@ -334,22 +341,22 @@ internal fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack
                 val inProgress = code in downloading
                 LibraryLazyGroupItem(index, filteredLanguages.size) {
                     SettingsItem(headlineContent = { Text(title) },
-                        supportingContent = { Text(when { inProgress -> "下载中…"; ready -> "已下载"; hasModel -> "缺少中文模型"; else -> "未下载" }) },
+                        supportingContent = { Text(when { inProgress -> context.getString(R.string.downloading); ready -> context.getString(R.string.downloaded); hasModel -> context.getString(R.string.chinese_model_required); else -> context.getString(R.string.not_downloaded) }) },
                         trailingContent = {
                             TextButton(enabled = !inProgress, onClick = {
                                 if (hasModel) {
                                     val removable = if (code == "en") "zh" else code
-                                    confirmation = LibraryConfirmation("删除语言包", if (removable == "zh")
-                                        "删除共用中文模型后，使用离线中文翻译需重新下载。已缓存译文保留。"
-                                        else "删除 ${languageTitle(code)} 语言包，保留已缓存译文。", "确认删除") {
+                                    confirmation = LibraryConfirmation(context.getString(R.string.delete_language_pack), if (removable == "zh")
+                                        context.getString(R.string.delete_chinese_model_message)
+                                        else context.getString(R.string.delete_language_pack_message, languageTitle(code)), context.getString(R.string.confirm_deletion)) {
                                         scope.launch {
-                                            try { withContext(Dispatchers.IO) { manager.deleteDownloadedModel(TranslateRemoteModel.Builder(removable).build()).await() }; status = "语言包已删除"; modelRefresh++ }
+                                            try { withContext(Dispatchers.IO) { manager.deleteDownloadedModel(TranslateRemoteModel.Builder(removable).build()).await() }; status = context.getString(R.string.language_pack_deleted); modelRefresh++ }
                                             catch (error: CancellationException) { throw error }
-                                            catch (error: Exception) { status = "删除失败，请停止离线翻译后重试" }
+                                            catch (error: Exception) { status = context.getString(R.string.language_pack_delete_failed) }
                                         }
                                     }
-                                } else confirmation = LibraryConfirmation("下载 ${languageTitle(code)}", "下载该语言及缺失的共用中文模型，每个约 30 MB。网络需能访问 Google ML Kit。", "仅 Wi-Fi 下载") { downloadLanguage(code, true) }
-                            }) { Text(if (hasModel) "删除" else "下载") }
+                                } else downloadCode = code
+                            }) { Text(if (hasModel) context.getString(R.string.delete) else context.getString(R.string.download)) }
                         })
                 }
             }
@@ -360,7 +367,7 @@ internal fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack
         modeMenu = false
         applyMode(selected)
     }
-    if (profileMenu && active) AlertDialog(onDismissRequest = { profileMenu = false }, title = { Text("选择翻译 API") },
+    if (profileMenu && active) AlertDialog(onDismissRequest = { profileMenu = false }, title = { Text(context.getString(R.string.choose_a_translation_api)) },
         text = {
             Column {
                 profiles.forEach { item ->
@@ -376,20 +383,30 @@ internal fun TranslationComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack
         scope.launch {
             try { withContext(Dispatchers.IO) { saveDraft(id, address, modelName, secret) }; onNavigate(ComposeRoute("profiles")) }
             catch (error: CancellationException) { throw error }
-            catch (error: Exception) { status = "配置保存失败，请重试" }
+            catch (error: Exception) { status = context.getString(R.string.configuration_save_failed) }
         }
-        }) { Text("管理 API") } }, dismissButton = { TextButton(onClick = { profileMenu = false }) { Text("取消") } })
-    // Preserve the old choice to use mobile data as well as Wi-Fi.
-    val downloadDialog = confirmation?.takeIf { it.title.startsWith("下载 ") }
-    if (downloadDialog != null && active) AlertDialog(onDismissRequest = { confirmation = null }, title = { Text(downloadDialog.title) },
-        text = { Text(downloadDialog.body) },
-        confirmButton = { TextButton(onClick = { confirmation = null; downloadDialog.accept() }) { Text("仅 Wi-Fi 下载") } },
-        dismissButton = { Row {
-            TextButton(onClick = {
-                val code = languages.firstOrNull { downloadDialog.title == "下载 ${it.second}" }?.first
-                confirmation = null; if (code != null) downloadLanguage(code, false)
-            }) { Text("允许当前网络") }
-            TextButton(onClick = { confirmation = null }) { Text("取消") }
-        } })
-    else LibraryConfirmationDialog(confirmation) { confirmation = null }
+        }) { Text(context.getString(R.string.manage_apis)) } }, dismissButton = { TextButton(onClick = { profileMenu = false }) { Text(context.getString(R.string.cancel)) } })
+    val code = downloadCode
+    if (code != null && active) {
+        AlertDialog(
+            onDismissRequest = { downloadCode = null },
+            title = { Text(context.getString(R.string.download_language_pack_title, languageTitle(code))) },
+            text = { Text(context.getString(R.string.download_language_pack_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    downloadCode = null
+                    downloadLanguage(code, wifi = true)
+                }) { Text(context.getString(R.string.download_over_wi_fi_only)) }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        downloadCode = null
+                        downloadLanguage(code, wifi = false)
+                    }) { Text(context.getString(R.string.use_current_network)) }
+                    TextButton(onClick = { downloadCode = null }) { Text(context.getString(R.string.cancel)) }
+                }
+            },
+        )
+    } else LibraryConfirmationDialog(confirmation) { confirmation = null }
 }

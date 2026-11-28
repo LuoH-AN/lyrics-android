@@ -2,6 +2,7 @@ package com.luoh.music.lrc.overlay
 
 import android.content.Context
 import android.os.Handler
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.data.translation.SupplementOutcome
 import com.luoh.music.lrc.data.translation.SupplementTranslation
 import com.luoh.music.lrc.data.translation.TranslationApiProfiles
@@ -81,9 +82,9 @@ internal class OverlaySupplement(
                 } catch (error: Exception) {
                     val message = when (error) {
                         is IllegalArgumentException -> error.message.orEmpty().take(180)
-                        is SocketTimeoutException -> "翻译连接超时，请检查网络或 API 服务"
-                        is IOException -> "翻译服务网络连接失败：${error.message.orEmpty().take(120)}"
-                        else -> "补充翻译暂不可用：${error.message.orEmpty().take(120)}"
+                        is SocketTimeoutException -> context.getString(R.string.translation_timeout)
+                        is IOException -> context.getString(R.string.translation_network_error, error.message.orEmpty().take(120))
+                        else -> context.getString(R.string.translation_unavailable_with_detail, error.message.orEmpty().take(120))
                     }
                     report(JSONObject().put("status", "error").put("message", message))
                 }

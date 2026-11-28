@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="color-scheme" content="dark">
-  <title>桌面歌词</title>
+  <title>Desktop Lyrics</title>
   <style>
     /* Hidden data engine only: no visible large-window UI. */
     html.native-engine body { display:none !important; }
@@ -250,7 +250,7 @@
       playback.lyrics=lines||[];
       playback.active=-1;
       updateNativeActiveLine(lyricPosition());
-      emitNativeLyrics(message || (playback.lyrics.length ? '' : '未找到歌词'));
+      emitNativeLyrics(message || (playback.lyrics.length ? '' : 'no_lyrics'));
     }
 
     let contextBefore = 0;
@@ -350,7 +350,7 @@
     }
 
     function setCompactLyric(text, animate, followingText, currentTimeBudget, timedLine, secondaryIsTranslation, lineIndex = playback.active) {
-      const value = String(text || '未找到歌词');
+      const value = String(text || 'No lyrics found');
       const following = secondaryIsTranslation ? String(followingText || '').trim() : '';
       const context = compactContextFor(playback.lyrics, lineIndex, contextBefore, contextAfter);
       reportCompactContentState(playback.lyrics.length > 0, !!following);
@@ -590,10 +590,10 @@
         if (isUsableLyricPayload(data.lyrics)) {
           saveLyrics(key,data);
           applyResolved(data,key,requestId);
-        } else if (!cached) renderLyrics([], '未找到歌词', true);
+        } else if (!cached) renderLyrics([], 'no_lyrics', true);
       } catch (error) {
         if (error && error.name === 'AbortError') return;
-        if (!cached && key === playback.key) renderLyrics([], '未找到歌词', true);
+        if (!cached && key === playback.key) renderLyrics([], 'no_lyrics', true);
       }
     }
 
@@ -612,7 +612,7 @@
         saveLyrics(playback.key, data);
         applyResolved(data, playback.key, requestId);
       } else if (!cachedLyrics(playback.key)) {
-        renderLyrics([], '未找到歌词', true);
+        renderLyrics([], 'no_lyrics', true);
       }
     }
 
@@ -683,7 +683,7 @@
     }
 
     function applyCandidate(index) {
-      if(!playback.candidates.length){renderLyrics([],'未找到歌词');return;}
+      if(!playback.candidates.length){renderLyrics([],'no_lyrics');return;}
       const normalized=((Number(index)||0)%playback.candidates.length+playback.candidates.length)%playback.candidates.length;
       playback.candidateIndex=normalized;
       const data=playback.candidates[normalized];
@@ -706,7 +706,7 @@
         });
       }
       if((!playback.durationMs||playback.durationMs<1000)&&Number(data.duration)>0)playback.durationMs=Number(data.duration);
-      renderLyrics(attachTranslations(base,data.translatedLyrics),data.lyrics?'':'未找到歌词');
+      renderLyrics(attachTranslations(base,data.translatedLyrics),data.lyrics?'':'no_lyrics');
       if(data.cover)setCover(data.cover,false);
       requestSupplement();
     }
@@ -825,11 +825,11 @@
 
     function updatePlayback(data) {
       if (!data || data.permissionRequired) {
-        clearEngineSession('请授予通知使用权');
+        clearEngineSession('permission_required');
         return;
       }
       if (!data.hasSession || !data.track) {
-        clearEngineSession('暂未播放');
+        clearEngineSession('nothing_playing');
         return;
       }
 
@@ -875,7 +875,7 @@
         candidateSignature = '';
         playback.cover = '';
         playback.coverIsNative = false;
-        renderLyrics([], '正在获取歌词');
+        renderLyrics([], 'loading');
         if (data.cover) setCover(data.cover, true);
         resolveTrack(playback.track, playback.artist, key, playback.requestId);
       } else if (data.cover && (!playback.cover || !playback.coverIsNative)) {

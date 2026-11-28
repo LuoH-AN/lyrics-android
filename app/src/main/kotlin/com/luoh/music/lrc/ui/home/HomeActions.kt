@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.data.lyrics.SongSearchCorrections
 import com.luoh.music.lrc.ui.agora.SettingsItem
 import com.luoh.music.lrc.ui.agora.SmoothBottomSheet
@@ -47,6 +48,7 @@ import com.luoh.music.lrc.ui.icons.filled.Translate
 
 @Composable
 internal fun HomeMoreSheet(state: HomePresentationState, onEnterImmersive: () -> Unit, onCorrectSong: () -> Unit, onDismiss: () -> Unit) {
+    val context = LocalContext.current
     val sheet = rememberSmoothBottomSheetState()
     val scroll = rememberLazyListState()
     var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -65,33 +67,33 @@ internal fun HomeMoreSheet(state: HomePresentationState, onEnterImmersive: () ->
         },
         contentAtTop = { !scroll.canScrollBackward },
         header = {
-            Text("更多", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
-            Text(state.snapshot.track.ifBlank { "歌词与显示设置" }, style = MaterialTheme.typography.bodyMedium,
+            Text(context.getString(R.string.more), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
+            Text(state.snapshot.track.ifBlank { context.getString(R.string.lyrics_and_display_settings) }, style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 6.dp, bottom = 16.dp))
         },
     ) {
         LazyColumn(state = scroll, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-            item { HomeSheetOption("沉浸观赏", Icons.Default.Lyrics) { select(onEnterImmersive) } }
+            item { HomeSheetOption(context.getString(R.string.immersive_mode), Icons.Default.Lyrics) { select(onEnterImmersive) } }
             if (state.document.lines.isNotEmpty()) item {
-                HomeSheetOption("歌词摘句与分享", Icons.Default.Share) { select { state.beginSharing() } }
+                HomeSheetOption(context.getString(R.string.select_and_share_lyrics), Icons.Default.Share) { select { state.beginSharing() } }
             }
             if (state.document.lines.isNotEmpty() && !state.custom) item {
-                HomeSheetOption("重新获取歌词", Icons.Default.Refresh) { select { state.actions?.retryLyrics() } }
+                HomeSheetOption(context.getString(R.string.find_lyrics_again), Icons.Default.Refresh) { select { state.actions?.retryLyrics() } }
             }
             item { HomeSheetOption(when {
-                state.custom -> "编辑自定义歌词"
-                state.document.lines.isNotEmpty() -> "修改当前歌词"
-                else -> "添加自定义歌词"
+                state.custom -> context.getString(R.string.edit_custom_lyrics)
+                state.document.lines.isNotEmpty() -> context.getString(R.string.edit_current_lyrics)
+                else -> context.getString(R.string.add_custom_lyrics)
             }, Icons.Default.Edit) { select { state.actions?.editCustomLyrics() } } }
             if (state.snapshot.track.isNotBlank()) item {
-                HomeSheetOption("纠正歌名", Icons.Default.MusicNote) { select(onCorrectSong) }
+                HomeSheetOption(context.getString(R.string.correct_song_title), Icons.Default.MusicNote) { select(onCorrectSong) }
             }
-            item { HomeSheetOption("管理自定义歌词", Icons.Default.LibraryMusic) { select { state.actions?.manageCustomLyrics() } } }
-            item { HomeSheetOption("歌词源管理", Icons.Default.Layers) { select { state.actions?.manageLyricSources() } } }
-            item { HomeSheetOption("补充翻译", Icons.Default.Translate) { select { state.onTranslationSettings?.invoke() } } }
-            item { HomeSheetOption("导出 LRC 歌词", Icons.Default.Download) { select { state.actions?.exportLrc() } } }
-            item { HomeSheetOption("设置", Icons.Default.Settings) { select { state.actions?.openSettings() } } }
+            item { HomeSheetOption(context.getString(R.string.manage_custom_lyrics), Icons.Default.LibraryMusic) { select { state.actions?.manageCustomLyrics() } } }
+            item { HomeSheetOption(context.getString(R.string.lyrics_sources), Icons.Default.Layers) { select { state.actions?.manageLyricSources() } } }
+            item { HomeSheetOption(context.getString(R.string.supplemental_translation), Icons.Default.Translate) { select { state.onTranslationSettings?.invoke() } } }
+            item { HomeSheetOption(context.getString(R.string.export_lrc_lyrics), Icons.Default.Download) { select { state.actions?.exportLrc() } } }
+            item { HomeSheetOption(context.getString(R.string.settings), Icons.Default.Settings) { select { state.actions?.openSettings() } } }
         }
     }
 }
@@ -105,20 +107,20 @@ internal fun SongCorrectionDialog(track: String, artist: String, onDismiss: () -
     var searchArtist by rememberSaveable(track, artist) { mutableStateOf(initial.artist.take(SongSearchCorrections.MAX_LENGTH)) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("纠正歌名") },
+        title = { Text(context.getString(R.string.correct_song_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = title, onValueChange = { title = it.take(SongSearchCorrections.MAX_LENGTH) },
-                    label = { Text("歌名") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    label = { Text(context.getString(R.string.song_title)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = searchArtist, onValueChange = { searchArtist = it.take(SongSearchCorrections.MAX_LENGTH) },
-                    label = { Text("歌手") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    label = { Text(context.getString(R.string.artist)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(title.trim(), searchArtist.trim()) }, enabled = title.isNotBlank()) { Text("保存") } },
+        confirmButton = { TextButton(onClick = { onSave(title.trim(), searchArtist.trim()) }, enabled = title.isNotBlank()) { Text(context.getString(R.string.save)) } },
         dismissButton = {
             Row {
-                TextButton(onClick = { onSave(null, artist) }) { Text("恢复") }
-                TextButton(onClick = onDismiss) { Text("取消") }
+                TextButton(onClick = { onSave(null, artist) }) { Text(context.getString(R.string.restore)) }
+                TextButton(onClick = onDismiss) { Text(context.getString(R.string.cancel)) }
             }
         },
     )

@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.luoh.music.lrc.LyricsOverlayService
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.data.lyrics.LyricOffsetMemory
 import com.luoh.music.lrc.overlay.LyricSyncText
 import com.luoh.music.lrc.ui.agora.LocalSettingsScrollRetentionActive
@@ -77,25 +78,25 @@ internal fun LyricsSyncSettings(context: Context, prefs: SharedPreferences, revi
             }
         }
     }
-    SettingsGroup(title = "当前歌词", items = listOf({
+    SettingsGroup(title = context.getString(R.string.current_lyrics), items = listOf({
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             SettingsItem(
-                headlineContent = { Text(LyricSyncText.format(offset)) },
-                supportingContent = { Text(if (available) "步长 0.1 秒，按歌曲保存" else "获取当前歌词后可调整") },
+                headlineContent = { Text(LyricSyncText.format(context, offset)) },
+                supportingContent = { Text(if (available) context.getString(R.string.sync_step_description) else context.getString(R.string.sync_timing_unavailable)) },
                 leadingContent = { SettingsLeadingIcon(Icons.Default.Sync) },
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = { saveOffset(offset - 100) }, enabled = available && offset > LyricOffsetMemory.MIN_MS,
-                    modifier = Modifier.weight(1f)) { Text("延后") }
+                    modifier = Modifier.weight(1f)) { Text(context.getString(R.string.later)) }
                 TextButton(onClick = { saveOffset(0) }, enabled = available && offset != 0,
-                    modifier = Modifier.weight(1f)) { Text("重置") }
+                    modifier = Modifier.weight(1f)) { Text(context.getString(R.string.reset)) }
                 TextButton(onClick = { saveOffset(offset + 100) }, enabled = available && offset < LyricOffsetMemory.MAX_MS,
-                    modifier = Modifier.weight(1f)) { Text("提前") }
+                    modifier = Modifier.weight(1f)) { Text(context.getString(R.string.earlier)) }
             }
         }
     }))
-    SettingsGroup(title = "同步记忆", items = listOf({
-        SettingsNavigationItem("同步记忆管理", "管理单曲同步记录", Icons.Default.Timeline) { onNavigate(ComposeRoute("offsets")) }
+    SettingsGroup(title = context.getString(R.string.saved_sync_offsets), items = listOf({
+        SettingsNavigationItem(context.getString(R.string.manage_saved_sync_offsets), context.getString(R.string.manage_timing_adjustments_for_individual_songs), Icons.Default.Timeline) { onNavigate(ComposeRoute("offsets")) }
     }))
 }
 
@@ -104,20 +105,20 @@ internal fun LyricsContentSettings(context: Context, prefs: SharedPreferences, r
     val translation = remember(revision) {
         prefs.getString(LyricsOverlayService.PREF_TRANSLATION_MODE, LyricsOverlayService.TRANSLATION_BILINGUAL).orEmpty()
     }
-    SettingsGroup(title = "歌词显示", items = listOf({
-        SettingsChoiceItem("翻译显示", translation, listOf(
-            LyricsOverlayService.TRANSLATION_ORIGINAL to "原文",
-            LyricsOverlayService.TRANSLATION_BILINGUAL to "双语",
-            LyricsOverlayService.TRANSLATION_TRANSLATED to "译文",
+    SettingsGroup(title = context.getString(R.string.lyrics_display), items = listOf({
+        SettingsChoiceItem(context.getString(R.string.translation_display), translation, listOf(
+            LyricsOverlayService.TRANSLATION_ORIGINAL to context.getString(R.string.original),
+            LyricsOverlayService.TRANSLATION_BILINGUAL to context.getString(R.string.original_and_translation),
+            LyricsOverlayService.TRANSLATION_TRANSLATED to context.getString(R.string.translation),
         ), Icons.Default.Translate) { value ->
             prefs.edit().putString(LyricsOverlayService.PREF_TRANSLATION_MODE, value).apply()
             settingsOverlayAction(context, LyricsOverlayService.ACTION_SET_TRANSLATION_MODE) { putExtra(LyricsOverlayService.EXTRA_TRANSLATION_MODE, value) }
         }
     }))
-    SettingsGroup(title = "歌词管理", items = listOf(
-        { SettingsNavigationItem("补充翻译", "翻译服务与离线语言包", Icons.Default.Translate) { onNavigate(ComposeRoute("translation")) } },
-        { SettingsNavigationItem("自定义歌词", "导入与编辑本地歌词", Icons.Default.Lyrics) { onNavigate(ComposeRoute("custom")) } },
-        { SettingsNavigationItem("缓存歌词勘误", "修正缓存原文与译文", Icons.Default.Edit) { onNavigate(ComposeRoute("cached")) } },
-        { SettingsNavigationItem("歌词源管理", "匹配记录与歌词版本", Icons.Default.Link) { onNavigate(ComposeRoute("sources")) } },
+    SettingsGroup(title = context.getString(R.string.manage_lyrics), items = listOf(
+        { SettingsNavigationItem(context.getString(R.string.supplemental_translation), context.getString(R.string.translation_services_and_offline_language_packs), Icons.Default.Translate) { onNavigate(ComposeRoute("translation")) } },
+        { SettingsNavigationItem(context.getString(R.string.custom_lyrics), context.getString(R.string.import_and_edit_local_lyrics), Icons.Default.Lyrics) { onNavigate(ComposeRoute("custom")) } },
+        { SettingsNavigationItem(context.getString(R.string.edit_cached_lyrics), context.getString(R.string.correct_cached_lyrics_and_translations), Icons.Default.Edit) { onNavigate(ComposeRoute("cached")) } },
+        { SettingsNavigationItem(context.getString(R.string.lyrics_sources), context.getString(R.string.match_history_and_lyrics_versions), Icons.Default.Link) { onNavigate(ComposeRoute("sources")) } },
     ))
 }

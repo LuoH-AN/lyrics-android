@@ -46,6 +46,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.ui.agora.SmoothBottomSheet
 import com.luoh.music.lrc.ui.agora.SmoothBottomSheetValue
 import com.luoh.music.lrc.ui.agora.rememberSmoothBottomSheetState
@@ -80,9 +81,9 @@ internal fun LyricShareSheet(draft: LyricShareDraft, onDismiss: () -> Unit) {
             scope.launch {
                 try {
                     withContext(Dispatchers.IO) { LyricShareCard.save(context, savedBitmap, uri) }
-                    message = "图片已保存"
+                    message = context.getString(R.string.image_saved)
                 } catch (error: CancellationException) { throw error }
-                catch (_: Exception) { message = "保存失败，请检查所选位置后重试" }
+                catch (_: Exception) { message = context.getString(R.string.image_save_location_failed) }
                 finally { busy = false }
             }
         }
@@ -95,13 +96,13 @@ internal fun LyricShareSheet(draft: LyricShareDraft, onDismiss: () -> Unit) {
         try {
             bitmap = withContext(Dispatchers.Default) { LyricShareCard.render(context, draft, lines, translated) }
         } catch (error: CancellationException) { throw error }
-        catch (_: Exception) { message = "卡片生成失败，请减少选句后重试" }
+        catch (_: Exception) { message = context.getString(R.string.lyric_card_create_failed) }
     }
 
     fun copyExcerpt() {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("歌词摘句", LyricShareCard.excerpt(lines, translated)))
-        message = "已复制所选歌词"
+        clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.lyric_excerpt), LyricShareCard.excerpt(lines, translated)))
+        message = context.getString(R.string.selected_lyrics_copied)
     }
 
     SmoothBottomSheet(state = sheet, onDismissRequest = onDismiss, onBackRequest = { working },
@@ -109,28 +110,28 @@ internal fun LyricShareSheet(draft: LyricShareDraft, onDismiss: () -> Unit) {
         header = {
             Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(if (preview) "分享卡片" else "歌词摘句", style = MaterialTheme.typography.titleLarge)
+                    Text(if (preview) context.getString(R.string.share_card) else context.getString(R.string.lyric_excerpt), style = MaterialTheme.typography.titleLarge)
                     Text(draft.title, style = MaterialTheme.typography.bodyMedium, maxLines = 2,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                TextButton(enabled = !working, onClick = { sheet.requestDismiss() }) { Text("关闭") }
+                TextButton(enabled = !working, onClick = { sheet.requestDismiss() }) { Text(context.getString(R.string.close)) }
             }
         },
     ) {
         Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 8.dp)) {
             if (preview) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(enabled = !working, onClick = { preview = false; message = "" }) { Text("重新选句") }
+                    TextButton(enabled = !working, onClick = { preview = false; message = "" }) { Text(context.getString(R.string.select_lines_again)) }
                 }
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     val rendered = bitmap
                     if (rendered != null) Column(Modifier.fillMaxSize().verticalScroll(previewScroll)) {
-                        Image(rendered.asImageBitmap(), "歌词分享卡片预览",
+                        Image(rendered.asImageBitmap(), context.getString(R.string.lyric_card_preview),
                             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).testTag("lyric_share_preview"))
                     } else if (fits) CircularProgressIndicator()
                 }
             } else {
-                Text("已选 ${selected.size} / ${LyricShareCard.MAX_LINES} 句 · 按歌曲顺序排列",
+                Text(context.getString(R.string.lyric_share_selection_count, selected.size, LyricShareCard.MAX_LINES),
                     style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(vertical = 8.dp))
                 LazyColumn(state = list, modifier = Modifier.weight(1f).fillMaxWidth().testTag("lyric_share_lines"),
                     contentPadding = PaddingValues(vertical = 8.dp)) {
@@ -139,7 +140,7 @@ internal fun LyricShareSheet(draft: LyricShareDraft, onDismiss: () -> Unit) {
                         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).toggleable(
                             value = checked, role = Role.Checkbox, enabled = !working,
                             onValueChange = { value ->
-                                if (value && selected.size >= LyricShareCard.MAX_LINES) message = "最多选择 6 句歌词"
+                                if (value && selected.size >= LyricShareCard.MAX_LINES) message = context.getString(R.string.select_up_to_6_lines)
                                 else { selected = if (value) selected + index else selected - index; message = "" }
                             }).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = checked, onCheckedChange = null)
@@ -152,34 +153,34 @@ internal fun LyricShareSheet(draft: LyricShareDraft, onDismiss: () -> Unit) {
                     }
                 }
             }
-            if (draft.lines.any { it.translation.isNotBlank() }) ShareOption("附带译文", translated, !working) { translated = it }
+            if (draft.lines.any { it.translation.isNotBlank() }) ShareOption(context.getString(R.string.include_translation), translated, !working) { translated = it }
             val status = if (!fits) {
-                if (selected.isEmpty()) "请选择至少一句歌词" else "选句内容过长，请减少选句或关闭译文"
+                if (selected.isEmpty()) context.getString(R.string.select_at_least_one_line) else context.getString(R.string.lyric_share_selection_too_long)
             } else message
             if (status.isNotBlank()) Text(status, style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(enabled = fits && !working, onClick = ::copyExcerpt, modifier = Modifier.weight(1f)) { Text("复制歌词") }
+                OutlinedButton(enabled = fits && !working, onClick = ::copyExcerpt, modifier = Modifier.weight(1f)) { Text(context.getString(R.string.copy_lyrics)) }
                 if (!preview) Button(enabled = fits && !working, onClick = { message = ""; preview = true },
-                    modifier = Modifier.weight(1f)) { Text("预览卡片") }
+                    modifier = Modifier.weight(1f)) { Text(context.getString(R.string.preview_card)) }
                 else Button(enabled = bitmap != null && !working, onClick = {
                     val image = bitmap ?: return@Button
                     busy = true
                     scope.launch {
                         try {
                             val intent = withContext(Dispatchers.IO) { LyricShareCard.shareIntent(context, image) }
-                            context.startActivity(Intent.createChooser(intent, "分享歌词卡片"))
+                            context.startActivity(Intent.createChooser(intent, context.getString(R.string.share_lyric_card)))
                         } catch (error: CancellationException) { throw error }
-                        catch (_: Exception) { message = "无法分享图片，请尝试保存后分享" }
+                        catch (_: Exception) { message = context.getString(R.string.image_share_failed) }
                         finally { busy = false }
                     }
-                }, modifier = Modifier.weight(1f)) { Text("分享图片") }
+                }, modifier = Modifier.weight(1f)) { Text(context.getString(R.string.share_image)) }
             }
             if (preview) OutlinedButton(enabled = bitmap != null && !working, onClick = {
                 pendingSave = bitmap
-                val filename = draft.title.replace(Regex("[\\\\/:*?\"<>|]"), "_").take(70).ifBlank { "歌词卡片" }
+                val filename = draft.title.replace(Regex("[\\\\/:*?\"<>|]"), "_").take(70).ifBlank { context.getString(R.string.lyric_card) }
                 saveLauncher.launch("$filename.png")
-            }, modifier = Modifier.fillMaxWidth()) { Text(if (working) "处理中…" else "保存图片") }
+            }, modifier = Modifier.fillMaxWidth()) { Text(if (working) context.getString(R.string.working) else context.getString(R.string.save_image)) }
         }
     }
 }

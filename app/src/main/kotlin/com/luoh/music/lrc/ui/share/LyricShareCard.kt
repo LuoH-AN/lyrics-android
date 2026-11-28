@@ -63,7 +63,7 @@ internal object LyricShareCard {
 
     /** The same bitmap drives preview, PNG saving and sharing; lyrics are never ellipsized. */
     fun render(context: Context, draft: LyricShareDraft, lines: List<LyricLine>, translated: Boolean): Bitmap {
-        require(fits(lines, translated)) { "请选择最多 6 句、共 1200 字以内的歌词" }
+        require(fits(lines, translated)) { context.getString(R.string.lyric_card_selection_limit) }
         val width = 900
         val margin = 72
         val textWidth = width - margin * 2
@@ -94,7 +94,7 @@ internal object LyricShareCard {
         val iconSize = 70
         val clearance = maxOf(headerBottom + 100, margin + iconSize + 100)
         val height = maxOf(1200, bodyHeight + clearance * 2)
-        require(height <= 6400) { "歌词过长，请减少选句" }
+        require(height <= 6400) { context.getString(R.string.lyric_card_too_long) }
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.rgb(39, 39, 39))
@@ -185,8 +185,8 @@ internal object LyricShareCard {
     }
 
     fun save(context: Context, bitmap: Bitmap, uri: Uri) {
-        val stream = requireNotNull(context.contentResolver.openOutputStream(uri)) { "无法写入所选位置" }
-        stream.use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) { "图片保存失败" } }
+        val stream = requireNotNull(context.contentResolver.openOutputStream(uri)) { context.getString(R.string.could_not_write_to_the_selected) }
+        stream.use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) { context.getString(R.string.could_not_save_the_image) } }
     }
 
     fun shareIntent(context: Context, bitmap: Bitmap): Intent {
@@ -199,7 +199,7 @@ internal object LyricShareCard {
         return Intent(Intent.ACTION_SEND).apply {
             type = "image/png"
             putExtra(Intent.EXTRA_STREAM, uri)
-            clipData = ClipData.newUri(context.contentResolver, "歌词卡片", uri)
+            clipData = ClipData.newUri(context.contentResolver, context.getString(R.string.lyric_card), uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
     }

@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.luoh.music.lrc.LyricsOverlayService
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.data.lyrics.DirectLyricsRepository
 import com.luoh.music.lrc.data.lyrics.LyricMatchMemory
 import com.luoh.music.lrc.data.lyrics.SharedLyricsCache
@@ -47,7 +48,7 @@ private fun refreshOverlayMatches(context: Context) {
 
 private data class ComposeSourceVersion(val id: String, val title: String, val artist: String, val summary: String, val preview: String, val candidate: JSONObject, val current: Boolean)
 
-private fun sourceVersions(entry: JSONObject): List<ComposeSourceVersion> {
+private fun sourceVersions(context: Context, entry: JSONObject): List<ComposeSourceVersion> {
     val history = entry.optJSONArray("history") ?: JSONArray().put(entry.optJSONObject("candidate"))
     return (0 until history.length()).mapNotNull { index ->
         val candidate = history.optJSONObject(index) ?: return@mapNotNull null
@@ -55,9 +56,9 @@ private fun sourceVersions(entry: JSONObject): List<ComposeSourceVersion> {
         val current = !entry.optBoolean("needsReview") && candidate.optString("recordId") == entry.optJSONObject("candidate")?.optString("recordId")
         ComposeSourceVersion("${candidate.optString("recordId")}:$index",
             candidate.optString("title").ifBlank { entry.optString("title") },
-            candidate.optString("artist").ifBlank { entry.optString("artist") } + " · " + candidate.optString("source"),
-            "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')} · " + (if (candidate.optString("wordLyrics").isNotBlank()) "含逐字数据" else "普通歌词") +
-                (if (candidate.optString("translatedLyrics").isNotBlank()) " · 含译文" else ""),
+            candidate.optString("artist").ifBlank { entry.optString("artist") } + " · " + context.lyricSourceLabel(candidate.optString("source")),
+            "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')} · " + (if (candidate.optString("wordLyrics").isNotBlank()) context.getString(R.string.word_timed_lyrics) else context.getString(R.string.line_timed_lyrics)) +
+                (if (candidate.optString("translatedLyrics").isNotBlank()) context.getString(R.string.includes_translation_suffix) else ""),
             candidate.optString("lyrics").lineSequence().map { it.replace(Regex("^(\\[[^]]+])+"), "").trim() }
                 .filter { it.isNotBlank() }.take(16).joinToString("\n"), candidate, current)
     }
@@ -75,7 +76,7 @@ private data class SourcePageSnapshot(
 
 @Composable
 internal fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute) -> Unit, onBack: () -> Unit) {
-    val context = LocalContext.current.applicationContext
+    val context = LocalContext.current
     val prefs = remember(context) { context.getSharedPreferences(LyricsOverlayService.PREFS_NAME, Context.MODE_PRIVATE) }
     val memory = remember(prefs) { LyricMatchMemory(prefs) }
     val revision = preferenceRevision(prefs, setOf(LyricMatchMemory.PREF_KEY))
@@ -89,7 +90,7 @@ internal fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute
     val versions = snapshot.versions
     var loaded by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
-    var message by rememberSaveable(route.id) { mutableStateOf("") }
+    var message by remember(route.id) { mutableStateOf("") }
     var confirmation by remember { mutableStateOf<LibraryConfirmation?>(null) }
     val entry = snapshot.selected
     LaunchedEffect(revision, route.id, query, active) {
@@ -99,9 +100,9 @@ internal fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute
             val values = memory.entries()
             val selected = values.find { it.optString("key") == selectedKey }
             val rows = values.asReversed().map {
-                ComposeSourceRow(it.optString("key"), it.optString("title").ifBlank { "未知歌曲" }, it.optString("artist"), it.optString("source"))
+                ComposeSourceRow(it.optString("key"), it.optString("title").ifBlank { context.getString(R.string.unknown_song) }, it.optString("artist"), it.optString("source"))
             }.filter { (it.title + " " + it.artist).contains(query.trim(), true) }
-            SourcePageSnapshot(values, selected, selected?.let(::sourceVersions).orEmpty(), rows,
+            SourcePageSnapshot(values, selected, selected?.let { sourceVersions(context, it) }.orEmpty(), rows,
                 values.map { it.optString("title") + "\u0000" + it.optString("artist") }.distinct().size)
         }
         snapshot = values; loaded = true
@@ -112,13 +113,13 @@ internal fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute
             try { withContext(Dispatchers.IO) {
                 if (memory.update(key, change)) refreshOverlayMatches(context)
             } } catch (error: CancellationException) { throw error }
-            catch (error: Exception) { message = "无法保存来源选择，请重试" }
+            catch (error: Exception) { message = context.getString(R.string.source_selection_save_failed) }
             finally { busy = false }
         }
     }
     fun searchNext(item: JSONObject) {
         if (busy) return
-        if (item.optString("title").isBlank()) { message = "旧记录缺少歌曲信息，请播放歌曲并获取歌词后重试。"; return }
+        if (item.optString("title").isBlank()) { message = context.getString(R.string.old_match_missing_song_details); return }
         busy = true; message = ""
         val key = item.optString("key")
         val history = item.optJSONArray("history") ?: JSONArray().put(item.optJSONObject("candidate"))
@@ -141,53 +142,53 @@ internal fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute
                         latest.put("history", recent).put("at", System.currentTimeMillis())
                     }
                 }
-                message = if (stored) "已找到候选版本，预览后可选用；当前歌词未更改。" else "暂无更合适的匹配结果，已保留当前版本。"
+                message = if (stored) context.getString(R.string.new_versions_found) else context.getString(R.string.no_better_match)
             } catch (error: CancellationException) { throw error }
-            catch (error: Exception) { message = "歌词源请求失败，请稍后重试。" }
+            catch (error: Exception) { message = context.getString(R.string.lyrics_source_request_failed) }
             finally { busy = false }
         }
     }
-    CollapsingSettingsLazyScaffold(title = if (selectedKey == null) "歌词源管理" else "版本与预览", onBack = onBack) {
+    CollapsingSettingsLazyScaffold(title = if (selectedKey == null) context.getString(R.string.lyrics_sources) else context.getString(R.string.versions_and_previews), onBack = onBack) {
         if (message.isNotBlank()) item(key = "message") { LibraryStatus(message) }
         if (selectedKey == null) {
-            item(key = "search") { LibraryField("搜索歌名或歌手", query, { query = it }) }
-            if (filtered.isEmpty()) item(key = "empty") { LibraryStatus(if (!loaded) "正在读取…" else if (entries.isEmpty()) "暂无歌词匹配记录" else "未找到符合条件的歌曲") }
+            item(key = "search") { LibraryField(context.getString(R.string.search_by_song_or_artist), query, { query = it }) }
+            if (filtered.isEmpty()) item(key = "empty") { LibraryStatus(if (!loaded) context.getString(R.string.loading) else if (entries.isEmpty()) context.getString(R.string.no_lyrics_match_history) else context.getString(R.string.no_matching_songs)) }
             itemsIndexed(filtered, key = { _, item -> item.key }, contentType = { _, _ -> "source" }) { index, item ->
                 LibraryLazyGroupItem(index, filtered.size) {
                     SettingsItem(modifier = Modifier.clickable { onNavigate(ComposeRoute("sources", id = item.key)) },
-                        headlineContent = { Text(item.title.ifBlank { "未知歌曲" }) },
-                        supportingContent = { Text(item.artist + "\n" + item.source) },
-                        trailingContent = { TextButton(onClick = { onNavigate(ComposeRoute("sources", id = item.key)) }) { Text("查看版本") } })
+                        headlineContent = { Text(item.title.ifBlank { context.getString(R.string.unknown_song) }) },
+                        supportingContent = { Text(item.artist + "\n" + context.lyricSourceLabel(item.source)) },
+                        trailingContent = { TextButton(onClick = { onNavigate(ComposeRoute("sources", id = item.key)) }) { Text(context.getString(R.string.view_versions)) } })
                 }
             }
             item(key = "cache") {
-                SettingsGroup("匹配记录与缓存", items = listOf({
+                SettingsGroup(context.getString(R.string.match_history_and_cache), items = listOf({
                     Column {
-                        SettingsItem(headlineContent = { Text("已记录 ${entries.size} 个来源") })
-                        LibraryAction("清除记录与缓存", !busy) {
+                        SettingsItem(headlineContent = { Text(context.getString(R.string.saved_source_count, entries.size)) })
+                        LibraryAction(context.getString(R.string.clear_history_and_cache), !busy) {
                             val count = snapshot.songCount
-                            confirmation = LibraryConfirmation("清除匹配记录与缓存？", "清除 $count 首歌曲的匹配记录、手动选择与历史版本，以及缓存歌词，此操作无法撤销。\n\n保留自定义歌词、翻译语言包与同步设置。", "确认清除") {
+                            confirmation = LibraryConfirmation(context.getString(R.string.clear_match_history_and_cache), context.getString(R.string.clear_match_history_message, count), context.getString(R.string.confirm_clearing)) {
                                 scope.launch {
                                     withContext(Dispatchers.IO) {
                                         memory.clear()
                                         refreshOverlayMatches(context)
                                         SharedLyricsCache(context).clear()
                                     }
-                                    message = "记录与缓存已清除，下次搜索将自动匹配"
+                                    message = context.getString(R.string.history_and_cache_cleared)
                                 }
                             }
                         }
                     }
                 }))
             }
-        } else if (entry == null) item(key = "missing") { LibraryStatus(if (loaded) "该歌曲的来源记忆已删除" else "正在读取…") }
+        } else if (entry == null) item(key = "missing") { LibraryStatus(if (loaded) context.getString(R.string.song_source_deleted) else context.getString(R.string.loading)) }
         else {
             item(key = "song") {
-                SettingsGroup("歌曲", items = listOf({
+                SettingsGroup(context.getString(R.string.song), items = listOf({
                     Column {
                         SettingsItem(headlineContent = { Text(entry.optString("title")) }, supportingContent = { Text(entry.optString("artist")) })
-                        LibraryAction(if (busy) "正在处理…" else "搜索候选版本", !busy) { searchNext(entry) }
-                        if (entry.optJSONObject("original") != null) LibraryAction("恢复初始版本", !busy) {
+                        LibraryAction(if (busy) context.getString(R.string.please_wait) else context.getString(R.string.find_other_versions), !busy) { searchNext(entry) }
+                        if (entry.optJSONObject("original") != null) LibraryAction(context.getString(R.string.restore_original_version), !busy) {
                             val original = entry.optJSONObject("original") ?: return@LibraryAction
                             update(entry.optString("key")) { it.put("candidate", original).put("needsReview", false) }
                         }
@@ -195,11 +196,11 @@ internal fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute
                 }))
             }
             items(versions, key = { it.id }, contentType = { "version" }) { version ->
-                SettingsGroup(if (version.current) "当前选择" else "候选版本", items = listOf({
+                SettingsGroup(if (version.current) context.getString(R.string.selected_version) else context.getString(R.string.other_versions), items = listOf({
                     Column {
                         SettingsItem(headlineContent = { Text(version.title) }, supportingContent = { Text(version.artist + "\n" + version.summary) })
                         Text(version.preview, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
-                        LibraryAction(if (version.current) "使用中" else "选用此版本", !version.current && !busy) {
+                        LibraryAction(if (version.current) context.getString(R.string.in_use) else context.getString(R.string.use_this_version), !version.current && !busy) {
                             update(entry.optString("key")) {
                                 it.remove("auto"); it.put("candidate", version.candidate).put("needsReview", false).put("at", System.currentTimeMillis())
                             }
@@ -208,9 +209,9 @@ internal fun SourcesComposeScreen(route: ComposeRoute, onNavigate: (ComposeRoute
                 }))
             }
             item(key = "delete") {
-                SettingsGroup("来源记忆", items = listOf({
-                    LibraryAction("删除来源记忆", !busy) {
-                        confirmation = LibraryConfirmation("删除来源记忆？", "将删除《${entry.optString("title")}》在 ${entry.optString("source")} 的选择及历史版本，下次搜索恢复自动匹配。", "删除记忆") {
+                SettingsGroup(context.getString(R.string.saved_source), items = listOf({
+                    LibraryAction(context.getString(R.string.delete_saved_source), !busy) {
+                        confirmation = LibraryConfirmation(context.getString(R.string.delete_saved_source_title), context.getString(R.string.delete_saved_source_message, entry.optString("title"), context.lyricSourceLabel(entry.optString("source"))), context.getString(R.string.delete_saved_entry)) {
                             scope.launch {
                                 withContext(Dispatchers.IO) {
                                     memory.delete(entry.optString("key"))

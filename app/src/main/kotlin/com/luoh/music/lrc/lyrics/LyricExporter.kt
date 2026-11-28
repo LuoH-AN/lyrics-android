@@ -11,11 +11,11 @@ object LyricExporter {
     private val stamp = Regex("\\[(\\d{1,3}):(\\d{1,2})(?:[.:](\\d{1,3}))?]")
     private val forbidden = Regex("[\\\\/:*?\"<>|\\r\\n\\t]")
 
-    fun fileName(title: String, artist: String): String {
+    fun fileName(title: String, artist: String, fallbackName: String = "歌词"): String {
         val base = listOf(artist.trim(), title.trim()).filter { it.isNotEmpty() }.joinToString(" - ")
         val cleaned = base.replace(forbidden, " ").replace(Regex("\\s+"), " ")
             .trim().take(80).trimEnd(' ', '.')
-        return (if (cleaned.isEmpty()) "歌词" else cleaned) + ".lrc"
+        return cleaned.ifEmpty { fallbackName } + ".lrc"
     }
 
     fun buildLrc(title: String, artist: String, lyrics: String, translated: String): String {

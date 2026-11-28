@@ -25,6 +25,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewModelScope
+import com.luoh.music.lrc.R
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
@@ -161,15 +162,15 @@ internal fun AppUpdateDialog(model: AppUpdateModel) {
     LaunchedEffect(model, update.version) { model.markShown() }
     AlertDialog(
         onDismissRequest = model::later,
-        title = { Text("发现新版本 ${update.version}") },
-        text = { Text(update.summary) },
+        title = { Text(context.getString(R.string.new_version_available, update.version)) },
+        text = { Text(update.summary.ifBlank { context.getString(R.string.release_summary_fallback) }) },
         confirmButton = {
             TextButton(onClick = {
                 model.later()
                 runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.pageUrl))) }
-                    .onFailure { Toast.makeText(context, "无法打开下载页面", Toast.LENGTH_SHORT).show() }
-            }) { Text("前往下载") }
+                    .onFailure { Toast.makeText(context, context.getString(R.string.could_not_open_the_download_page), Toast.LENGTH_SHORT).show() }
+            }) { Text(context.getString(R.string.open_download_page)) }
         },
-        dismissButton = { TextButton(onClick = model::later) { Text("稍后") } },
+        dismissButton = { TextButton(onClick = model::later) { Text(context.getString(R.string.update_later)) } },
     )
 }

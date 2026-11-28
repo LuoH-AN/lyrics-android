@@ -32,6 +32,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.TextFieldValue
 import com.luoh.music.lrc.LyricsOverlayService
+import com.luoh.music.lrc.R
 import com.luoh.music.lrc.data.lyrics.CustomLyricsStore
 import com.luoh.music.lrc.data.lyrics.DirectLyricsRepository
 import com.luoh.music.lrc.data.lyrics.SharedLyricsCache
@@ -55,16 +56,15 @@ import java.nio.ByteBuffer
 import java.nio.charset.Charset
 import java.nio.charset.CodingErrorAction
 import java.security.MessageDigest
-import java.text.SimpleDateFormat
+import java.text.DateFormat
 import java.util.Date
-import java.util.Locale
 
 @Immutable
 private data class ComposeCustomEntry(val id: String, val title: String, val artist: String, val summary: String)
 
 @Composable
 internal fun CachedLibraryComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack: () -> Unit) {
-    val context = LocalContext.current.applicationContext
+    val context = LocalContext.current
     val prefs = remember(context) { context.getSharedPreferences(SharedLyricsCache.PREFS, Context.MODE_PRIVATE) }
     val revision = preferenceRevision(prefs)
     val active = LocalSettingsScrollRetentionActive.current
@@ -79,11 +79,11 @@ internal fun CachedLibraryComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBa
     val filtered = remember(entries, query) {
         entries.filter { query.isBlank() || it.title.contains(query, true) || it.artist.contains(query, true) }
     }
-    CollapsingSettingsLazyScaffold(title = "缓存歌词勘误", onBack = onBack) {
-        item(key = "intro") { LibraryStatus("修改缓存歌词并保存为自定义版本后，主页与桌面歌词将优先使用。删除自定义版本可恢复自动匹配。") }
-        item(key = "search") { LibraryField("搜索歌名或歌手", query, { query = it }) }
+    CollapsingSettingsLazyScaffold(title = context.getString(R.string.edit_cached_lyrics), onBack = onBack) {
+        item(key = "intro") { LibraryStatus(context.getString(R.string.cached_lyrics_intro)) }
+        item(key = "search") { LibraryField(context.getString(R.string.search_by_song_or_artist), query, { query = it }) }
         if (filtered.isEmpty()) item(key = "empty") {
-            LibraryStatus(when { !loaded -> "正在读取缓存…"; entries.isEmpty() -> "暂无缓存歌词，请播放歌曲并获取歌词"; else -> "未找到符合条件的缓存歌词" })
+            LibraryStatus(when { !loaded -> context.getString(R.string.loading_cache); entries.isEmpty() -> context.getString(R.string.no_cached_lyrics_play_a_song); else -> context.getString(R.string.no_matching_cached_lyrics) })
         }
         itemsIndexed(filtered, key = { _, entry -> "${entry.title}\u0000${entry.artist}" }, contentType = { _, _ -> "cached-lyric" }) { index, entry ->
             LibraryLazyGroupItem(index, filtered.size) {
@@ -91,7 +91,7 @@ internal fun CachedLibraryComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBa
                     modifier = Modifier.clickable { onNavigate(ComposeRoute("cached-editor", title = entry.title, artist = entry.artist)) },
                     headlineContent = { Text(entry.title) },
                     supportingContent = { Text(listOf(entry.artist, entry.result.source).filter { it.isNotBlank() }.joinToString(" · ")) },
-                    trailingContent = { TextButton(onClick = { onNavigate(ComposeRoute("cached-editor", title = entry.title, artist = entry.artist)) }) { Text("编辑歌词") } }
+                    trailingContent = { TextButton(onClick = { onNavigate(ComposeRoute("cached-editor", title = entry.title, artist = entry.artist)) }) { Text(context.getString(R.string.edit_lyrics)) } }
                 )
             }
         }
@@ -100,7 +100,7 @@ internal fun CachedLibraryComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBa
 
 @Composable
 internal fun CustomLibraryComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBack: () -> Unit) {
-    val context = LocalContext.current.applicationContext
+    val context = LocalContext.current
     val prefs = remember(context) { context.getSharedPreferences("custom_lyrics_v1", Context.MODE_PRIVATE) }
     val revision = preferenceRevision(prefs)
     val scope = rememberLibraryScope()
@@ -112,45 +112,47 @@ internal fun CustomLibraryComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBa
     LaunchedEffect(revision, active) {
         if (!active) return@LaunchedEffect
         val values = withContext(Dispatchers.IO) {
-            val timeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+            val timeFormat = DateFormat.getDateTimeInstance(
+                DateFormat.MEDIUM, DateFormat.SHORT, context.resources.configuration.locales[0],
+            )
             CustomLyricsStore.all(context).map { entry ->
                 val parsed = CustomLyricsStore.parse(entry)
-                ComposeCustomEntry(entry.id, entry.title, entry.artist, "${parsed.lineCount} 行歌词${if (parsed.translationCount > 0) " · 含译文" else ""} · ${timeFormat.format(Date(entry.updatedAt))}")
+                ComposeCustomEntry(entry.id, entry.title, entry.artist, context.getString(R.string.custom_lyrics_summary, parsed.lineCount, if (parsed.translationCount > 0) context.getString(R.string.includes_translation_suffix) else "", timeFormat.format(Date(entry.updatedAt))))
             } to NowPlaying.current(context)
         }
         entries = values.first; playing = values.second; loaded = true
     }
-    CollapsingSettingsLazyScaffold(title = "自定义歌词", onBack = onBack) {
+    CollapsingSettingsLazyScaffold(title = context.getString(R.string.custom_lyrics), onBack = onBack) {
         playing?.let { track -> item(key = "playing") {
-            SettingsGroup("正在播放", items = listOf({
-                SettingsItem(headlineContent = { Text(track.title.ifBlank { "未知歌曲" }) }, supportingContent = { Text(track.artist) },
-                    trailingContent = { TextButton(onClick = { onNavigate(ComposeRoute("editor", title = track.title, artist = track.artist)) }) { Text("添加或编辑") } })
+            SettingsGroup(context.getString(R.string.now_playing), items = listOf({
+                SettingsItem(headlineContent = { Text(track.title.ifBlank { context.getString(R.string.unknown_song) }) }, supportingContent = { Text(track.artist) },
+                    trailingContent = { TextButton(onClick = { onNavigate(ComposeRoute("editor", title = track.title, artist = track.artist)) }) { Text(context.getString(R.string.add_or_edit)) } })
             }))
         } }
         item(key = "new") {
-            SettingsGroup("歌词库", items = listOf({
-                SettingsItem(headlineContent = { Text("新建自定义歌词") }, supportingContent = { Text("填写歌曲信息或导入 LRC，已保存 ${entries.size} 份") },
-                    trailingContent = { TextButton(onClick = { onNavigate(ComposeRoute("editor")) }) { Text("新建") } })
+            SettingsGroup(context.getString(R.string.lyrics_library), items = listOf({
+                SettingsItem(headlineContent = { Text(context.getString(R.string.new_custom_lyrics)) }, supportingContent = { Text(context.getString(R.string.custom_lyrics_saved_count, entries.size)) },
+                    trailingContent = { TextButton(onClick = { onNavigate(ComposeRoute("editor")) }) { Text(context.getString(R.string.create_new)) } })
             }))
         }
         item(key = "cached") {
-            SettingsGroup("缓存歌词", items = listOf({
-                SettingsItem(headlineContent = { Text("修改已下载的歌词") }, supportingContent = { Text("编辑缓存正文与译文，保存为自定义版本") },
-                    trailingContent = { TextButton(onClick = { onNavigate(ComposeRoute("cached")) }) { Text("查看缓存") } })
+            SettingsGroup(context.getString(R.string.cached_lyrics), items = listOf({
+                SettingsItem(headlineContent = { Text(context.getString(R.string.edit_downloaded_lyrics)) }, supportingContent = { Text(context.getString(R.string.edit_cached_lyrics_description)) },
+                    trailingContent = { TextButton(onClick = { onNavigate(ComposeRoute("cached")) }) { Text(context.getString(R.string.view_cache)) } })
             }))
         }
-        if (entries.isEmpty()) item(key = "empty") { LibraryStatus(if (loaded) "暂无自定义歌词" else "正在读取…") }
+        if (entries.isEmpty()) item(key = "empty") { LibraryStatus(if (loaded) context.getString(R.string.no_custom_lyrics_yet) else context.getString(R.string.loading)) }
         itemsIndexed(entries, key = { _, item -> item.id }, contentType = { _, _ -> "custom-lyric" }) { index, item ->
             val entry = item
             LibraryLazyGroupItem(index, entries.size) {
                 Column {
                     SettingsItem(modifier = Modifier.clickable { onNavigate(ComposeRoute("editor", id = entry.id)) },
-                        headlineContent = { Text(entry.title.ifBlank { "未命名" }) },
-                        supportingContent = { Text(entry.artist.ifBlank { "所有歌手" } + "\n" + item.summary) })
+                        headlineContent = { Text(entry.title.ifBlank { context.getString(R.string.untitled) }) },
+                        supportingContent = { Text(entry.artist.ifBlank { context.getString(R.string.all_artists) } + "\n" + item.summary) })
                     Row {
-                        LibraryAction("编辑") { onNavigate(ComposeRoute("editor", id = entry.id)) }
-                        LibraryAction("删除") {
-                            confirmation = LibraryConfirmation("删除自定义歌词？", "${entry.title.ifBlank { "未命名" }}${if (entry.artist.isNotBlank()) " · ${entry.artist}" else ""}\n删除后该歌曲将恢复自动匹配。", "确认删除") {
+                        LibraryAction(context.getString(R.string.edit)) { onNavigate(ComposeRoute("editor", id = entry.id)) }
+                        LibraryAction(context.getString(R.string.delete)) {
+                            confirmation = LibraryConfirmation(context.getString(R.string.delete_custom_lyrics), context.getString(R.string.delete_custom_lyrics_message, entry.title.ifBlank { context.getString(R.string.untitled) }, if (entry.artist.isNotBlank()) " · ${entry.artist}" else ""), context.getString(R.string.confirm_deletion)) {
                                 scope.launch {
                                     withContext(Dispatchers.IO) { CustomLyricsStore.delete(context, entry.id) }
                                     LyricsOverlayService.instance?.reloadCustomLyrics()
@@ -168,7 +170,7 @@ internal fun CustomLibraryComposeScreen(onNavigate: (ComposeRoute) -> Unit, onBa
 /** Saved-state fields hold drafts, while parsing/import/network work stays in cancellable IO jobs. */
 @Composable
 internal fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) {
-    val context = LocalContext.current.applicationContext
+    val context = LocalContext.current
     val scope = rememberLibraryScope()
     val active = LocalSettingsScrollRetentionActive.current
     var editingId by rememberSaveable(route) { mutableStateOf(route.id.takeIf { route.kind == "editor" && it.isNotBlank() }) }
@@ -204,7 +206,7 @@ internal fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) 
     fun leave() {
         if (saving) return
         if (!loaded || snapshot() == savedSnapshot) onBack()
-        else confirmation = LibraryConfirmation("放弃未保存的修改？", "未保存的输入与导入内容将丢失。", "放弃修改", onBack)
+        else confirmation = LibraryConfirmation(context.getString(R.string.discard_unsaved_changes), context.getString(R.string.unsaved_edits_and_imports_will_be), context.getString(R.string.discard_changes), onBack)
     }
     fun importFile(uri: Uri) {
         if (saving || !loaded) return
@@ -214,7 +216,7 @@ internal fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) 
             try {
                 val text = withContext(Dispatchers.IO) { readCustomLyricsFile(context, uri) }
                 if (snapshot() != before || saving) return@launch
-                if (text.isBlank()) { message = "文件读取失败，请使用文本格式的 LRC 文件"; return@launch }
+                if (text.isBlank()) { message = context.getString(R.string.lrc_read_failed); return@launch }
                 val imported = withContext(Dispatchers.IO) { CustomLyricsStore.parseImport(text) }
                 if (snapshot() != before || saving) return@launch
                 if (imported.wordLyrics.isNotBlank()) {
@@ -223,7 +225,7 @@ internal fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) 
                     translated = TextFieldValue(imported.parsed.translatedLyrics)
                     importedWordLyrics = imported.wordLyrics
                     importedDurationMs = imported.durationMs
-                    message = "已导入 ${imported.parsed.lineCount} 行歌词 · ${imported.wordLineCount} 行逐字时间轴"
+                    message = context.getString(R.string.timed_lyrics_imported, imported.parsed.lineCount, imported.wordLineCount)
                 } else {
                     importedWordLyrics = ""
                     importedDurationMs = 0L
@@ -232,11 +234,11 @@ internal fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) 
                     if (structured) translated = TextFieldValue(separated?.translatedLyrics.orEmpty())
                     val raw = lyrics.text; val translation = translated.text; val separate = structured
                     val parsed = withContext(Dispatchers.IO) { if (separate) CustomLyricsStore.parse(raw, translation) else CustomLyricsStore.parse(raw) }
-                    message = if (parsed.lineCount > 0) "已导入 ${parsed.lineCount} 行歌词" else "未识别到带时间轴的歌词行"
+                    message = if (parsed.lineCount > 0) context.getString(R.string.lyrics_imported, parsed.lineCount) else context.getString(R.string.no_timed_lyric_lines_found)
                 }
                 fillTags(text)
             } catch (error: CancellationException) { throw error }
-            catch (error: Exception) { message = "文件读取失败，请使用不超过 1 MB 的文本格式 LRC 文件" }
+            catch (error: Exception) { message = context.getString(R.string.lrc_read_failed_size) }
             finally { importing = false }
         }
     }
@@ -248,8 +250,8 @@ internal fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) 
         val separate = structured; val source = original
         val importedWords = importedWordLyrics
         val importedDuration = importedDurationMs
-        if (name.isBlank()) { message = "请填写歌名"; return }
-        if (raw.length + translation.length > CustomLyricsStore.MAX_LENGTH) { message = "歌词超出长度限制，请删减后保存"; return }
+        if (name.isBlank()) { message = context.getString(R.string.enter_a_song_title); return }
+        if (raw.length + translation.length > CustomLyricsStore.MAX_LENGTH) { message = context.getString(R.string.lyrics_too_long_to_save); return }
         saving = true; importJob?.cancel()
         scope.launch {
             try {
@@ -266,11 +268,11 @@ internal fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) 
                         durationMs = timingSource?.durationMs ?: 0L)
                     parsed
                 }
-                if (parsed.lineCount == 0) { message = if (separate) "未识别到歌词正文，请输入后保存" else "未识别到带时间轴的歌词行，格式示例：[01:23.45]歌词"; return@launch }
+                if (parsed.lineCount == 0) { message = if (separate) context.getString(R.string.enter_lyrics_before_saving) else context.getString(R.string.timed_lyrics_format_example); return@launch }
                 savedSnapshot = snapshot()
                 LyricsOverlayService.instance?.reloadCustomLyrics(); onBack()
             } catch (error: CancellationException) { throw error }
-            catch (error: Exception) { message = "保存失败，请重试" }
+            catch (error: Exception) { message = context.getString(R.string.save_failed) }
             finally { saving = false }
         }
     }
@@ -292,50 +294,50 @@ internal fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) 
                 if (existing != null) {
                     editingId = existing.id; title = existing.title; artist = existing.artist
                     lyrics = TextFieldValue(existing.lyrics); translated = TextFieldValue(existing.translatedLyrics); structured = existing.structured
-                    if (route.kind == "cached-editor") message = "该歌曲已有自定义歌词，已打开现有版本"
+                    if (route.kind == "cached-editor") message = context.getString(R.string.opened_existing_custom_lyrics)
                 } else if (cached != null) {
                     if (cached.lyrics.length + cached.translatedLyrics.length <= CustomLyricsStore.MAX_LENGTH) {
                         lyrics = TextFieldValue(cached.lyrics); translated = TextFieldValue(cached.translatedLyrics)
-                    } else message = "缓存歌词超出编辑限制，请删减后粘贴或导入"
-                } else if (route.kind == "cached-editor") message = "缓存已清除，请重新获取歌词后编辑"
+                    } else message = context.getString(R.string.cached_lyrics_too_long)
+                } else if (route.kind == "cached-editor") message = context.getString(R.string.cache_cleared_find_lyrics_again)
                 savedSnapshot = snapshot(); loaded = true
             }
         } catch (error: CancellationException) { throw error }
-        catch (error: Exception) { message = "无法读取已保存的歌词，请重试" }
+        catch (error: Exception) { message = context.getString(R.string.saved_lyrics_load_failed) }
     }
     LaunchedEffect(lyrics.text, translated.text, structured, importedWordLyrics, active) {
         if (!active) return@LaunchedEffect
         val raw = lyrics.text
         val translation = if (structured) translated.text else ""; val separate = structured
         val length = raw.length + translation.length
-        status = when { raw.isBlank() -> if (separate) "修改歌词正文或译文后保存" else "粘贴、输入或导入 LRC 歌词"; length > CustomLyricsStore.MAX_LENGTH -> "歌词超出限制，请删减至 ${CustomLyricsStore.MAX_LENGTH / 1000}K 字符以内"; else -> "" }
+        status = when { raw.isBlank() -> if (separate) context.getString(R.string.edit_lyrics_then_save) else context.getString(R.string.paste_type_or_import_lrc_lyrics); length > CustomLyricsStore.MAX_LENGTH -> context.getString(R.string.lyrics_character_limit, CustomLyricsStore.MAX_LENGTH / 1000); else -> "" }
         if (raw.isBlank() || length > CustomLyricsStore.MAX_LENGTH) return@LaunchedEffect
         delay(120)
         val parsed = withContext(Dispatchers.IO) { if (separate) CustomLyricsStore.parse(raw, translation) else CustomLyricsStore.parse(raw) }
-        status = if (parsed.lineCount == 0) { if (separate) "未识别到歌词正文" else "未识别到带时间轴的歌词行" } else buildString {
-            append("已识别 ${parsed.lineCount} 行歌词")
-            if (parsed.translationCount > 0) append(" · ${parsed.translationCount} 行译文")
-            if (parsed.ignoredCount > 0) append(" · 已忽略 ${parsed.ignoredCount} 行无时间轴内容")
-            if (importedWordLyrics.isNotBlank()) append(" · 已载入逐字时间轴")
-            if (!parsed.timed) append(" · 纯文本歌词")
+        status = if (parsed.lineCount == 0) { if (separate) context.getString(R.string.no_lyrics_found_in_the_text) else context.getString(R.string.no_timed_lyric_lines_found) } else buildString {
+            append(context.getString(R.string.lyrics_lines_found, parsed.lineCount))
+            if (parsed.translationCount > 0) append(context.getString(R.string.translated_lines_count, parsed.translationCount))
+            if (parsed.ignoredCount > 0) append(context.getString(R.string.untimed_lines_skipped, parsed.ignoredCount))
+            if (importedWordLyrics.isNotBlank()) append(context.getString(R.string.word_timing_loaded))
+            if (!parsed.timed) append(context.getString(R.string.plain_text_lyrics_suffix))
         }
     }
     BackHandler(enabled = active) { leave() }
-    CollapsingSettingsScaffold(title = if (editingId != null) "编辑自定义歌词" else if (route.kind == "cached-editor") "修改缓存歌词" else "添加自定义歌词", onBack = ::leave,
-        actions = { TextButton(enabled = loaded && !saving && (!structured || originalLoaded), onClick = ::save) { Text(if (saving) "保存中…" else "保存") } }) {
-        if (structured) LibraryStatus("保存后优先使用自定义版本，删除可恢复自动匹配。修改正文或时间戳的行按整句显示，其余行尽量保留逐字高亮。")
-        SettingsGroup("歌曲信息", items = listOf({
+    CollapsingSettingsScaffold(title = if (editingId != null) context.getString(R.string.edit_custom_lyrics) else if (route.kind == "cached-editor") context.getString(R.string.edit_cached_version) else context.getString(R.string.add_custom_lyrics), onBack = ::leave,
+        actions = { TextButton(enabled = loaded && !saving && (!structured || originalLoaded), onClick = ::save) { Text(if (saving) context.getString(R.string.saving) else context.getString(R.string.save)) } }) {
+        if (structured) LibraryStatus(context.getString(R.string.edit_cached_lyrics_message))
+        SettingsGroup(context.getString(R.string.song_details), items = listOf({
             Column {
-                LibraryField("歌名（必填）", title, { title = it }, loaded && !saving)
-                LibraryField("歌手（留空匹配所有同名歌曲）", artist, { artist = it }, loaded && !saving)
+                LibraryField(context.getString(R.string.song_title_required), title, { title = it }, loaded && !saving)
+                LibraryField(context.getString(R.string.artist_optional_match_any), artist, { artist = it }, loaded && !saving)
             }
         }))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(enabled = loaded && !saving && !importing, onClick = { importLauncher.launch(arrayOf("*/*")) }) { Text(if (importing) "正在导入…" else "导入 .lrc / .yrc") }
+            TextButton(enabled = loaded && !saving && !importing, onClick = { importLauncher.launch(arrayOf("*/*")) }) { Text(if (importing) context.getString(R.string.importing) else context.getString(R.string.import_lrc_yrc)) }
             TextButton(enabled = loaded && !saving, onClick = {
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 val text = clipboard.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
-                if (text.isBlank()) message = "剪贴板暂无文本"
+                if (text.isBlank()) message = context.getString(R.string.no_text_on_the_clipboard)
                 else {
                     if (structured && editingTranslation) {
                         val start = translated.selection.min.coerceIn(0, translated.text.length); val end = translated.selection.max.coerceIn(0, translated.text.length)
@@ -346,27 +348,27 @@ internal fun CustomEditorComposeScreen(route: ComposeRoute, onBack: () -> Unit) 
                     } else lyrics = TextFieldValue(text.trim())
                     fillTags(text)
                 }
-            }) { Text(if (structured && editingTranslation) "粘贴译文" else "粘贴歌词") }
+            }) { Text(if (structured && editingTranslation) context.getString(R.string.paste_translation) else context.getString(R.string.paste_lyrics)) }
         }
         OutlinedTextField(value = lyrics, onValueChange = { lyrics = it }, enabled = loaded && !saving,
-            label = { Text(if (structured) "歌词正文（LRC 或纯文本）" else "LRC 时间轴歌词") }, minLines = 10, maxLines = 16,
-            placeholder = { Text(if (structured) "[00:12.30]第一句歌词\n[00:16.85]第二句歌词" else "[00:12.30]第一句歌词\n[00:16.85]第二句歌词\n[00:16.85]同一时间戳的第二行译文") },
+            label = { Text(if (structured) context.getString(R.string.lyrics_lrc_or_plain_text) else context.getString(R.string.timed_lrc_lyrics)) }, minLines = 10, maxLines = 16,
+            placeholder = { Text(if (structured) context.getString(R.string.lrc_example) else context.getString(R.string.bilingual_lrc_example)) },
             textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
             modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused; if (it.isFocused) editingTranslation = false })
         if (structured) OutlinedTextField(value = translated, onValueChange = { translated = it }, enabled = loaded && !saving,
-            label = { Text("译文（可选）") }, minLines = 4, maxLines = 10,
-            supportingText = { Text("译文时间戳应与原文一致，纯文本译文按行对应。") },
+            label = { Text(context.getString(R.string.translation_optional)) }, minLines = 4, maxLines = 10,
+            supportingText = { Text(context.getString(R.string.translation_timestamp_hint)) },
             textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
             modifier = Modifier.fillMaxWidth().onFocusChanged { if (it.isFocused) editingTranslation = true })
-        LibraryStatus(if (!loaded) "正在读取歌词…" else status)
+        LibraryStatus(if (!loaded) context.getString(R.string.loading_lyrics) else status)
         LibraryStatus(message)
-        if (editingId != null) LibraryAction("删除自定义歌词", loaded && !saving) {
+        if (editingId != null) LibraryAction(context.getString(R.string.delete_custom_lyrics_action), loaded && !saving) {
             val id = editingId ?: return@LibraryAction
-            confirmation = LibraryConfirmation("删除自定义歌词？", "《$title》会恢复自动匹配歌词。", "确认删除") {
+            confirmation = LibraryConfirmation(context.getString(R.string.delete_custom_lyrics), context.getString(R.string.resume_song_auto_match, title), context.getString(R.string.confirm_deletion)) {
                 scope.launch {
                     try { withContext(Dispatchers.IO) { CustomLyricsStore.delete(context, id) }; LyricsOverlayService.instance?.reloadCustomLyrics(); onBack() }
                     catch (error: CancellationException) { throw error }
-                    catch (error: Exception) { message = "删除失败，请重试" }
+                    catch (error: Exception) { message = context.getString(R.string.delete_failed) }
                 }
             }
         }

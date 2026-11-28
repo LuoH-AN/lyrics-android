@@ -12,6 +12,7 @@ import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.Handler
 import android.os.IBinder
+import android.os.LocaleList
 import android.os.Looper
 import android.provider.Settings
 import androidx.core.content.ContextCompat
@@ -88,14 +89,24 @@ class LyricsOverlayService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    private var overlayLocales: LocaleList? = null
+
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        if (overlayLocales != newConfig.locales) {
+            overlayLocales = newConfig.locales
+            overlayWindow.refreshLocalizedText()
+            notification.createChannel()
+            if (overlayWindow.isOpen) notification.refresh(overlayWindow.positionLocked)
+            LyricsTileService.requestUpdate(this)
+        }
         mainHandler.post { adaptOverlayToDisplay() }
         mainHandler.postDelayed({ adaptOverlayToDisplay() }, 220L)
     }
 
     override fun onCreate() {
         super.onCreate()
+        overlayLocales = resources.configuration.locales
         UsageAnalytics.configuration(this)
         lyricsEngine.pruneTemporaryCache()
         instance = this
