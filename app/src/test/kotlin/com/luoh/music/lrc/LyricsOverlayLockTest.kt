@@ -23,7 +23,7 @@ import org.robolectric.util.ReflectionHelpers
 import org.robolectric.util.ReflectionHelpers.ClassParameter
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [28])
+@Config(sdk = [28], qualifiers = "zh-rCN")
 class LyricsOverlayLockTest {
     @Before fun preparePreferencesAndBroadcastPermission() {
         val application = ApplicationProvider.getApplicationContext<Application>()
@@ -83,7 +83,7 @@ class LyricsOverlayLockTest {
         lock.performClick()
         assertEquals(LyricsOverlayService.ACTION_LOCK, shadowOf(service.application).nextStartedService.action)
         val close = updatedControls.findViewById<View>(R.id.notification_lyrics_close)
-        assertEquals("关闭", close.contentDescription.toString())
+        assertEquals("关闭桌面歌词", close.contentDescription.toString())
         close.performClick()
         assertEquals(LyricsOverlayService.ACTION_STOP, shadowOf(service.application).nextStartedService.action)
         // An older unlock PendingIntent remains an unlock, rather than toggling the state.
