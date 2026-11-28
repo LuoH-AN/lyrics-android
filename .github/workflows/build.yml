@@ -73,6 +73,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && (inputs.full_checks || inputs.android_tests != '')
         env:
           ANDROID_TEST_FILTERS: ${{ inputs.android_tests }}
+          ROBOLECTRIC_REPOSITORY_URL: https://maven-central.storage-download.googleapis.com/maven2
         run: |
           args=(testDebugUnitTest --stacktrace)
           if [[ -n "$ANDROID_TEST_FILTERS" ]]; then
